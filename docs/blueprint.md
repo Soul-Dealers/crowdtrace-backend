@@ -92,24 +92,35 @@ Tasks:
 ├── Add dependencies:
 │   ├── Spring Web MVC
 │   ├── Spring Data JPA
+│   ├── Spring Modulith core and test support
 │   ├── Spring Security
 │   ├── Bean Validation
+│   ├── H2 test database
 │   ├── PostgreSQL driver
 │   ├── Flyway
 │   ├── S3 client
 │   ├── Transactional email client
 │   └── OpenAPI documentation
-├── Establish package structure
-│   ├── com.souldealers.crowdtracebackend.config
-│   ├── com.souldealers.crowdtracebackend.controller
-│   ├── com.souldealers.crowdtracebackend.dto
-│   ├── com.souldealers.crowdtracebackend.entity
-│   ├── com.souldealers.crowdtracebackend.repository
-│   ├── com.souldealers.crowdtracebackend.security
-│   ├── com.souldealers.crowdtracebackend.service
-│   └── com.souldealers.crowdtracebackend.support
+├── Establish direct Spring Modulith business modules
+│   ├── com.souldealers.crowdtracebackend.identity
+│   ├── com.souldealers.crowdtracebackend.casefile
+│   ├── com.souldealers.crowdtracebackend.governance
+│   ├── com.souldealers.crowdtracebackend.discovery
+│   ├── com.souldealers.crowdtracebackend.community
+│   ├── com.souldealers.crowdtracebackend.notification
+│   ├── com.souldealers.crowdtracebackend.privacy
+│   └── com.souldealers.crowdtracebackend.operations
 └── Verify the application starts successfully
 ```
+
+Each direct business package is a Spring Modulith module. Public use-case interfaces, DTOs,
+and events live at the module root; implementation details, persistence models, repositories,
+and adapters live below `internal`. Modules must not import another module's `internal` package,
+JPA entities, or repositories. Cross-module writes use public application services, while
+after-commit events are reserved for notifications, analytics, and other side effects.
+
+Cross-cutting configuration and genuinely generic support code must remain small and be explicitly
+treated as shared infrastructure if introduced; they must not become a domain dumping ground.
 
 ### Step 1.2: Database Configuration
 

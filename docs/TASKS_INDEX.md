@@ -17,8 +17,8 @@ When documents disagree, use this order:
 3. `docs/product classification.md` — product, trust, safety, and compliance constraints.
 4. `docs/crowdtrace-spec.md` — earlier technical context; update it when a decision changes.
 
-The current application is a Spring Boot 4.1.0 / Java 21 starter. All tasks below are pending
-unless implementation evidence is added to this index.
+The current application is a Spring Boot 4.1.0 / Java 21 starter with Spring Modulith dependency
+scaffolding. All tasks below are pending unless implementation evidence is added to this index.
 
 ## GitHub issue conventions
 
@@ -44,14 +44,14 @@ Suggested labels:
 
 | Phase | Group | Goal | Dependencies | Tasks | File |
 |---|---|---|---|---:|---|
-| 0 | Foundation | Runnable, testable Spring API with stable conventions | None | 5 | [phase_0_foundation.md](taskshase_0_foundation.md) |
-| 1 | Identity | Accounts, pseudonyms, roles, and verification requests | 0 | 5 | [phase_1_identity.md](taskshase_1_identity.md) |
-| 2 | Case registry | Case intake, consent, files, visibility projections, flags | 1 | 5 | [phase_2_case_registry.md](taskshase_2_case_registry.md) |
-| 3 | Governance | Review, moderation, lifecycle, takedown, and audit | 2 | 5 | [phase_3_governance.md](taskshase_3_governance.md) |
-| 4 | Discovery | Public search, details, photos, and safe media delivery | 3 | 4 | [phase_4_discovery.md](taskshase_4_discovery.md) |
-| 5 | Community | Comments, follows, notifications, and email | 3–4 | 5 | [phase_5_community.md](taskshase_5_community.md) |
-| 6 | Privacy | Private storage, consent enforcement, retention cleanup | 2–5 | 4 | [phase_6_privacy.md](taskshase_6_privacy.md) |
-| 7 | Operations | Admin operations, observability, API contract, release readiness | 0–6 | 6 | [phase_7_operations.md](taskshase_7_operations.md) |
+| 0 | Foundation | Runnable, testable Spring API with stable conventions | None | 5 | [phase_0_foundation.md](tasks/phase_0_foundation.md) |
+| 1 | Identity | Accounts, pseudonyms, roles, and verification requests | 0 | 5 | [phase_1_identity.md](tasks/phase_1_identity.md) |
+| 2 | Case registry | Case intake, consent, files, visibility projections, flags | 1 | 5 | [phase_2_case_registry.md](tasks/phase_2_case_registry.md) |
+| 3 | Governance | Review, moderation, lifecycle, takedown, and audit | 2 | 5 | [phase_3_governance.md](tasks/phase_3_governance.md) |
+| 4 | Discovery | Public search, details, photos, and safe media delivery | 3 | 4 | [phase_4_discovery.md](tasks/phase_4_discovery.md) |
+| 5 | Community | Comments, follows, notifications, and email | 3–4 | 5 | [phase_5_community.md](tasks/phase_5_community.md) |
+| 6 | Privacy | Private storage, consent enforcement, retention cleanup | 2–5 | 4 | [phase_6_privacy.md](tasks/phase_6_privacy.md) |
+| 7 | Operations | Admin operations, observability, API contract, release readiness | 0–6 | 6 | [phase_7_operations.md](tasks/phase_7_operations.md) |
 | **Total** | | | | **39** | |
 
 ## Five Questions guardrails
@@ -66,6 +66,19 @@ These are the architectural and business invariants that every issue must preser
 | Community moderation | People can contribute under pseudonyms without making abuse unaccountable | Guests cannot post; removed comments stay hidden; moderation decisions remain traceable | Comment/report services | Comment authorization, removal, and report-resolution tests | Private account identity in public comment responses |
 | Files and privacy | Evidence is available to authorized reviewers and removed when no longer justified | Private reports cannot be public; generated keys only; cleanup cannot delete public history | File storage + privacy/retention services | S3 access, authorization, deletion, and retry/idempotency tests | Raw storage paths, secrets, or sensitive values in logs |
 | Notifications | Relevant people learn about decisions and updates without notification abuse | Status emails go only to the reporter; retries do not duplicate effects | Event/notification services | Idempotency, recipient, unread-count, and provider-failure tests | New email categories without a product decision |
+
+## Modular monolith conventions
+
+- Direct business packages under `com.souldealers.crowdtracebackend` are Spring Modulith modules:
+  `identity`, `casefile`, `governance`, `discovery`, `community`, `notification`, `privacy`, and
+  `operations`.
+- Public module APIs, DTOs, and event contracts live at the module root. Implementations, JPA
+  entities, repositories, and adapters live under that module's `internal` package.
+- A module must not import another module's `internal` package, entity, or repository. Cross-module
+  writes use public application services; after-commit events handle side effects.
+- Each module owns its tables. Cross-module JPA relationships and cross-module repository queries
+  are prohibited unless an architecture decision explicitly changes this rule.
+- `CrowdtraceModulesTest` is the executable guardrail for module discovery and dependency checks.
 
 ## Dependency path
 

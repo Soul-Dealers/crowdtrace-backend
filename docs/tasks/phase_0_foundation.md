@@ -18,11 +18,13 @@ domain code is introduced.
 - **Labels:** `epic:foundation`, `type:infra`, `priority:p0`
 - **Depends on:** None
 - **Issue:** Keep Java 21 and Spring Boot 4.1.0 as the baseline. Add Web MVC, JPA, Security,
-  Bean Validation, PostgreSQL, Flyway, S3, email, and OpenAPI dependencies. Establish the
-  package structure described in the blueprint and verify the application boots.
+  Bean Validation, Spring Modulith, H2 test support, PostgreSQL, Flyway, S3, email, and OpenAPI
+  dependencies. Establish the direct business-module package structure described in the blueprint,
+  document the public/internal boundary rules, and verify the application boots.
 - **Acceptance criteria:** The app starts with the local profile; dependencies are explicit;
-  package structure is documented; the context-load test passes.
-- **Tests:** Context-load test and a clean `./mvnw test` run.
+  the module map and boundary rules are documented; Spring Modulith discovers the planned modules;
+  the context-load test passes.
+- **Tests:** Module-graph verification, context-load test, and a clean `./mvnw test` run.
 
 ### CT-002 — Configure PostgreSQL, Flyway, profiles, and local Compose
 
