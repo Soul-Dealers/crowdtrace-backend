@@ -1,2 +1,2 @@
 @org.springframework.modulith.ApplicationModule(displayName = "Community")
-package com.souldealers.crowdtracebackend.community;
+package com.souldealers.crowdtracebackend.modules.community;
