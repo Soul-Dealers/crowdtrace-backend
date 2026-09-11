@@ -18,6 +18,11 @@ spring:
   flyway:
     enabled: false
 
+management:
+  endpoint:
+    health:
+      show-details: always
+
 
 resend:
   api-key: test-api-key
