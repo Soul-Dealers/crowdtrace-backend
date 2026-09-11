@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -23,6 +23,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
 
 # JWT Configuration
 server:
@@ -58,3 +63,11 @@ logging:
     com.souldealers.vendor_space: DEBUG
     org.springframework.security: INFO
     org.flywaydb: DEBUG
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId}] %logger{36} - %msg%n"
+
+cors:
+  allowed-origins:
+    - "https://crowdtrace.com"
+    - "https://www.crowdtrace.com"
