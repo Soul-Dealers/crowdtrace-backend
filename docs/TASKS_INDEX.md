@@ -1,6 +1,6 @@
 # CrowdTrace — GitHub Task Index
 
-**Last updated:** 2026-08-20  
+**Last updated:** 2026-09-13
 **Status:** Backlog prepared for review; no implementation task is marked complete  
 **Source of truth:** This index and the linked phase files
 
@@ -117,7 +117,7 @@ when its acceptance criteria and the relevant tests are verified.
 
 ### Phase 1 — Identity
 
-- [ ] CT-006 — Create users and verification-request persistence
+- [x] CT-006 — Create users and verification-request persistence
 - [ ] CT-007 — Implement password authentication and credential lifecycle
 - [ ] CT-008 — Enforce role-based endpoint authorization
 - [ ] CT-009 — Implement authentication and current-user endpoints

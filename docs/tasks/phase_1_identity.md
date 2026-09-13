@@ -20,9 +20,15 @@ authorization boundaries for every later workflow.
 - **Issue:** Add the users and verification-request migrations, UUID identifiers, private email and
   password hash fields, public display name, role, account status, verification status/type, and
   indexes for email, role, and pending verification work.
+- **Implementation:** The initial migration keeps numeric `BIGINT` identity IDs, uses
+  `password_hash`, creates `users` and `verification_requests`, and adds the email, role, user, and
+  pending-queue indexes. JPA entities use explicit string-backed lifecycle enums, and private email,
+  password hash, verification evidence, reviewer, and review notes fields are excluded from JSON.
 - **Acceptance criteria:** Email uniqueness is enforced; lifecycle enums are explicit; password
   hashes cannot serialize; verification evidence is private; repository queue queries are defined.
-- **Tests:** Migration, unique-email, enum, and pending-queue repository tests.
+- **Tests:** `IdentityMigrationTest`, `UserRepositoryTest`, `VerificationRequestRepositoryTest`,
+  `UserResponseTest`, and `OpenApiContractTest` cover migration, unique-email, enum, pending-queue,
+  privacy, and public projection behavior.
 
 ### CT-007 — Implement password authentication and credential lifecycle
 

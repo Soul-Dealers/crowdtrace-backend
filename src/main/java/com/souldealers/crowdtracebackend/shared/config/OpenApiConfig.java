@@ -117,9 +117,11 @@ public class OpenApiConfig {
     private Schema userResponseSchema() {
         return new ObjectSchema()
                 .description("User projection returned by the current user listing endpoint.")
-                .addProperties("username", new StringSchema())
-                .addProperties("email", new StringSchema())
-                .addProperties("displayName", new StringSchema());
+                .addProperties("displayName", new StringSchema())
+                .addProperties("email", new StringSchema().format("email"))
+                .addProperties("role", new StringSchema())
+                .addProperties("accountStatus", new StringSchema())
+                .addProperties("createdAt", new StringSchema().format("date-time"));
     }
 
     private Schema userPageResponseSchema() {

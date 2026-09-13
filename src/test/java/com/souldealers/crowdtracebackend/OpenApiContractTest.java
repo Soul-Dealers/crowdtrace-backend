@@ -96,9 +96,12 @@ class OpenApiContractTest {
                         .value("#/components/schemas/UserPageResponse"))
                 .andExpect(jsonPath("$.components.schemas.UserPageResponse.properties.content.items.$ref")
                         .value("#/components/schemas/UserResponse"))
-                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.username").exists())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.displayName").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.email").exists())
-                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.displayName").exists());
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.role").exists())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.accountStatus").exists())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.createdAt").exists())
+                .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist());
     }
 
     @Test

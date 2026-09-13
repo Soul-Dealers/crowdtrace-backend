@@ -1,86 +1,80 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-
+@Entity
 @Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-@Entity
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String firstName;
-
-    @Column(nullable = false)
-    private String lastName;
-
-    @Column(unique = true, nullable = false)
-    private String username;
-
-    @Column(nullable = false)
-    private String displayName;
-
-    @Column(unique = true, nullable = false, updatable = false)
+    @JsonIgnore
+    @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false)
-    private String password;
+    @JsonIgnore
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
+
+    @Column(name = "display_name", nullable = false, length = 255)
+    private String displayName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 32)
     private UserRoles role;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserStatus status;
-
-    private String profilePicture;
-
-    private String phoneNumber;
-
-    private String bio;
-
-    private int postcount;
-
-    private boolean isVerified = false;
-
-    private boolean isEnabled = true;
-
-    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private boolean isDeleted;
+    @Column(name = "account_status", nullable = false, length = 32)
+    private UserStatus accountStatus;
 
     @Column(nullable = false, updatable = false)
-    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
-    @UpdateTimestamp
     private LocalDateTime updatedAt;
 
     private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 }

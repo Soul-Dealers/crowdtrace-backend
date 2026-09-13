@@ -24,9 +24,11 @@ public class UserServiceImpl implements UserService {
 
     private UserResponse buildUserResponse(User user){
         return UserResponse.builder()
-                .email(user.getEmail())
                 .displayName(user.getDisplayName())
-                .username(user.getUsername())
+                .email(user.getEmail())
+                .accountStatus(user.getAccountStatus())
+                .createdAt(user.getCreatedAt())
+                .role(user.getRole())
                 .build();
     }
 }
