@@ -1,5 +1,8 @@
 package com.souldealers.crowdtracebackend.shared;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(name = "ApiResponse", description = "Standard successful CrowdTrace response envelope")
 public record ApiResponse<T>(
         boolean success,
         String message,
