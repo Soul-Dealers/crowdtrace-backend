@@ -1,4 +1,4 @@
-package com.souldealers.crowdtracebackend.shared.exception;
+package com.souldealers.crowdtracebackend.shared;
 
 public class UnauthorizedException extends RuntimeException {
     public UnauthorizedException(String message) {

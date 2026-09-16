@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Map;
 
+import com.souldealers.crowdtracebackend.shared.NotFoundException;
+import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
+import com.souldealers.crowdtracebackend.shared.ValidationException;
 import com.souldealers.crowdtracebackend.shared.config.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -105,7 +108,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(UnauthorizedException.class)
     public ProblemDetail handleUnauthorized(UnauthorizedException exception, HttpServletRequest request) {
-        log.warn("Unauthorized access attempt: {}", exception.getMessage());
+        log.warn("Unauthorized access attempt while processing {} {}",
+                request.getMethod(), request.getRequestURI());
         return problem(
                 HttpStatus.UNAUTHORIZED,
                 "Unauthorized",
@@ -129,7 +133,8 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleUnexpected(
             Exception exception,
             HttpServletRequest request) {
-        log.error("Unexpected error while processing {} {}", request.getMethod(), request.getRequestURI(), exception);
+        log.error("Unexpected error while processing {} {} (exceptionType={})",
+                request.getMethod(), request.getRequestURI(), exception.getClass().getName());
 
         return problem(
                 HttpStatus.INTERNAL_SERVER_ERROR,
