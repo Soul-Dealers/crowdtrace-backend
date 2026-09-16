@@ -1,4 +1,4 @@
-package com.souldealers.crowdtracebackend.shared.exception;
+package com.souldealers.crowdtracebackend.shared;
 
 public class ValidationException extends RuntimeException {
     public ValidationException(String message) {

@@ -1,6 +1,8 @@
 package com.souldealers.crowdtracebackend.modules.identity;
 
+import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
+import com.souldealers.crowdtracebackend.shared.GenericMessageResponse;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -11,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RequiredArgsConstructor
@@ -19,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "basicAuth")
 public class AuthController {
     private final UserService userService;
+    private final AuthService authService;
+
 
     @Operation(
             summary = "List users",
@@ -32,5 +38,11 @@ public class AuthController {
         return ApiResponse.success(
                 userService.getAllUsers(pageable),
                 "Users retrieved successfully");
+    }
+
+    @PostMapping("/signup")
+    public ApiResponse<GenericMessageResponse> signUpUser(@RequestBody SignUpRequest request){
+        var result = authService.signUp(request);
+        return ApiResponse.success(result, result.message());
     }
 }

@@ -7,7 +7,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.NoSuchElementException;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.souldealers.crowdtracebackend.shared.config.CorrelationIdFilter;
 import com.souldealers.crowdtracebackend.shared.exception.GlobalExceptionHandler;
+import org.assertj.core.api.Assertions;
+import org.slf4j.LoggerFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -27,14 +34,27 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 class GlobalExceptionHandlerTest {
 
     private MockMvc mockMvc;
+    private Logger exceptionLogger;
+    private ListAppender<ILoggingEvent> logAppender;
 
     @BeforeEach
     void setUp() {
+        exceptionLogger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        logAppender = new ListAppender<>();
+        logAppender.start();
+        exceptionLogger.addAppender(logAppender);
+
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new FailingController())
                 .setValidator(new LocalValidatorFactoryBean())
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .addFilters(new CorrelationIdFilter())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        exceptionLogger.detachAppender(logAppender);
     }
 
     @Test
@@ -73,6 +93,27 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldKeepCorrelationIdInLogsWithoutLoggingExceptionDetails() throws Exception {
+        mockMvc.perform(get("/unexpected")
+                        .header(CorrelationIdFilter.CORRELATION_ID_HEADER, "request-123")
+                        .accept(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string(CorrelationIdFilter.CORRELATION_ID_HEADER, "request-123"));
+
+        ILoggingEvent event = logAppender.list.stream()
+                .filter(loggingEvent -> loggingEvent.getFormattedMessage().contains("Unexpected error"))
+                .findFirst()
+                .orElseThrow();
+
+        Assertions.assertThat(event.getMDCPropertyMap())
+                .containsEntry(CorrelationIdFilter.CORRELATION_ID_MDC_KEY, "request-123");
+        Assertions.assertThat(event.getFormattedMessage())
+                .doesNotContain("database password leaked");
+        Assertions.assertThat(event.getThrowableProxy()).isNull();
+    }
+
+    @Test
     void shouldIncludeFieldValidationErrorsAsCustomProblemDetailProperty() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.post("/validation")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -101,7 +142,7 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/unexpected")
         void unexpected() {
-            throw new IllegalStateException("database password leaked");
+            throw new RuntimeException("database password leaked");
         }
 
         @PostMapping("/validation")
