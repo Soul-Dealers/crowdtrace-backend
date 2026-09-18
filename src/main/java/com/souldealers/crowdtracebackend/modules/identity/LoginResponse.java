@@ -6,6 +6,7 @@ import lombok.Builder;
 public record LoginResponse(
         String displayName,
         String email,
+        UserRoles role,
         String token
 ){
 }

@@ -19,6 +19,7 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -114,6 +115,20 @@ public class GlobalExceptionHandler {
                 HttpStatus.UNAUTHORIZED,
                 "Unauthorized",
                 exception.getMessage(),
+                "UNAUTHORIZED",
+                request);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthenticationFailure(
+            AuthenticationException exception,
+            HttpServletRequest request) {
+        log.warn("Authentication failed while processing {} {}",
+                request.getMethod(), request.getRequestURI());
+        return problem(
+                HttpStatus.UNAUTHORIZED,
+                "Unauthorized",
+                UNAUTHORIZED_MSG,
                 "UNAUTHORIZED",
                 request);
     }

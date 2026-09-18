@@ -18,6 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -82,6 +83,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldRenderAuthenticationFailureAsUnauthorized() throws Exception {
+        mockMvc.perform(get("/bad-credentials").accept(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Unauthorized"))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
     void shouldHideUnexpectedExceptionDetails() throws Exception {
         mockMvc.perform(get("/unexpected").accept(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(status().isInternalServerError())
@@ -138,6 +149,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/invalid")
         void invalid() {
             throw new IllegalArgumentException("Invalid vehicle request");
+        }
+
+        @GetMapping("/bad-credentials")
+        void badCredentials() {
+            throw new BadCredentialsException("Bad credentials");
         }
 
         @GetMapping("/unexpected")

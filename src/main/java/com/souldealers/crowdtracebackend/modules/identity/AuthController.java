@@ -12,11 +12,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+@RequestMapping({"", "/api/v1/auth"})
 @RequiredArgsConstructor
 @RestController
 @Tag(name = "Identity", description = "Current identity endpoints")
@@ -44,5 +42,11 @@ public class AuthController {
     public ApiResponse<GenericMessageResponse> signUpUser(@RequestBody SignUpRequest request){
         var result = authService.signUp(request);
         return ApiResponse.success(result, result.message());
+    }
+
+    @PostMapping("/login")
+    public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request){
+        var result = authService.login(request);
+        return ApiResponse.success(result, "Login successful");
     }
 }
