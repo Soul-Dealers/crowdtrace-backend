@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Map;
 
+import com.souldealers.crowdtracebackend.shared.NotFoundException;
+import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
+import com.souldealers.crowdtracebackend.shared.ValidationException;
 import com.souldealers.crowdtracebackend.shared.config.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -16,6 +19,7 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -105,11 +109,26 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(UnauthorizedException.class)
     public ProblemDetail handleUnauthorized(UnauthorizedException exception, HttpServletRequest request) {
-        log.warn("Unauthorized access attempt: {}", exception.getMessage());
+        log.warn("Unauthorized access attempt while processing {} {}",
+                request.getMethod(), request.getRequestURI());
         return problem(
                 HttpStatus.UNAUTHORIZED,
                 "Unauthorized",
                 exception.getMessage(),
+                "UNAUTHORIZED",
+                request);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthenticationFailure(
+            AuthenticationException exception,
+            HttpServletRequest request) {
+        log.warn("Authentication failed while processing {} {}",
+                request.getMethod(), request.getRequestURI());
+        return problem(
+                HttpStatus.UNAUTHORIZED,
+                "Unauthorized",
+                UNAUTHORIZED_MSG,
                 "UNAUTHORIZED",
                 request);
     }
@@ -129,7 +148,8 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleUnexpected(
             Exception exception,
             HttpServletRequest request) {
-        log.error("Unexpected error while processing {} {}", request.getMethod(), request.getRequestURI(), exception);
+        log.error("Unexpected error while processing {} {} (exceptionType={})",
+                request.getMethod(), request.getRequestURI(), exception.getClass().getName());
 
         return problem(
                 HttpStatus.INTERNAL_SERVER_ERROR,

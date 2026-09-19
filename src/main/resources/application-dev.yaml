@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -60,7 +60,7 @@ aws:
 # Logging
 logging:
   level:
-    com.souldealers.vendor_space: DEBUG
+    com.souldealers.crowdtracebackend: DEBUG
     org.springframework.security: INFO
     org.flywaydb: DEBUG
 
@@ -71,3 +71,5 @@ cors:
   allowed-origins:
     - "https://crowdtrace.com"
     - "https://www.crowdtrace.com"
+
+secret-key: ${JWT_SECRET:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}

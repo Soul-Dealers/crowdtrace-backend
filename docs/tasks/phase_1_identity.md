@@ -41,6 +41,11 @@ authorization boundaries for every later workflow.
   not reveal whether an email exists; inactive accounts cannot authenticate; credentials expire or
   can be revoked according to the selected model.
 - **Tests:** Hashing, registration, invalid-login, inactive-account, expiry/revocation tests.
+- **Selected credential lifecycle:** Authentication uses short-lived signed JWT access tokens.
+  The `jwt.access-token-expiry` setting controls their lifetime, with a 15-minute development
+  default. There is no refresh-token or logout endpoint in CT-007. Account lifecycle changes act
+  as revocation: only `ACTIVE` accounts can authenticate, and existing tokens stop working when
+  the account is moved to another status.
 
 ### CT-008 — Enforce role-based endpoint authorization
 
