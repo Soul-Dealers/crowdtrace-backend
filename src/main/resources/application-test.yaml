@@ -38,3 +38,7 @@ logging:
   level:
     com.souldealers.vendor_space: DEBUG
     org.springframework.security: INFO
+
+# Deterministic test-only JWT configuration.
+secret-key: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+jwt-token-expiration: 3600

@@ -22,21 +22,28 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
-    private final AuthenticationProvider authenticationProvider;
-    private final CustomUserDetailService userDetailsService;
+
+    public static final String [] publicEndpoints = {
+            "/actuator/health/liveness",
+            "/actuator/health/readiness",
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/v3/api-docs/**",
+            "/api/v1/auth/login",
+            "/api/v1/auth/signup",
+            "/api/v1/auth/verify-otp",
+            "/api/v1/auth/resend-otp",
+            "/api/v1/auth/request-password-reset",
+            "/api/v1/auth/reset-password"
+    };
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationProvider authenticationProvider) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
 
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/actuator/health/liveness",
-                                "/actuator/health/readiness",
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**")
+                        .requestMatchers(publicEndpoints)
                         .permitAll()
                         .anyRequest().authenticated())
                 .httpBasic(Customizer.withDefaults());

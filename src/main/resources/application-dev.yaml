@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -72,5 +72,5 @@ cors:
     - "https://crowdtrace.com"
     - "https://www.crowdtrace.com"
 
-secret-key: ${JWT_SECRET:SomeRandomJwtString}
-jwt-token-expiration: ${EXPIRATION:}
+secret-key: ${JWT_SECRET:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
+jwt-token-expiration: ${EXPIRATION:3600}
