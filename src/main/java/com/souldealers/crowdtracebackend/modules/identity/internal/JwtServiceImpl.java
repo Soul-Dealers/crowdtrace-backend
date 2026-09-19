@@ -27,8 +27,8 @@ public class JwtServiceImpl implements JwtService {
     @Value("${secret-key}")
     private String secret;
 
-    @Value("${jwt-token-expiration}")
-    private int tokenExpirationTime;
+    @Value("${jwt.access-token-expiry:900}")
+    private long tokenExpirationTime;
     @Override
     public String extractEmail(String jwtToken) {
         return extractSingleClaim(jwtToken, Claims::getSubject);
@@ -86,8 +86,12 @@ public class JwtServiceImpl implements JwtService {
     }
 
     public boolean isTokenValid(String jwtToken, UserDetails userDetails) {
-        final String userEmail = extractEmail(jwtToken);
-        return userEmail.equals(userDetails.getUsername()) && !isTokenExpired(jwtToken);
+        try {
+            final String userEmail = extractEmail(jwtToken);
+            return userEmail.equals(userDetails.getUsername()) && !isTokenExpired(jwtToken);
+        } catch (UnauthorizedException exception) {
+            return false;
+        }
     }
     private boolean isTokenExpired(String jwtToken) {
         return extractExpiration(jwtToken).before(new Date());

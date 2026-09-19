@@ -73,4 +73,3 @@ cors:
     - "https://www.crowdtrace.com"
 
 secret-key: ${JWT_SECRET:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
-jwt-token-expiration: ${EXPIRATION:3600}
