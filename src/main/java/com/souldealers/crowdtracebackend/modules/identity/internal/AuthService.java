@@ -1,12 +1,18 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal;
 
-import com.souldealers.crowdtracebackend.modules.identity.LoginRequest;
-import com.souldealers.crowdtracebackend.modules.identity.LoginResponse;
-import com.souldealers.crowdtracebackend.modules.identity.SignUpRequest;
-import com.souldealers.crowdtracebackend.shared.GenericMessageResponse;
+import com.souldealers.crowdtracebackend.modules.identity.*;
+import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 
 public interface AuthService {
-    GenericMessageResponse signUp(SignUpRequest signUpRequest);
+    GenericResponseMessage signUp(SignUpRequest signUpRequest);
 
     LoginResponse login(LoginRequest request);
+
+    GenericResponseMessage verifyOtp (VerifyOtpDto request);
+
+    GenericResponseMessage resendOtp (ResendOtpRequest request);
+
+    GenericResponseMessage resetPasswordRequest(PasswordResetRequest request);
+
+    GenericResponseMessage resetPassword(PasswordReset request);
 }

@@ -2,13 +2,14 @@ package com.souldealers.crowdtracebackend.modules.identity;
 
 import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
-import com.souldealers.crowdtracebackend.shared.GenericMessageResponse;
+import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springdoc.core.annotations.ParameterObject;
@@ -39,7 +40,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ApiResponse<GenericMessageResponse> signUpUser(@RequestBody SignUpRequest request){
+    public ApiResponse<GenericResponseMessage> signUpUser(@RequestBody SignUpRequest request){
         var result = authService.signUp(request);
         return ApiResponse.success(result, result.message());
     }
@@ -48,5 +49,11 @@ public class AuthController {
     public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request){
         var result = authService.login(request);
         return ApiResponse.success(result, "Login successful");
+    }
+
+    @PostMapping("/verify-otp")
+    public ApiResponse<GenericResponseMessage> verifyOtp(@Valid @RequestBody VerifyOtpDto request) {
+        GenericResponseMessage result = authService.verifyOtp(request);
+        return ApiResponse.success(result, result.message());
     }
 }

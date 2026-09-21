@@ -1,4 +1,4 @@
 package com.souldealers.crowdtracebackend.shared;
 
-public record GenericMessageResponse(String message) {
+public record GenericResponseMessage(String message) {
 }

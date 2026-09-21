@@ -12,6 +12,7 @@ public class CustomMessages {
     public static final String EMAIL_NOT_NULL_MSG = "Email cannot be null";
     public static final String EXISTING_EMAIL = "This email is already registered";
     public static final String TOKEN_SENT_MSG = "Token Sent, check your email";
+    public static final String VERIFICATION_SUCCESS_MSG = "Email verified successfully";
 
 
 }
