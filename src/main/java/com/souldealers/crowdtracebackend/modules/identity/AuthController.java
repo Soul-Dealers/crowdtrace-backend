@@ -56,4 +56,33 @@ public class AuthController {
         GenericResponseMessage result = authService.verifyOtp(request);
         return ApiResponse.success(result, result.message());
     }
+
+    @Operation(
+            summary = "request for otp resend",
+            method = "POST"
+    )
+    @PostMapping("/resend-otp")
+    public GenericResponseMessage resendOtp (@RequestBody ResendOtpRequest request){
+        return authService.resendOtp(request);
+    }
+
+
+    @Operation(
+            summary = "request to reset password",
+            method = "POST"
+    )
+    @PostMapping("/request-password-reset")
+    public GenericResponseMessage requestPasswordReset(@Valid @RequestBody PasswordResetRequest request){
+        return authService.resetPasswordRequest(request);
+    }
+
+
+    @Operation(
+            summary = "reset password with email code and new password",
+            method = "POST"
+    )
+    @PostMapping("/reset-password")
+    public GenericResponseMessage resetPassword(@Valid @RequestBody PasswordReset request){
+        return authService.resetPassword(request);
+    }
 }

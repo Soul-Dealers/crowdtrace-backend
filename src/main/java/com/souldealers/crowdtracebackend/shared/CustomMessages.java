@@ -13,6 +13,9 @@ public class CustomMessages {
     public static final String EXISTING_EMAIL = "This email is already registered";
     public static final String TOKEN_SENT_MSG = "Token Sent, check your email";
     public static final String VERIFICATION_SUCCESS_MSG = "Email verified successfully";
+    public static final String OTP_VERIFICATION_FAILED_MSG = "Could not verify your OTP";
+    public static final String PASSWORD_MISMATCH = "Passwords do not match";
+    public static final String RESET_PASSWORD_SUCC = "Password reset successfully, log in";
 
 
 }

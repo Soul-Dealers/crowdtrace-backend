@@ -4,6 +4,7 @@ import com.souldealers.crowdtracebackend.modules.identity.*;
 import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
+import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.JwtService;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
@@ -124,15 +125,28 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.email());
         Optional<User> byEmail = userRepository.findByEmail(email);
 
-        if(byEmail.isEmpty()) throw new NotFoundException(USER_NOT_FOUND_MSG);
-
-        generateAndSendOtp(byEmail.get(), OtpType.RESET);
+        byEmail.ifPresent(user -> generateAndSendOtp(user, OtpType.RESET));
         return new GenericResponseMessage(TOKEN_SENT_MSG);
     }
 
     @Override
+    @Transactional
     public GenericResponseMessage resetPassword(PasswordReset request) {
-        return null;
+        if (!request.password().equals(request.confirmPassword())) {
+            throw new ConflictException(PASSWORD_MISMATCH);
+        }
+
+        String email = normalizeEmail(request.email());
+        User user = findUserByEmailForUpdate(email);
+
+        if (!otpService.consumeOtp(request.code(), email, OtpType.RESET)) {
+            throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        userRepository.save(user);
+
+        return new GenericResponseMessage(RESET_PASSWORD_SUCC);
     }
 
     private String normalizeEmail(String email) {
