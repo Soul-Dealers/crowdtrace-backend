@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Optional;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.EMAIL_NOT_NULL_MSG;
+import static com.souldealers.crowdtracebackend.shared.CustomMessages.OTP_VERIFICATION_FAILED_MSG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -143,7 +144,7 @@ class AuthServiceImplTest {
 
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> authService.verifyOtp(request)))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("Could not verify this OTP");
+                .hasMessage(OTP_VERIFICATION_FAILED_MSG);
 
         assertThat(pendingUser.getAccountStatus()).isEqualTo(UserStatus.PENDING_VERIFICATION);
         verify(userRepository, never()).save(any(User.class));
@@ -164,7 +165,8 @@ class AuthServiceImplTest {
         when(userRepository.findByEmailForUpdate("verify@example.com")).thenReturn(Optional.of(activeUser));
 
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> authService.verifyOtp(request)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ValidationException.class)
+                .hasMessage(OTP_VERIFICATION_FAILED_MSG);
 
         verifyNoInteractions(otpService);
         verify(userRepository, never()).save(any(User.class));

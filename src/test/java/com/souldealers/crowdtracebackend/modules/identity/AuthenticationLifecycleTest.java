@@ -125,8 +125,7 @@ class AuthenticationLifecycleTest {
         mockMvc.perform(post("/api/v1/auth/verify-otp")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(verificationPayload))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail").value("This email is already registered"));
+                .andExpect(status().isBadRequest());
 
         then(notificationService).should(times(1)).sendWelcomeEmail(email, displayName);
     }
@@ -176,7 +175,7 @@ class AuthenticationLifecycleTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + email + "\",\"code\":\"" + olderOtp.getCode() + "\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Could not verify this OTP"));
+                .andExpect(jsonPath("$.detail").value("Could not verify your OTP"));
 
         assertThat(userRepository.findByEmail(email).orElseThrow().getAccountStatus())
                 .isEqualTo(UserStatus.PENDING_VERIFICATION);

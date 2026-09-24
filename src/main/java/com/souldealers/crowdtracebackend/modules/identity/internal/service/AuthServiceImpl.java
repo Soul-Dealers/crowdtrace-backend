@@ -107,14 +107,12 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = normalizeEmail(request.email());
-        User user = findUserByEmailForUpdate(email);
-
-        if (user.getAccountStatus() != UserStatus.PENDING_VERIFICATION) {
-            throw new IllegalStateException(EXISTING_EMAIL);
-        }
+        User user = userRepository.findByEmailForUpdate(email)
+                .filter(candidate -> candidate.getAccountStatus() == UserStatus.PENDING_VERIFICATION)
+                .orElseThrow(() -> new ValidationException(OTP_VERIFICATION_FAILED_MSG));
 
         if (!otpService.consumeOtp(request.code(), email, OtpType.CREATE)) {
-            throw new ValidationException("Could not verify this OTP");
+            throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
         }
 
         user.setAccountStatus(UserStatus.ACTIVE);
@@ -152,7 +150,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = normalizeEmail(request.email());
-        User user = findUserByEmailForUpdate(email);
+        User user = userRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new ValidationException(OTP_VERIFICATION_FAILED_MSG));
 
         if (!otpService.consumeOtp(request.code(), email, OtpType.RESET)) {
             throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
