@@ -15,4 +15,9 @@ public record ResendOtpRequest(
         )
         String type
 ) {
+    public ResendOtpRequest {
+        if (email != null) {
+            email = email.trim();
+        }
+    }
 }

@@ -126,9 +126,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public GenericResponseMessage resendOtp(ResendOtpRequest request) {
-        User user = userRepository.findByEmail(request.email()).orElseThrow(()-> new NotFoundException(USER_NOT_FOUND_MSG));
+        String email = normalizeEmail(request.email());
+        OtpType type = resolveOtpType(request.type());
 
-        generateAndSendOtp(user, OtpType.CREATE);
+        userRepository.findByEmail(email)
+                .ifPresent(user -> generateAndSendOtp(user, type));
 
         return new GenericResponseMessage(TOKEN_SENT_MSG);
     }
@@ -167,6 +169,18 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException(EMAIL_NOT_NULL_MSG);
         }
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private OtpType resolveOtpType(String type) {
+        if (type == null || type.isBlank()) {
+            return OtpType.CREATE;
+        }
+
+        try {
+            return OtpType.valueOf(type.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new ValidationException(UNSUPPORTED_OTP_TYPE_MSG);
+        }
     }
 
     private User findUserByEmail(String email){
