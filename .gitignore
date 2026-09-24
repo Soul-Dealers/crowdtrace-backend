@@ -34,3 +34,11 @@ build/
 
 .env
 /api-requests
+
+### macOS ###
+.DS_Store
+**/.DS_Store
+
+### Local database dumps ###
+*.sql.gz
+crowdtrace-backup-*.sql
