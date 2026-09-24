@@ -41,7 +41,7 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/users'].get").exists())
                 .andExpect(jsonPath("$.paths['/users'].get.tags", hasItem("Identity")))
                 .andExpect(jsonPath("$.paths['/users'].get.description",
-                        containsString("HTTP Basic authentication")))
+                        containsString("Super Admin JWT")))
                 .andExpect(jsonPath("$.paths['/users'].get.security[0].basicAuth").exists())
                 .andExpect(jsonPath("$.paths['/users'].get.parameters").isNotEmpty())
                 .andExpect(jsonPath("$.paths['/users'].get.parameters[*].name",

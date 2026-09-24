@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RestController
 @Tag(name = "Identity", description = "Current identity endpoints")
-@SecurityRequirement(name = "basicAuth")
 public class AuthController {
     private final UserService userService;
     private final AuthService authService;
@@ -27,12 +26,14 @@ public class AuthController {
 
     @Operation(
             summary = "List users",
-            description = "Returns the current paginated user projection. Requires HTTP Basic authentication.")
+            description = "Returns the current paginated user projection. Requires a Super Admin JWT.")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "200",
             description = "Users retrieved successfully",
             content = @Content(schema = @Schema(ref = "#/components/schemas/UserListResponse")))
     @GetMapping("/users")
+    @RequiresSuperAdmin
+    @SecurityRequirement(name = "basicAuth")
     public ApiResponse<PagedResponse<UserResponse>> getUsers(@ParameterObject Pageable pageable) {
         return ApiResponse.success(
                 userService.getAllUsers(pageable),

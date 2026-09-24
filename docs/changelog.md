@@ -1,3 +1,8 @@
+## 2026-09-23 — Add CT-008 role-based method authorization
+- Added runtime-retained registered-user, moderator, and Super Admin method authorization annotations.
+- Enabled Spring method security, protected user listing for Super Admins, and permitted the public API namespace.
+- Added the complete JWT-backed authorization matrix, authority-source, account-lifecycle, and OpenAPI regression coverage.
+
 ## 2026-09-13 — Add CT-006 identity persistence
 - Replaced the starter user migration with the initial `users` and `verification_requests` schema.
 - Kept numeric user IDs and renamed the stored credential column to `password_hash`.
