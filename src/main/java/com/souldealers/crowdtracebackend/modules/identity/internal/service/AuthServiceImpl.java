@@ -10,6 +10,7 @@ import com.souldealers.crowdtracebackend.shared.JwtService;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import com.souldealers.crowdtracebackend.shared.OtpType;
+import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -34,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final TokenRevocationService tokenRevocationService;
     private final OtpService otpService;
     private final NotificationService notificationService;
 
@@ -73,8 +76,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         String email = normalizeEmail(request.email());
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, request.password()));
         User user = findUserByEmail(email);
         String token  = jwtService.generateToken(new SecurityUser(user));
 
@@ -84,6 +87,16 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole())
                 .token(token)
                 .build();
+    }
+
+    @Override
+    public GenericResponseMessage logout(String authorizationHeader) {
+        String token = extractBearerToken(authorizationHeader);
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                jwtService.extractExpiration(token).toInstant(), ZoneOffset.UTC);
+
+        tokenRevocationService.revoke(token, expiresAt);
+        return new GenericResponseMessage(LOGOUT_SUCCESS_MSG);
     }
 
     @Override
@@ -192,5 +205,17 @@ public class AuthServiceImpl implements AuthService {
         } else {
             sendWelcomeEmail.run();
         }
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new UnauthorizedException(JWT_EXC_MSG);
+        }
+
+        String token = authorizationHeader.substring("Bearer ".length()).trim();
+        if (token.isBlank()) {
+            throw new UnauthorizedException(JWT_EXC_MSG);
+        }
+        return token;
     }
 }

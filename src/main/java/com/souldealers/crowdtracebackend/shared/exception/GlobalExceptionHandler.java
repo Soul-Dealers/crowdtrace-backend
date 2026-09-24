@@ -8,6 +8,7 @@ import java.util.NoSuchElementException;
 import java.util.Map;
 
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
+import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import com.souldealers.crowdtracebackend.shared.config.CorrelationIdFilter;
@@ -64,6 +65,16 @@ public class GlobalExceptionHandler {
                 "CONFLICT",
                 request
         );
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.CONFLICT,
+                "Conflict",
+                exception.getMessage(),
+                "CONFLICT",
+                request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

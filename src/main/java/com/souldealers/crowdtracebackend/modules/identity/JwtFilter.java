@@ -23,6 +23,7 @@ import java.io.IOException;
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailService userDetailsService;
+    private final TokenRevocationService tokenRevocationService;
     private static final String HEADER = "Authorization";
     private static final String BEARER_SUB_STRING = "Bearer";
     private static final int TOKEN_SUB_STRING_INDEX = 7;
@@ -35,7 +36,7 @@ public class JwtFilter extends OncePerRequestFilter {
         final String token;
         final String userEmail;
 
-        if (authenticationHeader == null || !authenticationHeader.startsWith(BEARER_SUB_STRING)){
+        if (authenticationHeader == null || !authenticationHeader.startsWith(BEARER_SUB_STRING + " ")){
             filterChain.doFilter(request,response);
             return;
         }
@@ -47,7 +48,9 @@ public class JwtFilter extends OncePerRequestFilter {
             if(userEmail !=null && SecurityContextHolder.getContext().getAuthentication() == null){
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
-                if(userDetails.isEnabled() && jwtService.isTokenValid(token,userDetails)){
+                if (userDetails.isEnabled()
+                        && jwtService.isTokenValid(token, userDetails)
+                        && !tokenRevocationService.isRevoked(token)) {
                     UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
