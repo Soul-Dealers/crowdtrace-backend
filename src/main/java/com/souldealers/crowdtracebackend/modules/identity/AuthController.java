@@ -33,7 +33,7 @@ public class AuthController {
             content = @Content(schema = @Schema(ref = "#/components/schemas/UserListResponse")))
     @GetMapping("/users")
     @RequiresSuperAdmin
-    @SecurityRequirement(name = "basicAuth")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<PagedResponse<UserResponse>> getUsers(@ParameterObject Pageable pageable) {
         return ApiResponse.success(
                 userService.getAllUsers(pageable),

@@ -36,13 +36,14 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.servers[0].url").value("http://localhost:8080"))
                 .andExpect(jsonPath("$.tags[*].name", hasItems(
                         "Operations", "Identity", "Authentication", "Public Cases", "Administration")))
-                .andExpect(jsonPath("$.components.securitySchemes.basicAuth.type").value("http"))
-                .andExpect(jsonPath("$.components.securitySchemes.basicAuth.scheme").value("basic"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
                 .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.tags", hasItem("Identity")))
                 .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.description",
                         containsString("Super Admin JWT")))
-                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.security[0].basicAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.security[0].bearerAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.parameters").isNotEmpty())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.parameters[*].name",
                         hasItems("page", "size")))
@@ -85,8 +86,8 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/auth/refresh'].post.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
-                // Admin operations inherit the document-level basicAuth requirement.
-                .andExpect(jsonPath("$.security[0].basicAuth").exists())
+                // Admin operations inherit the document-level bearerAuth requirement.
+                .andExpect(jsonPath("$.security[0].bearerAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.security")
                         .doesNotExist())

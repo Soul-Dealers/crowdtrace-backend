@@ -59,12 +59,13 @@ public class OpenApiConfig {
                         new io.swagger.v3.oas.models.tags.Tag()
                                 .name("Administration")
                                 .description("Planned moderator and admin endpoints")))
-                .addSecurityItem(new SecurityRequirement().addList("basicAuth"))
+                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
-                        .addSecuritySchemes("basicAuth", new SecurityScheme()
-                                .name("basicAuth")
+                        .addSecuritySchemes("bearerAuth", new SecurityScheme()
+                                .name("bearerAuth")
                                 .type(SecurityScheme.Type.HTTP)
-                                .scheme("basic"))
+                                .scheme("bearer")
+                                .bearerFormat("JWT"))
                         .schemas(reusableSchemas()))
                 .paths(contractPaths());
     }
