@@ -41,13 +41,13 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ApiResponse<GenericResponseMessage> signUpUser(@RequestBody SignUpRequest request){
+    public ApiResponse<GenericResponseMessage> signUpUser(@Valid @RequestBody SignUpRequest request){
         var result = authService.signUp(request);
         return ApiResponse.success(result, result.message());
     }
 
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request){
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request){
         var result = authService.login(request);
         return ApiResponse.success(result, "Login successful");
     }
@@ -63,7 +63,7 @@ public class AuthController {
             method = "POST"
     )
     @PostMapping("/resend-otp")
-    public GenericResponseMessage resendOtp (@RequestBody ResendOtpRequest request){
+    public GenericResponseMessage resendOtp (@Valid @RequestBody ResendOtpRequest request){
         return authService.resendOtp(request);
     }
 
