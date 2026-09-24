@@ -38,15 +38,15 @@ class OpenApiContractTest {
                         "Operations", "Identity", "Authentication", "Public Cases", "Administration")))
                 .andExpect(jsonPath("$.components.securitySchemes.basicAuth.type").value("http"))
                 .andExpect(jsonPath("$.components.securitySchemes.basicAuth.scheme").value("basic"))
-                .andExpect(jsonPath("$.paths['/users'].get").exists())
-                .andExpect(jsonPath("$.paths['/users'].get.tags", hasItem("Identity")))
-                .andExpect(jsonPath("$.paths['/users'].get.description",
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.tags", hasItem("Identity")))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.description",
                         containsString("Super Admin JWT")))
-                .andExpect(jsonPath("$.paths['/users'].get.security[0].basicAuth").exists())
-                .andExpect(jsonPath("$.paths['/users'].get.parameters").isNotEmpty())
-                .andExpect(jsonPath("$.paths['/users'].get.parameters[*].name",
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.security[0].basicAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.parameters").isNotEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.parameters[*].name",
                         hasItems("page", "size")))
-                .andExpect(jsonPath("$.paths['/users'].get.responses.200.content.*.schema.$ref",
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.responses.200.content.*.schema.$ref",
                         hasItem("#/components/schemas/UserListResponse")))
                 .andExpect(jsonPath("$.paths['/actuator/health/liveness'].get").exists())
                 .andExpect(jsonPath("$.paths['/actuator/health/readiness'].get").exists())
@@ -108,7 +108,7 @@ class OpenApiContractTest {
 
     @Test
     void keepsCurrentRuntimeSecurityAndHealthBehavior() throws Exception {
-        mockMvc.perform(get("/users"))
+        mockMvc.perform(get("/api/v1/auth/users"))
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/actuator/health/liveness"))

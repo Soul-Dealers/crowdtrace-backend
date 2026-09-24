@@ -15,7 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.*;
 
-@RequestMapping({"", "/api/v1/auth"})
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @RestController
 @Tag(name = "Identity", description = "Current identity endpoints")
