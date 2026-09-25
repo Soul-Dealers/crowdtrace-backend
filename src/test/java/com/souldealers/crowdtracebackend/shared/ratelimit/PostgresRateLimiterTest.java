@@ -164,12 +164,28 @@ class PostgresRateLimiterTest {
 
     @Test
     void peekReportsDenialWithoutCharging() {
-        for (int i = 0; i < 3; i++) {
+        // limit=3, so three requests sit AT the limit and are still allowed.
+        // The fourth is the one that crosses it; peek can only report a denial
+        // once the bucket is actually over. See requestsUpToTheLimitAreAllowed.
+        for (int i = 0; i < 4; i++) {
             rateLimiter.record(RateLimitScope.IDENTITY, "test-policy", subject);
         }
 
         assertThat(rateLimiter.peek(RateLimitScope.IDENTITY, "test-policy", subject).denied()).isTrue();
         assertThat(rateLimiter.peek(RateLimitScope.IDENTITY, "test-policy", subject).denied()).isTrue();
+
+        // Denial alone cannot prove peek is free: an over-limit bucket reports denied
+        // whether or not peek charges it. Prove it on a bucket with headroom, where a
+        // charging peek would consume the quota this last record still needs.
+        String quiet = "quiet-" + subject;
+        rateLimiter.record(RateLimitScope.IDENTITY, "test-policy", quiet);
+        rateLimiter.record(RateLimitScope.IDENTITY, "test-policy", quiet);
+
+        for (int i = 0; i < 5; i++) {
+            assertThat(rateLimiter.peek(RateLimitScope.IDENTITY, "test-policy", quiet).allowed()).isTrue();
+        }
+
+        assertThat(rateLimiter.record(RateLimitScope.IDENTITY, "test-policy", quiet).allowed()).isTrue();
     }
 
     @Test

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -110,7 +111,24 @@ public class RateLimitBucketRepository {
 
     private BucketState toState(Object[] row) {
         int count = ((Number) row[0]).intValue();
-        Instant endsAt = ((Timestamp) row[1]).toInstant();
-        return new BucketState(count, endsAt);
+        return new BucketState(count, toInstant(row[1]));
+    }
+
+    /**
+     * Native queries hand back whatever the driver and Hibernate agree on for
+     * {@code timestamptz}, and that mapping has changed across Hibernate versions
+     * (Instant today, java.sql.Timestamp historically). Accept the known shapes
+     * rather than pinning one, so a dependency bump cannot silently 500 every
+     * rate-limited endpoint again.
+     */
+    private static Instant toInstant(Object value) {
+        return switch (value) {
+            case Instant instant -> instant;
+            case Timestamp timestamp -> timestamp.toInstant();
+            case OffsetDateTime offsetDateTime -> offsetDateTime.toInstant();
+            default -> throw new IllegalStateException(
+                    "Unexpected timestamp type from rate_limit_bucket: "
+                            + (value == null ? "null" : value.getClass().getName()));
+        };
     }
 }

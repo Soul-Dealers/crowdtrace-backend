@@ -60,6 +60,9 @@ class RateLimitBucketRepositoryTest {
     @Autowired
     private jakarta.persistence.EntityManager entityManager;
 
+    @Autowired
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
     @MockitoBean
     private NotificationService notificationService;
 
@@ -190,14 +193,15 @@ class RateLimitBucketRepositoryTest {
 
         // purge_after is deliberately window + 1 hour, so nothing written by charge()
         // is purgeable yet. Age one row directly rather than sleeping past an hour.
-        entityManager.createNativeQuery("""
-                        UPDATE rate_limit_bucket SET purge_after = now() - interval '1 minute'
-                        WHERE scope = :scope AND action = :action AND subject_key = :subjectKey
-                        """)
-                .setParameter("scope", SCOPE)
-                .setParameter("action", ACTION)
-                .setParameter("subjectKey", staleKey)
-                .executeUpdate();
+        transactionTemplate.executeWithoutResult(status ->
+                entityManager.createNativeQuery("""
+                                UPDATE rate_limit_bucket SET purge_after = now() - interval '1 minute'
+                                WHERE scope = :scope AND action = :action AND subject_key = :subjectKey
+                                """)
+                        .setParameter("scope", SCOPE)
+                        .setParameter("action", ACTION)
+                        .setParameter("subjectKey", staleKey)
+                        .executeUpdate());
 
         assertThat(repository.purgeExpired()).isEqualTo(1);
         assertThat(repository.peek(SCOPE, ACTION, staleKey)).isEmpty();
