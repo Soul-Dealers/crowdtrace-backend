@@ -42,3 +42,4 @@ build/
 ### Local database dumps ###
 *.sql.gz
 crowdtrace-backup-*.sql
+/graphify-out/
