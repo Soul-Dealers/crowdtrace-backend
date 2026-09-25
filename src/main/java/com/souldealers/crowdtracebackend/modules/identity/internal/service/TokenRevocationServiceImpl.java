@@ -1,10 +1,10 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 
 import com.souldealers.crowdtracebackend.modules.identity.TokenRevocationService;
-import com.souldealers.crowdtracebackend.modules.identity.internal.model.RevokedToken;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.RevokedTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,15 +20,9 @@ public class TokenRevocationServiceImpl implements TokenRevocationService {
     private final RevokedTokenRepository revokedTokenRepository;
 
     @Override
+    @Transactional
     public void revoke(String token, LocalDateTime expiresAt) {
-        String tokenHash = hash(token);
-
-        if (!revokedTokenRepository.existsByTokenHashAndExpiresAtAfter(tokenHash, now())) {
-            revokedTokenRepository.save(RevokedToken.builder()
-                    .tokenHash(tokenHash)
-                    .expiresAt(expiresAt)
-                    .build());
-        }
+        revokedTokenRepository.insertIgnoringConflict(hash(token), expiresAt);
     }
 
     @Override

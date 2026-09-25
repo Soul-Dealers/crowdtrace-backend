@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 
 import com.souldealers.crowdtracebackend.modules.identity.TokenRevocationService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.Otp;
+import com.souldealers.crowdtracebackend.modules.identity.internal.model.RevokedToken;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.OtpRepository;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.RevokedTokenRepository;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
@@ -15,6 +16,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,8 +48,14 @@ class ExpiredCredentialCleanupJobTest {
         LocalDateTime past = LocalDateTime.now(ZoneOffset.UTC).minusDays(1);
         LocalDateTime future = LocalDateTime.now(ZoneOffset.UTC).plusDays(1);
 
-        tokenRevocationService.revoke("expired-token-value", past);
-        tokenRevocationService.revoke("live-token-value", future);
+        revokedTokenRepository.save(RevokedToken.builder()
+                .tokenHash(sha256Hex("expired-token-value"))
+                .expiresAt(past)
+                .build());
+        revokedTokenRepository.save(RevokedToken.builder()
+                .tokenHash(sha256Hex("live-token-value"))
+                .expiresAt(future)
+                .build());
 
         otpRepository.save(Otp.builder()
                 .email("cleanup-expired@example.com")
@@ -85,5 +95,14 @@ class ExpiredCredentialCleanupJobTest {
 
     private List<String> emailsRemaining() {
         return otpRepository.findAll().stream().map(Otp::getEmail).toList();
+    }
+
+    private static String sha256Hex(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 }

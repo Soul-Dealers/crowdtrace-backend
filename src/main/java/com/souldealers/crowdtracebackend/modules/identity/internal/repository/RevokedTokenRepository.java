@@ -15,4 +15,15 @@ public interface RevokedTokenRepository extends JpaRepository<RevokedToken, Long
     @Modifying
     @Query("delete from RevokedToken t where t.expiresAt < :cutoff")
     int deleteExpired(@Param("cutoff") LocalDateTime cutoff);
+
+    /**
+     * Idempotent by construction: concurrent callers race harmlessly and
+     * neither sees a constraint violation.
+     */
+    @Modifying
+    @Query(value = "insert into revoked_tokens (token_hash, expires_at) "
+            + "values (:tokenHash, :expiresAt) on conflict (token_hash) do nothing",
+            nativeQuery = true)
+    int insertIgnoringConflict(@Param("tokenHash") String tokenHash,
+                               @Param("expiresAt") LocalDateTime expiresAt);
 }

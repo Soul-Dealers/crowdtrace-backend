@@ -56,7 +56,10 @@ public class JwtFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
                 }
             }
-        } catch (Exception e){
+        } catch (Exception exception){
+            log.debug("Rejected bearer token for {} {} ({})",
+                    request.getMethod(), request.getRequestURI(),
+                    exception.getClass().getSimpleName());
             SecurityContextHolder.clearContext();
         }
 

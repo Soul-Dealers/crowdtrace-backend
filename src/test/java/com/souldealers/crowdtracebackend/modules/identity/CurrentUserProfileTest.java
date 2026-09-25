@@ -4,12 +4,14 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.JwtService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -17,6 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest(properties = "cors.allowed-origins=http://localhost")
 @AutoConfigureMockMvc
@@ -34,6 +37,9 @@ class CurrentUserProfileTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @MockitoBean
+    private TokenRevocationService tokenRevocationService;
 
     @Test
     void returnsTheAuthenticatedUserWithoutCredentials() throws Exception {
@@ -76,11 +82,16 @@ class CurrentUserProfileTest {
     void logoutRevokesTheCurrentJwt() throws Exception {
         User user = saveActiveUser("logout@example.com", "Logout User");
         String token = bearerToken(user);
+        String rawToken = token.substring("Bearer ".length());
+
+        org.mockito.Mockito.when(tokenRevocationService.isRevoked(rawToken)).thenReturn(false, true);
 
         mockMvc.perform(post("/api/v1/auth/logout")
                         .header("Authorization", token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        verify(tokenRevocationService).revoke(ArgumentMatchers.eq(rawToken), ArgumentMatchers.any());
 
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", token))
                 .andExpect(status().isUnauthorized());

@@ -13,6 +13,7 @@ import com.souldealers.crowdtracebackend.shared.OtpType;
 import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     private final NotificationService notificationService;
 
     @Override
+    @Transactional
     public GenericResponseMessage signUp(SignUpRequest request) {
 
         String email = normalizeEmail(request.email());
@@ -77,15 +79,17 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         String email = normalizeEmail(request.email());
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, request.password()));
-        User user = findUserByEmail(email);
-        String token  = jwtService.generateToken(new SecurityUser(user));
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, request.password()));
+
+        SecurityUser principal = (SecurityUser) authentication.getPrincipal();
+        User user = principal.user();
 
         return LoginResponse.builder()
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
                 .role(user.getRole())
-                .token(token)
+                .token(jwtService.generateToken(principal))
                 .build();
     }
 
@@ -182,15 +186,6 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private User findUserByEmail(String email){
-
-        if (email == null || email.isBlank())
-            throw new ValidationException(EMAIL_NOT_NULL_MSG);
-
-        return userRepository.findByEmail(email)
-                .orElseThrow(()-> new NotFoundException(USER_NOT_FOUND_MSG));
-    }
-
     private User findUserByEmailForUpdate(String email){
 
         if (email == null || email.isBlank())
@@ -202,22 +197,26 @@ public class AuthServiceImpl implements AuthService {
 
     private void generateAndSendOtp(User user, OtpType type){
         String code = otpService.generateOtp(user.getEmail(), type);
-        notificationService.sendOtpEmail(user.getEmail(), code, user.getDisplayName(), type);
+        String email = user.getEmail();
+        String displayName = user.getDisplayName();
+        runAfterCommit(() -> notificationService.sendOtpEmail(email, code, displayName, type));
     }
 
-    private void sendWelcomeEmailAfterCommit(String email, String displayName) {
-        Runnable sendWelcomeEmail = () -> notificationService.sendWelcomeEmail(email, displayName);
-
+    private void runAfterCommit(Runnable action) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    sendWelcomeEmail.run();
+                    action.run();
                 }
             });
         } else {
-            sendWelcomeEmail.run();
+            action.run();
         }
+    }
+
+    private void sendWelcomeEmailAfterCommit(String email, String displayName) {
+        runAfterCommit(() -> notificationService.sendWelcomeEmail(email, displayName));
     }
 
     private String extractBearerToken(String authorizationHeader) {
