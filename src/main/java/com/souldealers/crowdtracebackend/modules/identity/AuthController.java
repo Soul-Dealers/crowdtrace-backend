@@ -4,6 +4,7 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import com.souldealers.crowdtracebackend.shared.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,18 +42,21 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
+    @RateLimit("ip-signup")
     public ApiResponse<GenericResponseMessage> signUpUser(@Valid @RequestBody SignUpRequest request){
         var result = authService.signUp(request);
         return ApiResponse.success(result, result.message());
     }
 
     @PostMapping("/login")
+    @RateLimit("ip-login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request){
         var result = authService.login(request);
         return ApiResponse.success(result, "Login successful");
     }
 
     @PostMapping("/verify-otp")
+    @RateLimit("ip-otp-attempt")
     public ApiResponse<GenericResponseMessage> verifyOtp(@Valid @RequestBody VerifyOtpDto request) {
         GenericResponseMessage result = authService.verifyOtp(request);
         return ApiResponse.success(result, result.message());
@@ -63,6 +67,7 @@ public class AuthController {
             method = "POST"
     )
     @PostMapping("/resend-otp")
+    @RateLimit("ip-otp-send")
     public GenericResponseMessage resendOtp (@Valid @RequestBody ResendOtpRequest request){
         return authService.resendOtp(request);
     }
@@ -73,6 +78,7 @@ public class AuthController {
             method = "POST"
     )
     @PostMapping("/request-password-reset")
+    @RateLimit("ip-otp-send")
     public GenericResponseMessage requestPasswordReset(@Valid @RequestBody PasswordResetRequest request){
         return authService.resetPasswordRequest(request);
     }
@@ -83,6 +89,7 @@ public class AuthController {
             method = "POST"
     )
     @PostMapping("/reset-password")
+    @RateLimit("ip-otp-attempt")
     public GenericResponseMessage resetPassword(@Valid @RequestBody PasswordReset request){
         return authService.resetPassword(request);
     }
