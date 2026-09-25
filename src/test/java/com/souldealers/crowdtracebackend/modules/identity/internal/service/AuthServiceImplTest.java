@@ -6,6 +6,7 @@ import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
 import com.souldealers.crowdtracebackend.modules.identity.VerifyOtpDto;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityRateLimitGuard;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.JwtService;
@@ -50,6 +51,8 @@ class AuthServiceImplTest {
     private OtpService otpService;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private IdentityRateLimitGuard identityRateLimitGuard;
 
     @InjectMocks
     private AuthServiceImpl authService;

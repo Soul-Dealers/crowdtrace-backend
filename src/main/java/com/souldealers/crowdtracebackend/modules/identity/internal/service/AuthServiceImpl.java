@@ -3,6 +3,8 @@ package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 import com.souldealers.crowdtracebackend.modules.identity.*;
 import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityAction;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityRateLimitGuard;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
@@ -39,12 +41,15 @@ public class AuthServiceImpl implements AuthService {
     private final TokenRevocationService tokenRevocationService;
     private final OtpService otpService;
     private final NotificationService notificationService;
+    private final IdentityRateLimitGuard identityRateLimitGuard;
 
     @Override
     @Transactional
     public GenericResponseMessage signUp(SignUpRequest request) {
 
         String email = normalizeEmail(request.email());
+
+        identityRateLimitGuard.check(IdentityAction.OTP_SEND, OtpType.CREATE, email);
 
         Optional<User> existingUser = userRepository.findByEmail(email);
 
@@ -78,11 +83,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         String email = normalizeEmail(request.email());
+        identityRateLimitGuard.check(IdentityAction.LOGIN, email);
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, request.password()));
 
         SecurityUser principal = (SecurityUser) authentication.getPrincipal();
         User user = principal.user();
+
+        identityRateLimitGuard.refund(IdentityAction.LOGIN, email);
 
         return LoginResponse.builder()
                 .email(user.getEmail())
@@ -130,6 +138,8 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.email());
         OtpType type = resolveOtpType(request.type());
 
+        identityRateLimitGuard.check(IdentityAction.OTP_SEND, type, email);
+
         userRepository.findByEmail(email)
                 .ifPresent(user -> generateAndSendOtp(user, type));
 
@@ -139,6 +149,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public GenericResponseMessage resetPasswordRequest(PasswordResetRequest request) {
         String email = normalizeEmail(request.email());
+        identityRateLimitGuard.check(IdentityAction.OTP_SEND, OtpType.RESET, email);
         Optional<User> byEmail = userRepository.findByEmail(email);
 
         byEmail.ifPresent(user -> generateAndSendOtp(user, OtpType.RESET));
