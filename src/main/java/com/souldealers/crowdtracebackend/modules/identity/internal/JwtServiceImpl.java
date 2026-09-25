@@ -1,7 +1,8 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal;
 
-import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
+import com.souldealers.crowdtracebackend.modules.identity.SecurityUser;
 import com.souldealers.crowdtracebackend.shared.JwtService;
+import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -24,6 +25,7 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.JWT_EXC_MS
 
 @Component
 public class JwtServiceImpl implements JwtService {
+    public static final String CREDENTIALS_VERSION_CLAIM = "cv";
     @Value("${secret-key}")
     private String secret;
 
@@ -68,6 +70,11 @@ public class JwtServiceImpl implements JwtService {
 
         extraClaims.put("role", String.join(",", roles));
 
+        if (userDetails instanceof SecurityUser securityUser) {
+            extraClaims.put(CREDENTIALS_VERSION_CLAIM,
+                    securityUser.user().getCredentialsVersion());
+        }
+
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
@@ -98,5 +105,11 @@ public class JwtServiceImpl implements JwtService {
     }
     public Date extractExpiration(String jwtToken) {
         return extractSingleClaim(jwtToken, Claims::getExpiration);
+    }
+
+    @Override
+    public Integer extractCredentialsVersion(String jwtToken) {
+        return extractSingleClaim(jwtToken,
+                claims -> claims.get(CREDENTIALS_VERSION_CLAIM, Integer.class));
     }
 }

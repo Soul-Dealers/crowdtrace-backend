@@ -23,4 +23,6 @@ public interface JwtService {
     boolean isTokenValid(String jtToken, UserDetails userDetails);
 
     Date extractExpiration(String jwtToken);
+
+    Integer extractCredentialsVersion(String jwtToken);
 }

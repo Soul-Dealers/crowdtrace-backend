@@ -162,6 +162,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setCredentialsVersion(user.getCredentialsVersion() + 1);
         userRepository.save(user);
 
         return new GenericResponseMessage(RESET_PASSWORD_SUCC);

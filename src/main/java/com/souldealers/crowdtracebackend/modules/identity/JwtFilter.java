@@ -50,7 +50,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
                 if (userDetails.isEnabled()
                         && jwtService.isTokenValid(token, userDetails)
-                        && !tokenRevocationService.isRevoked(token)) {
+                        && !tokenRevocationService.isRevoked(token)
+                        && credentialsVersionMatches(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
@@ -64,5 +65,16 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean credentialsVersionMatches(String token, UserDetails userDetails) {
+        if (!(userDetails instanceof SecurityUser securityUser)) {
+            return false;
+        }
+
+        Integer tokenVersion = jwtService.extractCredentialsVersion(token);
+
+        return tokenVersion != null
+                && tokenVersion == securityUser.user().getCredentialsVersion();
     }
 }
