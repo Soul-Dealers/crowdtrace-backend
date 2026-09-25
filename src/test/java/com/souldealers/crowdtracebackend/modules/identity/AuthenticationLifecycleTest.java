@@ -8,6 +8,7 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import com.souldealers.crowdtracebackend.shared.OtpType;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -24,7 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -103,7 +106,8 @@ class AuthenticationLifecycleTest {
                 .findFirst()
                 .orElseThrow();
 
-        String verificationPayload = "{\"email\":\"" + email + "\",\"code\":\"" + otp.getCode() + "\"}";
+        String verificationPayload = "{\"email\":\"" + email + "\",\"code\":\""
+                + captureLatestOtpCode(email, OtpType.CREATE) + "\"}";
 
         mockMvc.perform(post("/api/v1/auth/verify-otp")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -168,12 +172,12 @@ class AuthenticationLifecycleTest {
                 .sorted(Comparator.comparing(Otp::getCreatedAt).thenComparing(Otp::getId))
                 .toList();
         assertThat(issuedOtps).hasSize(2);
-        Otp olderOtp = issuedOtps.get(0);
-        Otp newestOtp = issuedOtps.get(1);
+        String olderOtp = captureOtpCode(email, OtpType.CREATE, 0);
+        String newestOtp = captureOtpCode(email, OtpType.CREATE, 1);
 
         mockMvc.perform(post("/api/v1/auth/verify-otp")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"code\":\"" + olderOtp.getCode() + "\"}"))
+                        .content("{\"email\":\"" + email + "\",\"code\":\"" + olderOtp + "\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Could not verify your OTP"));
 
@@ -182,12 +186,26 @@ class AuthenticationLifecycleTest {
 
         mockMvc.perform(post("/api/v1/auth/verify-otp")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"code\":\"" + newestOtp.getCode() + "\"}"))
+                        .content("{\"email\":\"" + email + "\",\"code\":\"" + newestOtp + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Email verified successfully"));
 
         assertThat(userRepository.findByEmail(email).orElseThrow().getAccountStatus())
                 .isEqualTo(UserStatus.ACTIVE);
         verify(notificationService).sendWelcomeEmail(email, displayName);
+    }
+
+    private String captureLatestOtpCode(String email, OtpType type) {
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(notificationService, atLeastOnce()).sendOtpEmail(
+                eq(email), codeCaptor.capture(), anyString(), eq(type));
+        return codeCaptor.getValue();
+    }
+
+    private String captureOtpCode(String email, OtpType type, int index) {
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(notificationService, atLeastOnce()).sendOtpEmail(
+                eq(email), codeCaptor.capture(), anyString(), eq(type));
+        return codeCaptor.getAllValues().get(index);
     }
 }

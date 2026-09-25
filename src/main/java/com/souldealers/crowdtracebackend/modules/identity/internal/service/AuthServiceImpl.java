@@ -201,8 +201,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void generateAndSendOtp(User user, OtpType type){
-        var otp = otpService.generateOtp(user.getEmail(), type);
-        notificationService.sendOtpEmail(user.getEmail(), otp.getCode(), user.getDisplayName(), type);
+        String code = otpService.generateOtp(user.getEmail(), type);
+        notificationService.sendOtpEmail(user.getEmail(), code, user.getDisplayName(), type);
     }
 
     private void sendWelcomeEmailAfterCommit(String email, String displayName) {

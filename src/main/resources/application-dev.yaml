@@ -43,6 +43,9 @@ jwt:
   key-path: certs/private.pem
   key-rotation-interval: 0
 
+otp:
+  hmac-secret: ${OTP_HMAC_SECRET:ZGV2LW90cC1obWFjLXNlY3JldC1kby1ub3QtdXNlLWluLXByb2Q=}
+
 # Resend Email Configuration
 resend:
   url: "https://api.resend.com/emails"

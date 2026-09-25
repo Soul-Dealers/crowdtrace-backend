@@ -8,6 +8,7 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.repository.Us
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import com.souldealers.crowdtracebackend.shared.OtpType;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -22,6 +23,7 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.TOKEN_SENT
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -84,7 +86,7 @@ class PasswordResetFlowTest {
         String email = "reset-password@example.com";
         User user = saveUser(email, "Reset Password User", "old-password");
         authService.resetPasswordRequest(new PasswordResetRequest(email));
-        String code = latestResetOtp(user.getEmail()).getCode();
+        String code = captureLatestOtpCode(user.getEmail(), OtpType.RESET);
         String payload = "{\"email\":\"RESET-PASSWORD@EXAMPLE.COM\","
                 + "\"password\":\"new-password\","
                 + "\"confirmPassword\":\"new-password\","
@@ -141,5 +143,12 @@ class PasswordResetFlowTest {
                 .filter(otp -> otp.getType() == OtpType.RESET)
                 .max(java.util.Comparator.comparing(Otp::getCreatedAt))
                 .orElseThrow();
+    }
+
+    private String captureLatestOtpCode(String email, OtpType type) {
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(notificationService, atLeastOnce()).sendOtpEmail(
+                eq(email), codeCaptor.capture(), anyString(), eq(type));
+        return codeCaptor.getValue();
     }
 }

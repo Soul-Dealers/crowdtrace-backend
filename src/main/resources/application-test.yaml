@@ -44,3 +44,6 @@ logging:
 secret-key: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
 jwt:
   access-token-expiry: 900
+
+otp:
+  hmac-secret: dGVzdC1vdHAtaG1hYy1zZWNyZXQtZm9yLWF1dG9tYXRlZC10ZXN0cw==
