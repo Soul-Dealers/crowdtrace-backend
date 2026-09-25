@@ -71,8 +71,8 @@ class OtpAttemptCapTest {
 
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\"," 
-                                + "\"displayName\":\"Test User\"," 
+                        .content("{\"email\":\"" + email + "\","
+                                + "\"displayName\":\"Test User\","
                                 + "\"password\":\"Str0ngPassw0rd!\"}"))
                 .andReturn();
 
