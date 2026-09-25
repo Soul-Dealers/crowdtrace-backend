@@ -18,6 +18,9 @@ public class CustomMessages {
     public static final String PASSWORD_MISMATCH = "Passwords do not match";
     public static final String RESET_PASSWORD_SUCC = "Password reset successfully, log in";
     public static final String LOGOUT_SUCCESS_MSG = "Logged out successfully";
+    public static final String RATE_LIMIT_EXCEEDED_MSG = "Too many requests, try again later";
+    public static final String RATE_LIMIT_UNAVAILABLE_MSG =
+            "Service temporarily unavailable, try again shortly";
 
 
 }

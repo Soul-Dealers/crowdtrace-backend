@@ -9,6 +9,8 @@ import java.util.Map;
 
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
+import com.souldealers.crowdtracebackend.shared.RateLimitExceededException;
+import com.souldealers.crowdtracebackend.shared.RateLimitUnavailableException;
 import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import com.souldealers.crowdtracebackend.shared.config.CorrelationIdFilter;
@@ -18,7 +20,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -168,6 +172,50 @@ public class GlobalExceptionHandler {
                 INTERNAL_SERVER_ERROR_MSG,
                 "INTERNAL_ERROR",
                 request);
+    }
+
+    /**
+     * The only two handlers here that return ResponseEntity. A bare ProblemDetail
+     * cannot carry headers, and a 429 without Retry-After is the most common
+     * mistake in rate-limit implementations.
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleRateLimitExceeded(
+            RateLimitExceededException exception,
+            HttpServletRequest request) {
+
+        // The policy name is safe in logs and must never reach the response.
+        log.warn("Rate limit exceeded on {} {} (policy={}, retryAfter={}s)",
+                request.getMethod(), request.getRequestURI(),
+                exception.policyName(), exception.retryAfterSeconds());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()))
+                .body(problem(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "Too many requests",
+                        RATE_LIMIT_EXCEEDED_MSG,
+                        "RATE_LIMIT_EXCEEDED",
+                        request));
+    }
+
+    @ExceptionHandler(RateLimitUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleRateLimitUnavailable(
+            RateLimitUnavailableException exception,
+            HttpServletRequest request) {
+
+        log.error("Rate limit store unavailable on {} {} (exceptionType={})",
+                request.getMethod(), request.getRequestURI(),
+                exception.getClass().getName());
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "5")
+                .body(problem(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Service unavailable",
+                        RATE_LIMIT_UNAVAILABLE_MSG,
+                        "RATE_LIMIT_UNAVAILABLE",
+                        request));
     }
 
     private ProblemDetail problem(
