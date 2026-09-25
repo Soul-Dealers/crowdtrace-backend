@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.shared.ratelimit;
 
 import com.souldealers.crowdtracebackend.shared.RateLimitExceededException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -35,7 +36,8 @@ class IpRateLimitInterceptorTest {
 
     private final RateLimiter rateLimiter = mock(RateLimiter.class);
     private final IpRateLimitInterceptor interceptor =
-            new IpRateLimitInterceptor(rateLimiter, new ClientAddressResolver());
+            new IpRateLimitInterceptor(
+                    rateLimiter, new ClientAddressResolver(), new SimpleMeterRegistry());
 
     private MockHttpServletRequest request() {
         MockHttpServletRequest request = new MockHttpServletRequest();

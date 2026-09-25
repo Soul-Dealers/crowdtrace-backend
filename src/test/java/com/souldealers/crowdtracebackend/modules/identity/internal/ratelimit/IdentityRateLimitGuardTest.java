@@ -6,6 +6,7 @@ import com.souldealers.crowdtracebackend.shared.RateLimitUnavailableException;
 import com.souldealers.crowdtracebackend.shared.ratelimit.RateLimitDecision;
 import com.souldealers.crowdtracebackend.shared.ratelimit.RateLimitScope;
 import com.souldealers.crowdtracebackend.shared.ratelimit.RateLimiter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 
@@ -23,7 +24,8 @@ import static org.mockito.Mockito.when;
 class IdentityRateLimitGuardTest {
 
     private final RateLimiter rateLimiter = mock(RateLimiter.class);
-    private final IdentityRateLimitGuard guard = new IdentityRateLimitGuard(rateLimiter);
+    private final IdentityRateLimitGuard guard =
+            new IdentityRateLimitGuard(rateLimiter, new SimpleMeterRegistry());
 
     @Test
     void anAllowedActionProceeds() {
