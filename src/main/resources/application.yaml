@@ -4,6 +4,28 @@ spring:
   profiles:
     active: dev
 
+# Rate limiting. IP limits are deliberately coarser than identity limits:
+# offices, universities and carrier NAT share one address, so a tight IP limit
+# locks out a whole building on one user's typos. The identity layer is the
+# actual control.
+server:
+  # Do NOT enable forwarded-header handling until the load balancer and its
+  # CIDRs are documented. Trusting X-Forwarded-For without a trusted-proxy
+  # boundary lets any client forge a fresh bucket per request.
+  forward-headers-strategy: none
+
+rate-limit:
+  enabled: true
+  hmac-secret: ${RATE_LIMIT_HMAC_SECRET}
+  policies:
+    ip-login:          { limit: 60, window: 5m }
+    ip-signup:         { limit: 30, window: 1h }
+    ip-otp-send:       { limit: 20, window: 1h }
+    ip-otp-attempt:    { limit: 60, window: 10m }
+    identity-login:    { limit: 5,  window: 5m }
+    identity-otp-send: { limit: 3,  window: 1h }
+    identity-otp-attempt: { limit: 5, window: 10m }
+
 management:
   endpoints:
     web:

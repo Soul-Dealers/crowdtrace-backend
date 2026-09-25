@@ -46,6 +46,9 @@ jwt:
 otp:
   hmac-secret: ${OTP_HMAC_SECRET:ZGV2LW90cC1obWFjLXNlY3JldC1kby1ub3QtdXNlLWluLXByb2Q=}
 
+rate-limit:
+  hmac-secret: ${RATE_LIMIT_HMAC_SECRET:ZGV2LXJhdGUtbGltaXQtaG1hYy1zZWNyZXQtbm90LWZvci1wcm9kdWN0aW9u}
+
 # Resend Email Configuration
 resend:
   url: "https://api.resend.com/emails"

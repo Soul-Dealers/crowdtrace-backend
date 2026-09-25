@@ -47,3 +47,11 @@ jwt:
 
 otp:
   hmac-secret: dGVzdC1vdHAtaG1hYy1zZWNyZXQtZm9yLWF1dG9tYXRlZC10ZXN0cw==
+
+# H2 cannot execute the PostgreSQL ON CONFLICT upsert the limiter is built on
+# (error 42000-240, measured in the CT-007 review), and Flyway is disabled here
+# so V8 never creates the table. The rate-limit tests opt back in with
+# rate-limit.enabled=true against a Testcontainers PostgreSQL.
+rate-limit:
+  enabled: false
+  hmac-secret: dGVzdC1yYXRlLWxpbWl0LWhtYWMtc2VjcmV0LWZvci1hdXRvbWF0ZWQtdGVzdHM=
