@@ -29,7 +29,7 @@ class IdentityMigrationTest {
 
         assertThat(columnsFor("users")).containsExactlyInAnyOrder(
                 "id", "email", "password_hash", "display_name", "role", "account_status",
-                "created_at", "updated_at");
+                "created_at", "updated_at", "deleted_at");
         assertThat(columnsFor("verification_requests")).containsExactlyInAnyOrder(
                 "id", "user_id", "verification_type", "evidence_reference", "status",
                 "reviewer_id", "review_notes", "created_at", "reviewed_at");
