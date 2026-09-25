@@ -227,13 +227,14 @@ existing shared kernel. `CrowdtraceModulesTest` must pass unchanged.
 
 ```
 shared/ratelimit/
-  RateLimiter.java                  interface: record(...), peek(...)
+  RateLimiter.java                  interface: record(...), peek(...), reset(...)
   RateLimitDecision.java            record(allowed, limit, windowSeconds, retryAfterSeconds)
   RateLimitScope.java               enum { IP, IDENTITY }
   RateLimitPolicy.java              record(name, limit, Duration window)
   PostgresRateLimiter.java          the upsert; REQUIRES_NEW
   RateLimitBucketRepository.java    native query
-  RateLimitProperties.java          @ConfigurationProperties("rate-limit"), validated at startup
+  RateLimitProperties.java          @ConfigurationProperties("rate-limit"), validated at startup;
+                                    carries `enabled` (see §8.1) and the per-action policies
   ClientAddressResolver.java        getRemoteAddr() + canonicalisation, no header parsing
   IpRateLimitInterceptor.java       coarse layer, fail-open
   RateLimitWebConfig.java           registers the interceptor
@@ -308,6 +309,18 @@ Configuration-driven via `RateLimitProperties`, so tuning is a config change. St
 | `OTP_ATTEMPT` (per purpose) | 60 / 10 min | 5 / 10 min |
 | `POST /signup` (IP layer only) | 30 / hr | n/a — identity side is `OTP_SEND + CREATE` |
 
+**A successful login refunds its charge.** Every `/login` call charges the `LOGIN` bucket up front
+(charging before the attempt keeps it a single atomic statement with no peek-then-write race), and a
+*successful* authentication then resets that bucket to zero. Charging successes permanently would be
+hostile here: access tokens live 15 minutes with no refresh path (prior plan, Deferred Items), so a
+normal user with two devices re-authenticates through a 5-per-5-minutes budget fast. Credential
+stuffing produces failures, which is exactly what stays counted.
+
+`OTP_ATTEMPT` resets the same way on successful consumption. `OTP_SEND` never resets — the whole point
+is to cap outbound mail regardless of outcome.
+
+This adds one operation to the interface: `RateLimiter.reset(scope, action, subject)`.
+
 Treat these as safe starting points, not product requirements. Emit
 `allowed`/`denied`/`store_error` counters tagged by policy name (never by raw email or IP) so they
 can be tuned against real traffic.
@@ -333,16 +346,13 @@ is additive.
 public ResponseEntity<ProblemDetail> handleRateLimitExceeded(
         RateLimitExceededException exception, HttpServletRequest request) {
 
+    // Policy name is safe in logs; it must not reach the response (see below).
     log.warn("Rate limit exceeded on {} {} (policy={}, retryAfter={}s)",
             request.getMethod(), request.getRequestURI(),
             exception.policyName(), exception.retryAfterSeconds());
 
     return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
             .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()))
-            .header("RateLimit-Limit", Long.toString(exception.limit()))
-            .header("RateLimit-Remaining", "0")
-            .header("RateLimit-Reset", Long.toString(exception.retryAfterSeconds()))
-            .header("RateLimit-Policy", exception.limit() + ";w=" + exception.windowSeconds())
             .body(problem(HttpStatus.TOO_MANY_REQUESTS, "Too many requests",
                     RATE_LIMIT_EXCEEDED_MSG, "RATE_LIMIT_EXCEEDED", request));
 }
@@ -356,9 +366,13 @@ to ≥ 1 second — not from the configured window length. fine-dine's Lua scrip
 so it cannot do this and reports the full window on every denial, telling a client to wait far longer
 than necessary.
 
-`RateLimit-*` headers are emitted on `429` only. Emitting them on success would require deciding
-which of the two layers is authoritative and would expose per-identifier activity to anyone who can
-send a request.
+**`Retry-After` is the only rate-limit header emitted.** The `RateLimit-Limit` / `RateLimit-Policy`
+family was considered and rejected: `RateLimit-Policy: 5;w=600` is the OTP attempt cap and
+`3;w=3600` is the send bucket, so publishing them tells an attacker *which control tripped* — letting
+them distinguish "this address is attempt-locked" from "this address hit its send quota", and tune
+around each. That directly contradicts the deliberately vague body in §5.5. `Retry-After` alone gives
+a well-behaved client everything it needs to back off correctly, and is one header to implement
+instead of five.
 
 ### 5.2 `503` when the identity layer cannot reach its store
 
@@ -455,6 +469,38 @@ The test that matters is not "the annotation is present" — it is "the counter 
 request" and "resend does not reset the cap". Both describe limiters that look correct in ordinary
 unit tests.
 
+### 8.1 The existing suite must keep running on H2
+
+**This is a blocking prerequisite, not a detail.** `application-test.yaml` runs H2
+(`MODE=PostgreSQL`, `ddl-auto: create-drop`) with **Flyway disabled**, and **13 test classes** issue
+requests to `/api/v1/auth/*`. Registering `IpRateLimitInterceptor` without addressing that breaks all
+of them at once, in two independent ways:
+
+1. `V8` never runs (Flyway off) and there is no `@Entity` for the bucket (deliberately — it is a
+   native-query table), so `create-drop` does not create it either. *Table not found* on every auth request.
+2. Even with the table, **H2 cannot execute the statement.** The prior review established this
+   empirically: *"Executing the planned `INSERT ... ON CONFLICT DO NOTHING` against the project's
+   H2 2.4.240 in PostgreSQL mode produces SQL error `42000-240`"*
+   (`2026-09-24-auth-hardening-review.md`, Verification Performed). §4.2 is `ON CONFLICT DO UPDATE
+   … RETURNING`, strictly more of the same syntax.
+
+**Decision: `rate-limit.enabled` (a `RateLimitProperties` field), set `false` in
+`application-test.yaml`.** When disabled, the interceptor and both guards short-circuit to "allowed"
+without touching the database. The existing 93 tests keep running on H2 unchanged.
+
+Every rate-limit test then opts in explicitly with `rate-limit.enabled: true` against a Testcontainers
+PostgreSQL — which is the only configuration that proves the shipped statement anyway.
+
+Alternatives rejected: migrating the whole suite to Testcontainers (correct long-term, but turns this
+ticket into a test-infrastructure project and slows every run); writing portable SQL with a JPA entity
+so H2 copes (worst — the tests would exercise a *different statement* than production, which is the
+precise trap the prior review caught).
+
+The flag is a test-profile affordance, **not** a production kill switch: `rate-limit.enabled` defaults
+to `true`, and a test asserts the dev and prod profiles do not disable it.
+
+### 8.2 Test set
+
 **Store (PostgreSQL Testcontainers — `application-test.yaml` uses H2 with `create-drop` and Flyway
 disabled, so it cannot prove the `ON CONFLICT` upsert; follow the `TokenRevocationRaceTest` pattern):**
 
@@ -491,7 +537,9 @@ disabled, so it cannot prove the `ON CONFLICT` upsert; follow the `TokenRevocati
 Each step is independently verifiable; the mechanism is proven on PostgreSQL before anything depends
 on it.
 
-1. Config + policy model: `RateLimitProperties` (validated at startup), policy names, `RateLimitDecision`.
+1. Config + policy model: `RateLimitProperties` (validated at startup, incl. `enabled`), policy names,
+   `RateLimitDecision`; set `rate-limit.enabled: false` in `application-test.yaml` **before** step 5
+   registers the interceptor (§8.1).
 2. `V8` migration + the upsert + Testcontainers tests 1–4. **Mechanism proven before use.**
 3. `PostgresRateLimiter`, HMAC keying, `REQUIRES_NEW`, purge job.
 4. Exceptions + `GlobalExceptionHandler` returning `ResponseEntity<ProblemDetail>` + `CustomMessages`.
