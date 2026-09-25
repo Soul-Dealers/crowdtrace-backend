@@ -7,7 +7,6 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.repository.Us
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.JwtService;
-import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import com.souldealers.crowdtracebackend.shared.OtpType;
 import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
@@ -185,15 +184,6 @@ public class AuthServiceImpl implements AuthService {
         } catch (IllegalArgumentException exception) {
             throw new ValidationException(UNSUPPORTED_OTP_TYPE_MSG);
         }
-    }
-
-    private User findUserByEmailForUpdate(String email){
-
-        if (email == null || email.isBlank())
-            throw new ValidationException(EMAIL_NOT_NULL_MSG);
-
-        return userRepository.findByEmailForUpdate(email)
-                .orElseThrow(()-> new NotFoundException(USER_NOT_FOUND_MSG));
     }
 
     private void generateAndSendOtp(User user, OtpType type){
