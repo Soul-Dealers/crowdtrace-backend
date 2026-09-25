@@ -556,4 +556,5 @@ on it.
 - `docs/decisions/ADR-001-modular-monolith.md` — module boundary rules
 - Reference implementation ported from: `fine-dine/services/common/src/main/java/com/finedine/common/ratelimit/`
   (shape adopted; Redis backing, IP-only keying and `getClientIp` header trust deliberately not adopted)
-- Peer review by Codex (gpt-5.6-sol) informing §3.3, §3.6, §5 and §8
+- `docs/superpowers/plans/2026-09-25-otp-rate-limiting-review.md` — the Codex (gpt-5.6-sol) peer
+  review behind §3.1–§3.6, §5.3 and §6, including the three recommendations not adopted
