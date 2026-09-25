@@ -20,4 +20,11 @@ public interface OtpRepository extends JpaRepository<Otp, UUID> {
     @Modifying
     @Query("delete from Otp o where o.expiredAt < :cutoff")
     int deleteExpired(@Param("cutoff") LocalDateTime cutoff);
+
+    @Modifying
+    @Query("update Otp o set o.expiredAt = :now "
+            + "where o.email = :email and o.type = :type and o.expiredAt > :now")
+    int expireActive(@Param("email") String email,
+                     @Param("type") OtpType type,
+                     @Param("now") LocalDateTime now);
 }

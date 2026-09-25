@@ -5,6 +5,7 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityAction;
 import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityRateLimitGuard;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.OtpAttemptGuard;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
@@ -42,6 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final NotificationService notificationService;
     private final IdentityRateLimitGuard identityRateLimitGuard;
+    private final OtpAttemptGuard otpAttemptGuard;
 
     @Override
     @Transactional
@@ -118,6 +120,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = normalizeEmail(request.email());
+        otpAttemptGuard.beforeAttempt(OtpType.CREATE, email);
         User user = userRepository.findByEmailForUpdate(email)
                 .filter(candidate -> candidate.getAccountStatus() == UserStatus.PENDING_VERIFICATION)
                 .orElseThrow(() -> new ValidationException(OTP_VERIFICATION_FAILED_MSG));
@@ -125,6 +128,8 @@ public class AuthServiceImpl implements AuthService {
         if (!otpService.consumeOtp(request.code(), email, OtpType.CREATE)) {
             throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
         }
+
+        otpAttemptGuard.afterSuccess(OtpType.CREATE, email);
 
         user.setAccountStatus(UserStatus.ACTIVE);
         userRepository.save(user);
@@ -138,6 +143,7 @@ public class AuthServiceImpl implements AuthService {
         String email = normalizeEmail(request.email());
         OtpType type = resolveOtpType(request.type());
 
+        otpAttemptGuard.requireNotBlocked(type, email);
         identityRateLimitGuard.check(IdentityAction.OTP_SEND, type, email);
 
         userRepository.findByEmail(email)
@@ -149,6 +155,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public GenericResponseMessage resetPasswordRequest(PasswordResetRequest request) {
         String email = normalizeEmail(request.email());
+        otpAttemptGuard.requireNotBlocked(OtpType.RESET, email);
         identityRateLimitGuard.check(IdentityAction.OTP_SEND, OtpType.RESET, email);
         Optional<User> byEmail = userRepository.findByEmail(email);
 
@@ -164,12 +171,15 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = normalizeEmail(request.email());
+        otpAttemptGuard.beforeAttempt(OtpType.RESET, email);
         User user = userRepository.findByEmailForUpdate(email)
                 .orElseThrow(() -> new ValidationException(OTP_VERIFICATION_FAILED_MSG));
 
         if (!otpService.consumeOtp(request.code(), email, OtpType.RESET)) {
             throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
         }
+
+        otpAttemptGuard.afterSuccess(OtpType.RESET, email);
 
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setCredentialsVersion(user.getCredentialsVersion() + 1);
