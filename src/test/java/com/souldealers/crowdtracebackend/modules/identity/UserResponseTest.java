@@ -49,7 +49,7 @@ class UserResponseTest {
                         .role(UserRoles.REGISTERED_USER)
                         .accountStatus(UserStatus.ACTIVE)
                         .build())
-                .verificationType(VerificationType.IDENTITY)
+                .verificationType(VerificationType.POLICE)
                 .evidenceReference("private/evidence.pdf")
                 .status(VerificationStatus.PENDING)
                 .build();

@@ -56,7 +56,7 @@ class VerificationRequestRepositoryTest {
                 .findById(savedRequest.getId())
                 .orElseThrow();
 
-        assertThat(reloadedRequest.getVerificationType()).isEqualTo(VerificationType.IDENTITY);
+        assertThat(reloadedRequest.getVerificationType()).isEqualTo(VerificationType.POLICE);
         assertThat(reloadedRequest.getStatus()).isEqualTo(VerificationStatus.PENDING);
     }
 
@@ -75,7 +75,7 @@ class VerificationRequestRepositoryTest {
     private VerificationRequest request(User user, VerificationStatus status, LocalDateTime createdAt) {
         return VerificationRequest.builder()
                 .user(user)
-                .verificationType(VerificationType.IDENTITY)
+                .verificationType(VerificationType.POLICE)
                 .evidenceReference("evidence/identity-proof.pdf")
                 .status(status)
                 .createdAt(createdAt)
