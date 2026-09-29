@@ -54,10 +54,6 @@ class CurrentUserProfileTest {
                 .andExpect(jsonPath("$.data.displayName").value("Current User"))
                 .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.data.token").doesNotExist());
-
-        mockMvc.perform(get("/api/auth/me").header("Authorization", token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.displayName").value("Current User"));
     }
 
     @Test

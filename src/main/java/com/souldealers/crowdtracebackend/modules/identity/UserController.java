@@ -5,6 +5,7 @@ import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -16,12 +17,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping({"/api/auth", "/api/v1/auth"})
+@RequestMapping("/api/v1/auth")
 public class UserController {
 
     private final UserService userService;
     private final AuthService authService;
 
+    @Operation(
+            summary = "Current user",
+            description = "Returns the authenticated user's own profile. Never exposes credentials.",
+            tags = "Authentication")
     @GetMapping("/me")
     public ApiResponse<UserResponse> getCurrentUser(Authentication authentication) {
         UserResponse result = userService.getCurrentUser(authentication.getName());
@@ -36,6 +41,10 @@ public class UserController {
         return ApiResponse.success(result, "Profile updated successfully");
     }
 
+    @Operation(
+            summary = "Logout",
+            description = "Revokes the presented access token for the remainder of its lifetime.",
+            tags = "Authentication")
     @PostMapping("/logout")
     public ApiResponse<GenericResponseMessage> logout(
             @RequestHeader("Authorization") String authorizationHeader) {

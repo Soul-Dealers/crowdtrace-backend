@@ -48,10 +48,14 @@ class CanonicalPathTest {
                 "/api/v1/auth/resend-otp",
                 "/api/v1/auth/request-password-reset",
                 "/api/v1/auth/reset-password",
-                "/api/v1/auth/users");
+                "/api/v1/auth/users",
+                "/api/v1/auth/me",
+                "/api/v1/auth/logout",
+                "/api/v1/auth/profile-settings");
 
         assertThat(patterns).doesNotContain(
                 "/login", "/signup", "/verify-otp", "/resend-otp",
-                "/request-password-reset", "/reset-password", "/users");
+                "/request-password-reset", "/reset-password", "/users",
+                "/api/auth/me", "/api/auth/logout", "/api/auth/profile-settings");
     }
 }

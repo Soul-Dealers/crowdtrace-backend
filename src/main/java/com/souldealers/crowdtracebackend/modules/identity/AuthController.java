@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,11 @@ public class AuthController {
                 "Users retrieved successfully");
     }
 
+    @Operation(
+            summary = "Register",
+            description = "Creates a pending account and sends an email verification OTP.",
+            tags = "Authentication")
+    @SecurityRequirements
     @PostMapping("/signup")
     @RateLimit("ip-signup")
     public ApiResponse<GenericResponseMessage> signUpUser(@Valid @RequestBody SignUpRequest request){
@@ -48,6 +54,11 @@ public class AuthController {
         return ApiResponse.success(result, result.message());
     }
 
+    @Operation(
+            summary = "Login",
+            description = "Exchanges credentials for a short-lived access token",
+            tags = "Authentication")
+    @SecurityRequirements
     @PostMapping("/login")
     @RateLimit("ip-login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request){
@@ -55,6 +66,7 @@ public class AuthController {
         return ApiResponse.success(result, "Login successful");
     }
 
+    @SecurityRequirements
     @PostMapping("/verify-otp")
     @RateLimit("ip-otp-attempt")
     public ApiResponse<GenericResponseMessage> verifyOtp(@Valid @RequestBody VerifyOtpDto request) {
@@ -66,6 +78,7 @@ public class AuthController {
             summary = "request for otp resend",
             method = "POST"
     )
+    @SecurityRequirements
     @PostMapping("/resend-otp")
     @RateLimit("ip-otp-send")
     public GenericResponseMessage resendOtp (@Valid @RequestBody ResendOtpRequest request){
@@ -77,6 +90,7 @@ public class AuthController {
             summary = "request to reset password",
             method = "POST"
     )
+    @SecurityRequirements
     @PostMapping("/request-password-reset")
     @RateLimit("ip-otp-send")
     public GenericResponseMessage requestPasswordReset(@Valid @RequestBody PasswordResetRequest request){
@@ -88,6 +102,7 @@ public class AuthController {
             summary = "reset password with email code and new password",
             method = "POST"
     )
+    @SecurityRequirements
     @PostMapping("/reset-password")
     @RateLimit("ip-otp-attempt")
     public GenericResponseMessage resetPassword(@Valid @RequestBody PasswordReset request){

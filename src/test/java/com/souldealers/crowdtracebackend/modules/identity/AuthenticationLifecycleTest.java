@@ -31,6 +31,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -193,6 +194,66 @@ class AuthenticationLifecycleTest {
         assertThat(userRepository.findByEmail(email).orElseThrow().getAccountStatus())
                 .isEqualTo(UserStatus.ACTIVE);
         verify(notificationService).sendWelcomeEmail(email, displayName);
+    }
+
+    @Test
+    void registrationThroughTheHttpEndpointPersistsAHashAndNeverEchoesThePassword() throws Exception {
+        String email = "http-registration@example.com";
+        String password = "plain-password";
+
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\","
+                                + "\"password\":\"" + password + "\","
+                                + "\"displayName\":\"Http Registered User\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(content().string(not(containsString(password))));
+
+        User user = userRepository.findByEmail(email).orElseThrow();
+        assertThat(user.getPasswordHash()).isNotEqualTo(password);
+        assertThat(passwordEncoder.matches(password, user.getPasswordHash())).isTrue();
+        assertThat(user.getAccountStatus()).isEqualTo(UserStatus.PENDING_VERIFICATION);
+    }
+
+    @Test
+    void successfulLoginReturnsATokenThatResolvesTheCurrentUser() throws Exception {
+        String email = "successful-login@example.com";
+        String password = "plain-password";
+        String displayName = "Successful Login User";
+
+        registerAndActivate(email, password, displayName);
+
+        String loginBody = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.displayName").value(displayName))
+                .andExpect(jsonPath("$.data.token").isNotEmpty())
+                .andExpect(content().string(not(containsString("passwordHash"))))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String token = com.jayway.jsonpath.JsonPath.read(loginBody, "$.data.token");
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.email").value(email))
+                .andExpect(jsonPath("$.data.displayName").value(displayName));
+    }
+
+    private void registerAndActivate(String email, String password, String displayName) {
+        authService.signUp(SignUpRequest.builder()
+                .email(email)
+                .password(password)
+                .displayName(displayName)
+                .build());
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.setAccountStatus(UserStatus.ACTIVE);
+        userRepository.saveAndFlush(user);
     }
 
     private String captureLatestOtpCode(String email, OtpType type) {
