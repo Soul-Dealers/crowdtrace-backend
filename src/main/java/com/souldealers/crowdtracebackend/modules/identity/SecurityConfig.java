@@ -24,6 +24,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
 
     public static final String [] publicEndpoints = {
             "/actuator/health/liveness",
@@ -43,16 +44,18 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationProvider authenticationProvider) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
+        http.cors(Customizer.withDefaults());
 
         http
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(publicEndpoints)
                         .permitAll()
-                        .anyRequest().authenticated())
-                .httpBasic(Customizer.withDefaults());
-                http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-                http.authenticationProvider(authenticationProvider);
-                http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                        .anyRequest().authenticated());
+        http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.authenticationProvider(authenticationProvider);
+        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        http.exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint));
         return http.build();
     }
 

@@ -3,15 +3,19 @@ package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 import com.souldealers.crowdtracebackend.modules.identity.*;
 import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityAction;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityRateLimitGuard;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.OtpAttemptGuard;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.JwtService;
-import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import com.souldealers.crowdtracebackend.shared.OtpType;
+import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -34,13 +39,19 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final TokenRevocationService tokenRevocationService;
     private final OtpService otpService;
     private final NotificationService notificationService;
+    private final IdentityRateLimitGuard identityRateLimitGuard;
+    private final OtpAttemptGuard otpAttemptGuard;
 
     @Override
+    @Transactional
     public GenericResponseMessage signUp(SignUpRequest request) {
 
         String email = normalizeEmail(request.email());
+
+        identityRateLimitGuard.check(IdentityAction.OTP_SEND, OtpType.CREATE, email);
 
         Optional<User> existingUser = userRepository.findByEmail(email);
 
@@ -73,17 +84,32 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         String email = normalizeEmail(request.email());
-        User user = findUserByEmail(email);
-        String token  = jwtService.generateToken(new SecurityUser(user));
+        identityRateLimitGuard.check(IdentityAction.LOGIN, email);
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, request.password()));
+
+        SecurityUser principal = (SecurityUser) authentication.getPrincipal();
+        User user = principal.user();
+
+        identityRateLimitGuard.refund(IdentityAction.LOGIN, email);
 
         return LoginResponse.builder()
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
                 .role(user.getRole())
-                .token(token)
+                .token(jwtService.generateToken(principal))
                 .build();
+    }
+
+    @Override
+    public GenericResponseMessage logout(String authorizationHeader) {
+        String token = extractBearerToken(authorizationHeader);
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                jwtService.extractExpiration(token).toInstant(), ZoneOffset.UTC);
+
+        tokenRevocationService.revoke(token, expiresAt);
+        return new GenericResponseMessage(LOGOUT_SUCCESS_MSG);
     }
 
     @Override
@@ -94,15 +120,16 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = normalizeEmail(request.email());
-        User user = findUserByEmailForUpdate(email);
-
-        if (user.getAccountStatus() != UserStatus.PENDING_VERIFICATION) {
-            throw new IllegalStateException(EXISTING_EMAIL);
-        }
+        otpAttemptGuard.beforeAttempt(OtpType.CREATE, email);
+        User user = userRepository.findByEmailForUpdate(email)
+                .filter(candidate -> candidate.getAccountStatus() == UserStatus.PENDING_VERIFICATION)
+                .orElseThrow(() -> new ValidationException(OTP_VERIFICATION_FAILED_MSG));
 
         if (!otpService.consumeOtp(request.code(), email, OtpType.CREATE)) {
-            throw new ValidationException("Could not verify this OTP");
+            throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
         }
+
+        otpAttemptGuard.afterSuccess(OtpType.CREATE, email);
 
         user.setAccountStatus(UserStatus.ACTIVE);
         userRepository.save(user);
@@ -113,9 +140,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public GenericResponseMessage resendOtp(ResendOtpRequest request) {
-        User user = userRepository.findByEmail(request.email()).orElseThrow(()-> new NotFoundException(USER_NOT_FOUND_MSG));
+        String email = normalizeEmail(request.email());
+        OtpType type = resolveOtpType(request.type());
 
-        generateAndSendOtp(user, OtpType.CREATE);
+        otpAttemptGuard.requireNotBlocked(type, email);
+        identityRateLimitGuard.check(IdentityAction.OTP_SEND, type, email);
+
+        userRepository.findByEmail(email)
+                .ifPresent(user -> generateAndSendOtp(user, type));
 
         return new GenericResponseMessage(TOKEN_SENT_MSG);
     }
@@ -123,6 +155,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public GenericResponseMessage resetPasswordRequest(PasswordResetRequest request) {
         String email = normalizeEmail(request.email());
+        otpAttemptGuard.requireNotBlocked(OtpType.RESET, email);
+        identityRateLimitGuard.check(IdentityAction.OTP_SEND, OtpType.RESET, email);
         Optional<User> byEmail = userRepository.findByEmail(email);
 
         byEmail.ifPresent(user -> generateAndSendOtp(user, OtpType.RESET));
@@ -137,13 +171,18 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = normalizeEmail(request.email());
-        User user = findUserByEmailForUpdate(email);
+        otpAttemptGuard.beforeAttempt(OtpType.RESET, email);
+        User user = userRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new ValidationException(OTP_VERIFICATION_FAILED_MSG));
 
         if (!otpService.consumeOtp(request.code(), email, OtpType.RESET)) {
             throw new ValidationException(OTP_VERIFICATION_FAILED_MSG);
         }
 
+        otpAttemptGuard.afterSuccess(OtpType.RESET, email);
+
         user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setCredentialsVersion(user.getCredentialsVersion() + 1);
         userRepository.save(user);
 
         return new GenericResponseMessage(RESET_PASSWORD_SUCC);
@@ -156,41 +195,51 @@ public class AuthServiceImpl implements AuthService {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    private User findUserByEmail(String email){
+    private OtpType resolveOtpType(String type) {
+        if (type == null || type.isBlank()) {
+            return OtpType.CREATE;
+        }
 
-        if (email == null || email.isBlank())
-            throw new ValidationException(EMAIL_NOT_NULL_MSG);
-
-        return userRepository.findByEmail(email)
-                .orElseThrow(()-> new NotFoundException(USER_NOT_FOUND_MSG));
-    }
-
-    private User findUserByEmailForUpdate(String email){
-
-        if (email == null || email.isBlank())
-            throw new ValidationException(EMAIL_NOT_NULL_MSG);
-
-        return userRepository.findByEmailForUpdate(email)
-                .orElseThrow(()-> new NotFoundException(USER_NOT_FOUND_MSG));
+        try {
+            return OtpType.valueOf(type.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new ValidationException(UNSUPPORTED_OTP_TYPE_MSG);
+        }
     }
 
     private void generateAndSendOtp(User user, OtpType type){
-        var otp = otpService.generateOtp(user.getEmail(), type);
-        notificationService.sendOtpEmail(user.getEmail(), otp.getCode(), user.getDisplayName(), type);
+        String code = otpService.generateOtp(user.getEmail(), type);
+        String email = user.getEmail();
+        String displayName = user.getDisplayName();
+        runAfterCommit(() -> notificationService.sendOtpEmail(email, code, displayName, type));
     }
 
-    private void sendWelcomeEmailAfterCommit(String email, String displayName) {
-        Runnable sendWelcomeEmail = () -> notificationService.sendWelcomeEmail(email, displayName);
-
+    private void runAfterCommit(Runnable action) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    sendWelcomeEmail.run();
+                    action.run();
                 }
             });
         } else {
-            sendWelcomeEmail.run();
+            action.run();
         }
+    }
+
+    private void sendWelcomeEmailAfterCommit(String email, String displayName) {
+        runAfterCommit(() -> notificationService.sendWelcomeEmail(email, displayName));
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new UnauthorizedException(JWT_EXC_MSG);
+        }
+
+        String token = authorizationHeader.substring("Bearer ".length()).trim();
+        if (token.isBlank()) {
+            throw new UnauthorizedException(JWT_EXC_MSG);
+        }
+        return token;
     }
 }

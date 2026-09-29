@@ -39,8 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthorizationMatrixTest {
 
     private static final String TEST_SECRET = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=";
-    private static final String USERS_PATH = "/users";
-    private static final String USERS_ALIAS_PATH = "/api/v1/auth/users";
+    private static final String USERS_PATH = "/api/v1/auth/users";
 
     @Autowired
     private MockMvc mockMvc;
@@ -61,8 +60,6 @@ class AuthorizationMatrixTest {
 
         mockMvc.perform(request(HttpMethod.GET, USERS_PATH).header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(request(HttpMethod.GET, USERS_ALIAS_PATH).header("Authorization", "Bearer " + token))
-                .andExpect(status().isForbidden());
     }
 
     private static Stream<UserRoles> nonSuperAdminRoles() {
@@ -75,15 +72,11 @@ class AuthorizationMatrixTest {
 
         mockMvc.perform(request(HttpMethod.GET, USERS_PATH).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
-        mockMvc.perform(request(HttpMethod.GET, USERS_ALIAS_PATH).header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
     }
 
     @Test
     void requiresAuthenticationForUserListing() throws Exception {
         mockMvc.perform(request(HttpMethod.GET, USERS_PATH))
-                .andExpect(status().isUnauthorized());
-        mockMvc.perform(request(HttpMethod.GET, USERS_ALIAS_PATH))
                 .andExpect(status().isUnauthorized());
     }
 

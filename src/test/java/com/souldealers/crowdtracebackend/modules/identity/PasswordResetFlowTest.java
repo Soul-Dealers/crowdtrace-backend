@@ -6,8 +6,10 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.OtpRepository;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
+import com.souldealers.crowdtracebackend.shared.JwtService;
 import com.souldealers.crowdtracebackend.shared.OtpType;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -22,9 +24,11 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.TOKEN_SENT
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -47,6 +51,9 @@ class PasswordResetFlowTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JwtService jwtService;
 
     @MockitoBean
     private NotificationService notificationService;
@@ -84,7 +91,7 @@ class PasswordResetFlowTest {
         String email = "reset-password@example.com";
         User user = saveUser(email, "Reset Password User", "old-password");
         authService.resetPasswordRequest(new PasswordResetRequest(email));
-        String code = latestResetOtp(user.getEmail()).getCode();
+        String code = captureLatestOtpCode(user.getEmail(), OtpType.RESET);
         String payload = "{\"email\":\"RESET-PASSWORD@EXAMPLE.COM\","
                 + "\"password\":\"new-password\","
                 + "\"confirmPassword\":\"new-password\","
@@ -125,6 +132,44 @@ class PasswordResetFlowTest {
                 .andExpect(jsonPath("$.errors.code").exists());
     }
 
+    @Test
+    void resetThenLoginEndToEnd() throws Exception {
+        String email = "reset-round-trip@example.com";
+        User user = saveUser(email, "Reset Round Trip", "old-password");
+        String oldToken = jwtService.generateToken(new SecurityUser(user));
+
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + oldToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/request-password-reset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\"}"))
+                .andExpect(status().isOk());
+
+        String code = captureLatestOtpCode(email, OtpType.RESET);
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"code\":\"" + code + "\","
+                                + "\"password\":\"a-brand-new-password\","
+                                + "\"confirmPassword\":\"a-brand-new-password\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + oldToken))
+                .andExpect(status().isUnauthorized());
+
+        String loginBody = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"a-brand-new-password\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String newToken = com.jayway.jsonpath.JsonPath.read(loginBody, "$.data.token");
+
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + newToken))
+                .andExpect(status().isOk());
+    }
+
     private User saveUser(String email, String displayName, String password) {
         return userRepository.saveAndFlush(User.builder()
                 .email(email)
@@ -141,5 +186,12 @@ class PasswordResetFlowTest {
                 .filter(otp -> otp.getType() == OtpType.RESET)
                 .max(java.util.Comparator.comparing(Otp::getCreatedAt))
                 .orElseThrow();
+    }
+
+    private String captureLatestOtpCode(String email, OtpType type) {
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(notificationService, atLeastOnce()).sendOtpEmail(
+                eq(email), codeCaptor.capture(), anyString(), eq(type));
+        return codeCaptor.getValue();
     }
 }

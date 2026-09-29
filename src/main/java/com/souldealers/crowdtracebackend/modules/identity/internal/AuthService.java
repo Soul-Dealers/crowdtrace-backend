@@ -8,6 +8,8 @@ public interface AuthService {
 
     LoginResponse login(LoginRequest request);
 
+    GenericResponseMessage logout(String authorizationHeader);
+
     GenericResponseMessage verifyOtp (VerifyOtpDto request);
 
     GenericResponseMessage resendOtp (ResendOtpRequest request);

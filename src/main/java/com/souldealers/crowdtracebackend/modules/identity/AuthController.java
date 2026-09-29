@@ -4,10 +4,12 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.AuthService;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import com.souldealers.crowdtracebackend.shared.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.*;
 
-@RequestMapping({"", "/api/v1/auth"})
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @RestController
 @Tag(name = "Identity", description = "Current identity endpoints")
@@ -33,26 +35,40 @@ public class AuthController {
             content = @Content(schema = @Schema(ref = "#/components/schemas/UserListResponse")))
     @GetMapping("/users")
     @RequiresSuperAdmin
-    @SecurityRequirement(name = "basicAuth")
+    @SecurityRequirement(name = "bearerAuth")
     public ApiResponse<PagedResponse<UserResponse>> getUsers(@ParameterObject Pageable pageable) {
         return ApiResponse.success(
                 userService.getAllUsers(pageable),
                 "Users retrieved successfully");
     }
 
+    @Operation(
+            summary = "Register",
+            description = "Creates a pending account and sends an email verification OTP.",
+            tags = "Authentication")
+    @SecurityRequirements
     @PostMapping("/signup")
-    public ApiResponse<GenericResponseMessage> signUpUser(@RequestBody SignUpRequest request){
+    @RateLimit("ip-signup")
+    public ApiResponse<GenericResponseMessage> signUpUser(@Valid @RequestBody SignUpRequest request){
         var result = authService.signUp(request);
         return ApiResponse.success(result, result.message());
     }
 
+    @Operation(
+            summary = "Login",
+            description = "Exchanges credentials for a short-lived access token",
+            tags = "Authentication")
+    @SecurityRequirements
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request){
+    @RateLimit("ip-login")
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request){
         var result = authService.login(request);
         return ApiResponse.success(result, "Login successful");
     }
 
+    @SecurityRequirements
     @PostMapping("/verify-otp")
+    @RateLimit("ip-otp-attempt")
     public ApiResponse<GenericResponseMessage> verifyOtp(@Valid @RequestBody VerifyOtpDto request) {
         GenericResponseMessage result = authService.verifyOtp(request);
         return ApiResponse.success(result, result.message());
@@ -62,8 +78,10 @@ public class AuthController {
             summary = "request for otp resend",
             method = "POST"
     )
+    @SecurityRequirements
     @PostMapping("/resend-otp")
-    public GenericResponseMessage resendOtp (@RequestBody ResendOtpRequest request){
+    @RateLimit("ip-otp-send")
+    public GenericResponseMessage resendOtp (@Valid @RequestBody ResendOtpRequest request){
         return authService.resendOtp(request);
     }
 
@@ -72,7 +90,9 @@ public class AuthController {
             summary = "request to reset password",
             method = "POST"
     )
+    @SecurityRequirements
     @PostMapping("/request-password-reset")
+    @RateLimit("ip-otp-send")
     public GenericResponseMessage requestPasswordReset(@Valid @RequestBody PasswordResetRequest request){
         return authService.resetPasswordRequest(request);
     }
@@ -82,7 +102,9 @@ public class AuthController {
             summary = "reset password with email code and new password",
             method = "POST"
     )
+    @SecurityRequirements
     @PostMapping("/reset-password")
+    @RateLimit("ip-otp-attempt")
     public GenericResponseMessage resetPassword(@Valid @RequestBody PasswordReset request){
         return authService.resetPassword(request);
     }

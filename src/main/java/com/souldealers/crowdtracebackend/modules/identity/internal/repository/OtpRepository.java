@@ -5,9 +5,11 @@ import com.souldealers.crowdtracebackend.shared.OtpType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,9 +17,14 @@ public interface OtpRepository extends JpaRepository<Otp, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Otp> findFirstByEmailAndTypeOrderByCreatedAtDescIdDesc(String email, OtpType type);
+    @Modifying
+    @Query("delete from Otp o where o.expiredAt < :cutoff")
+    int deleteExpired(@Param("cutoff") LocalDateTime cutoff);
 
-
-    @Query("select u from Otp u where u.expiredAt < current timestamp ")
-    List<Otp> findAllExpiredOTP();
-
+    @Modifying
+    @Query("update Otp o set o.expiredAt = :now "
+            + "where o.email = :email and o.type = :type and o.expiredAt > :now")
+    int expireActive(@Param("email") String email,
+                     @Param("type") OtpType type,
+                     @Param("now") LocalDateTime now);
 }

@@ -36,34 +36,41 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.servers[0].url").value("http://localhost:8080"))
                 .andExpect(jsonPath("$.tags[*].name", hasItems(
                         "Operations", "Identity", "Authentication", "Public Cases", "Administration")))
-                .andExpect(jsonPath("$.components.securitySchemes.basicAuth.type").value("http"))
-                .andExpect(jsonPath("$.components.securitySchemes.basicAuth.scheme").value("basic"))
-                .andExpect(jsonPath("$.paths['/users'].get").exists())
-                .andExpect(jsonPath("$.paths['/users'].get.tags", hasItem("Identity")))
-                .andExpect(jsonPath("$.paths['/users'].get.description",
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat").value("JWT"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.tags", hasItem("Identity")))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.description",
                         containsString("Super Admin JWT")))
-                .andExpect(jsonPath("$.paths['/users'].get.security[0].basicAuth").exists())
-                .andExpect(jsonPath("$.paths['/users'].get.parameters").isNotEmpty())
-                .andExpect(jsonPath("$.paths['/users'].get.parameters[*].name",
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.parameters").isNotEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.parameters[*].name",
                         hasItems("page", "size")))
-                .andExpect(jsonPath("$.paths['/users'].get.responses.200.content.*.schema.$ref",
+                .andExpect(jsonPath("$.paths['/api/v1/auth/users'].get.responses.200.content.*.schema.$ref",
                         hasItem("#/components/schemas/UserListResponse")))
                 .andExpect(jsonPath("$.paths['/actuator/health/liveness'].get").exists())
                 .andExpect(jsonPath("$.paths['/actuator/health/readiness'].get").exists())
                 .andExpect(jsonPath("$.paths['/actuator/health/liveness'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/actuator/health/readiness'].get.security").isEmpty())
-                .andExpect(jsonPath("$.paths['/api/auth/register'].post['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/auth/login'].post['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/auth/refresh'].post['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/auth/register'].post.description",
-                        containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/auth/login'].post.description",
-                        containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/auth/refresh'].post.description",
-                        containsString("not implemented")))
+                // CT-009 replaced the planned auth placeholders with the shipped
+                // endpoints. ADR-002 records why no refresh endpoint exists.
+                .andExpect(jsonPath("$.paths['/api/auth/register']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/auth/login']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/auth/refresh']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/refresh']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post.tags",
+                        hasItem("Authentication")))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.tags",
+                        hasItem("Authentication")))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/me'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/me'].get.tags",
+                        hasItem("Authentication")))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.tags",
+                        hasItem("Authentication")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']")
                         .value("planned"))
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
@@ -80,13 +87,24 @@ class OpenApiContractTest {
                         containsString("not implemented")))
                 .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.description",
                         containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/auth/register'].post.security").isEmpty())
-                .andExpect(jsonPath("$.paths['/api/auth/login'].post.security").isEmpty())
-                .andExpect(jsonPath("$.paths['/api/auth/refresh'].post.security").isEmpty())
+                // Registration and login must stay reachable without a token; /me and
+                // /logout inherit the document-level bearerAuth requirement instead.
+                .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").isEmpty())
+                // Every endpoint in SecurityConfig.publicEndpoints must document itself
+                // as public. Without an operation-level override these inherit the
+                // document-level bearerAuth requirement and tell clients to send a
+                // token to endpoints that reject one.
+                .andExpect(jsonPath("$.paths['/api/v1/auth/verify-otp'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/resend-otp'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/request-password-reset'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/reset-password'].post.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/me'].get.security").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
-                // Admin operations inherit the document-level basicAuth requirement.
-                .andExpect(jsonPath("$.security[0].basicAuth").exists())
+                // Admin operations inherit the document-level bearerAuth requirement.
+                .andExpect(jsonPath("$.security[0].bearerAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.security")
                         .doesNotExist())
@@ -108,7 +126,7 @@ class OpenApiContractTest {
 
     @Test
     void keepsCurrentRuntimeSecurityAndHealthBehavior() throws Exception {
-        mockMvc.perform(get("/users"))
+        mockMvc.perform(get("/api/v1/auth/users"))
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(get("/actuator/health/liveness"))

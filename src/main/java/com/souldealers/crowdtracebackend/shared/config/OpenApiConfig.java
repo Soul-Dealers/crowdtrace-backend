@@ -59,12 +59,13 @@ public class OpenApiConfig {
                         new io.swagger.v3.oas.models.tags.Tag()
                                 .name("Administration")
                                 .description("Planned moderator and admin endpoints")))
-                .addSecurityItem(new SecurityRequirement().addList("basicAuth"))
+                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
-                        .addSecuritySchemes("basicAuth", new SecurityScheme()
-                                .name("basicAuth")
+                        .addSecuritySchemes("bearerAuth", new SecurityScheme()
+                                .name("bearerAuth")
                                 .type(SecurityScheme.Type.HTTP)
-                                .scheme("basic"))
+                                .scheme("bearer")
+                                .bearerFormat("JWT"))
                         .schemas(reusableSchemas()))
                 .paths(contractPaths());
     }
@@ -158,12 +159,6 @@ public class OpenApiConfig {
                         "Liveness probe", "Returns the current liveness status."))
                 .addPathItem("/actuator/health/readiness", healthPath(
                         "Readiness probe", "Returns the current readiness status, including database health."))
-                .addPathItem("/api/auth/register", new PathItem().post(publicPlannedOperation(
-                        "Authentication", "Register", "Planned user registration operation.")))
-                .addPathItem("/api/auth/login", new PathItem().post(publicPlannedOperation(
-                        "Authentication", "Login", "Planned user login operation.")))
-                .addPathItem("/api/auth/refresh", new PathItem().post(publicPlannedOperation(
-                        "Authentication", "Refresh authentication", "Planned authentication refresh operation.")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(

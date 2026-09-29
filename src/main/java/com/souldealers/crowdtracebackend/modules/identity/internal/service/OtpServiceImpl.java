@@ -1,56 +1,60 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 
 import com.souldealers.crowdtracebackend.modules.identity.OtpService;
+import com.souldealers.crowdtracebackend.modules.identity.internal.config.OtpProperties;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.Otp;
-import com.souldealers.crowdtracebackend.shared.OtpType;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.OtpRepository;
-import com.souldealers.crowdtracebackend.shared.ConflictException;
-import lombok.AllArgsConstructor;
-
+import com.souldealers.crowdtracebackend.shared.OtpType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.Objects;
+import java.util.HexFormat;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
 
-    private final OtpRepository repository;
     private static final int OTP_LENGTH = 6;
-    private static final String VERIFICATION_FAILED_MESSAGE = "Could not verify this OTP";
+    private static final int EXPIRY_MINUTES = 5;
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private final OtpRepository repository;
+    private final OtpProperties otpProperties;
 
     @Override
-    public Otp generateOtp(String email, OtpType type) {
-        String code = generator();
-        LocalDateTime expirationTime = LocalDateTime.now().plusMinutes(5);
+    @Transactional
+    public String generateOtp(String email, OtpType type) {
+        String plainCode = generator();
 
-        Otp otp = Otp.builder()
-                .code(code)
+        repository.save(Otp.builder()
+                .code(keyedDigest(email, type, plainCode))
                 .type(type)
-                .expiredAt(expirationTime)
+                .expiredAt(LocalDateTime.now().plusMinutes(EXPIRY_MINUTES))
                 .email(email)
-                .build();
+                .build());
 
-        repository.save(otp);
-
-        return otp;
+        return plainCode;
     }
 
-    /**
-     * Consumes an OTP (One-Time Password) by validating its code, checking its expiration status,
-     * and marking it as expired if valid.
-     *
-     * @param otpCode the OTP code provided for verification
-     * @param email the email address associated with the OTP
-     * @param type the type of the OTP (e.g., CREATE, RESET)
-     * @return {@code true} if the OTP is successfully consumed; {@code false} otherwise
-     */
     @Override
+    @Transactional
     public boolean consumeOtp(String otpCode, String email, OtpType type) {
+        if (otpCode == null) {
+            return false;
+        }
+
+        String candidate = keyedDigest(email, type, otpCode);
+
         return repository.findFirstByEmailAndTypeOrderByCreatedAtDescIdDesc(email, type)
-                .filter(otp -> Objects.equals(otp.getCode(), otpCode))
+                .filter(otp -> constantTimeEquals(otp.getCode(), candidate))
                 .filter(otp -> !isOtpExpired(otp))
                 .map(otp -> {
                     otp.setExpiredAt(LocalDateTime.now());
@@ -60,44 +64,37 @@ public class OtpServiceImpl implements OtpService {
                 .orElse(false);
     }
 
+    String keyedDigest(String email, OtpType type, String code) {
+        try {
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+            mac.init(new SecretKeySpec(otpProperties.hmacKey(), HMAC_ALGORITHM));
 
-    @Override
-    public boolean isOtpValid(String otpCode, String email, OtpType type) {
-        return repository.findFirstByEmailAndTypeOrderByCreatedAtDescIdDesc(email, type)
-                .filter(otp -> Objects.equals(otp.getCode(), otpCode))
-                .map(otp -> !isOtpExpired(otp))
-                .orElse(false);
+            String message = email + "|" + type.name() + "|" + code;
+            return HexFormat.of().formatHex(mac.doFinal(message.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw new IllegalStateException("OTP keying is unavailable", exception);
+        }
     }
 
-
-    @Override
-    public void invalidateOtp(String otpCode, String email, OtpType type) {
-        Otp otp = repository.findFirstByEmailAndTypeOrderByCreatedAtDescIdDesc(email, type)
-                .orElseThrow(() -> new ConflictException(VERIFICATION_FAILED_MESSAGE));
-        if (!Objects.equals(otp.getCode(), otpCode)) {
-            throw new ConflictException(VERIFICATION_FAILED_MESSAGE);
+    private boolean constantTimeEquals(String stored, String candidate) {
+        if (stored == null) {
+            return false;
         }
-        otp.setExpiredAt(LocalDateTime.now());
-        repository.save(otp);
+        return MessageDigest.isEqual(
+                stored.getBytes(StandardCharsets.UTF_8),
+                candidate.getBytes(StandardCharsets.UTF_8));
     }
 
     private boolean isOtpExpired(Otp otp) {
-        LocalDateTime currentTime = LocalDateTime.now();
         LocalDateTime expiredAt = otp.getExpiredAt();
-
-        return expiredAt == null || !currentTime.isBefore(expiredAt);
+        return expiredAt == null || !LocalDateTime.now().isBefore(expiredAt);
     }
 
-
     private String generator() {
-        SecureRandom random = new SecureRandom();
-
-        StringBuilder otp = new StringBuilder();
-
+        StringBuilder otp = new StringBuilder(OTP_LENGTH);
         for (int i = 0; i < OTP_LENGTH; i++) {
-            otp.append(random.nextInt(10));
+            otp.append(RANDOM.nextInt(10));
         }
-
         return otp.toString();
     }
 }

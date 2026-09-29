@@ -12,7 +12,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
-import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     @NullMarked
@@ -25,7 +24,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailForUpdate(@Param("email") String email);
 
     Optional<User> findByEmailAndAccountStatus(String email, UserStatus accountStatus);
-
-    Optional<User> findById(UUID id);
 
 }

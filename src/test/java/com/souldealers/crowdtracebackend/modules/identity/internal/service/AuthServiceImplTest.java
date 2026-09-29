@@ -5,8 +5,9 @@ import com.souldealers.crowdtracebackend.modules.identity.SignUpRequest;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
 import com.souldealers.crowdtracebackend.modules.identity.VerifyOtpDto;
-import com.souldealers.crowdtracebackend.modules.identity.internal.model.Otp;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.IdentityRateLimitGuard;
+import com.souldealers.crowdtracebackend.modules.identity.internal.ratelimit.OtpAttemptGuard;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.GenericResponseMessage;
 import com.souldealers.crowdtracebackend.shared.JwtService;
@@ -28,6 +29,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Optional;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.EMAIL_NOT_NULL_MSG;
+import static com.souldealers.crowdtracebackend.shared.CustomMessages.OTP_VERIFICATION_FAILED_MSG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +52,10 @@ class AuthServiceImplTest {
     private OtpService otpService;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private IdentityRateLimitGuard identityRateLimitGuard;
+    @Mock
+    private OtpAttemptGuard otpAttemptGuard;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -72,8 +78,7 @@ class AuthServiceImplTest {
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         
-        Otp mockOtp = Otp.builder().code("123456").build();
-        when(otpService.generateOtp(eq(email), eq(OtpType.CREATE))).thenReturn(mockOtp);
+        when(otpService.generateOtp(eq(email), eq(OtpType.CREATE))).thenReturn("123456");
 
         // Act
         authService.signUp(signUpRequest);
@@ -96,8 +101,7 @@ class AuthServiceImplTest {
         
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(existingUser));
         
-        Otp mockOtp = Otp.builder().code("654321").build();
-        when(otpService.generateOtp(eq(email), eq(OtpType.CREATE))).thenReturn(mockOtp);
+        when(otpService.generateOtp(eq(email), eq(OtpType.CREATE))).thenReturn("654321");
 
         // Act
         authService.signUp(signUpRequest);
@@ -125,8 +129,6 @@ class AuthServiceImplTest {
         assertThat(pendingUser.getAccountStatus()).isEqualTo(UserStatus.ACTIVE);
         verify(userRepository).save(pendingUser);
         verify(otpService).consumeOtp("123456", "verify@example.com", OtpType.CREATE);
-        verify(otpService, never()).isOtpValid(anyString(), anyString(), any(OtpType.class));
-        verify(otpService, never()).invalidateOtp(anyString(), anyString(), any(OtpType.class));
         verify(notificationService).sendWelcomeEmail("verify@example.com", "Verify User");
     }
 
@@ -143,13 +145,11 @@ class AuthServiceImplTest {
 
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> authService.verifyOtp(request)))
                 .isInstanceOf(ValidationException.class)
-                .hasMessage("Could not verify this OTP");
+                .hasMessage(OTP_VERIFICATION_FAILED_MSG);
 
         assertThat(pendingUser.getAccountStatus()).isEqualTo(UserStatus.PENDING_VERIFICATION);
         verify(userRepository, never()).save(any(User.class));
         verify(otpService).consumeOtp("123456", "verify@example.com", OtpType.CREATE);
-        verify(otpService, never()).isOtpValid(anyString(), anyString(), any(OtpType.class));
-        verify(otpService, never()).invalidateOtp(anyString(), anyString(), any(OtpType.class));
         verify(notificationService, never()).sendWelcomeEmail(anyString(), anyString());
     }
 
@@ -164,7 +164,8 @@ class AuthServiceImplTest {
         when(userRepository.findByEmailForUpdate("verify@example.com")).thenReturn(Optional.of(activeUser));
 
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> authService.verifyOtp(request)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ValidationException.class)
+                .hasMessage(OTP_VERIFICATION_FAILED_MSG);
 
         verifyNoInteractions(otpService);
         verify(userRepository, never()).save(any(User.class));

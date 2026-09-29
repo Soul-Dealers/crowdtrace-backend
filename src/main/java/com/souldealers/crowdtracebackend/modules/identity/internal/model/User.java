@@ -62,6 +62,10 @@ public class User {
 
     private LocalDateTime deletedAt;
 
+    @Builder.Default
+    @Column(name = "credentials_version", nullable = false)
+    private int credentialsVersion = 0;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();

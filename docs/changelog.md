@@ -1,3 +1,17 @@
+## 2026-09-29 — Add CT-009 authentication and current-user endpoints
+- Collapsed the duplicate `/api/auth` controller mapping onto the canonical `/api/v1/auth` prefix and
+  extended the canonical-path guard to cover `/me`, `/logout`, and `/profile-settings`.
+- Replaced the planned `/api/auth/register`, `/api/auth/login`, and `/api/auth/refresh` OpenAPI
+  placeholders with the shipped endpoints, tagged under `Authentication`, and documented every
+  unauthenticated auth endpoint as public instead of inheriting the bearer requirement.
+- Added the pseudonym-and-badge `PublicUserResponse` projection, carrying the badge type the spec
+  lists as a public account field, as the seam other modules render authors through.
+- Resolved the badge per verification type from the most recent decision, so a revocation withdraws
+  the badge and a rejected second application cannot strip a badge an administrator never revoked.
+- Recorded the token lifecycle in ADR-002: short-lived access tokens, logout revocation, and
+  credentials-version invalidation, with no refresh token.
+- Added MockMvc coverage for registration and the successful-login-resolves-current-user path.
+
 ## 2026-09-23 — Add CT-008 role-based method authorization
 - Added runtime-retained registered-user, moderator, and Super Admin method authorization annotations.
 - Enabled Spring method security, protected user listing for Super Admins, and permitted the public API namespace.
