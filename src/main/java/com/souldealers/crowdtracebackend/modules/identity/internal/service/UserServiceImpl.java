@@ -67,7 +67,7 @@ public class UserServiceImpl implements UserService {
      *
      * <p>Resolved per verification type: for each type the most recent decision wins,
      * and the badge shown is the newest type still sitting at APPROVED. A user may hold
-     * an IDENTITY badge and separately apply as an ORGANIZATION, so taking the single
+     * a POLICE badge and separately apply as an NGO, so taking the single
      * newest decision across all types would let a rejected second application strip a
      * badge an administrator never revoked. Pending applications are not decisions and
      * are filtered out by the query.

@@ -7,6 +7,7 @@ import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.VerificationRequest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.Page;
@@ -29,6 +30,12 @@ class VerificationRequestRepositoryTest {
 
     @Autowired
     private VerificationRequestRepository verificationRequestRepository;
+
+    @AfterEach
+    void cleanDetachedFixture() {
+        verificationRequestRepository.deleteAll();
+        userRepository.deleteAll();
+    }
 
     @Test
     void findsPendingRequestsInOldestFirstQueueOrder() {
