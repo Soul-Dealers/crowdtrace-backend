@@ -23,11 +23,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.validation.FieldError;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.*;
@@ -108,6 +110,30 @@ public class GlobalExceptionHandler {
         problem.setProperty("errors", errors);
 
         return problem;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleMalformedRequest(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Malformed request",
+                MALFORMED_REQUEST_MSG,
+                "MALFORMED_REQUEST",
+                request);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleInvalidRequestParameter(
+            MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid request",
+                INVALID_REQUEST_PARAMETER_MSG,
+                "INVALID_REQUEST",
+                request);
     }
 
     @ExceptionHandler(ValidationException.class)

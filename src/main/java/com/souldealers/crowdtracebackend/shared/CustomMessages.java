@@ -21,6 +21,8 @@ public class CustomMessages {
     public static final String RATE_LIMIT_EXCEEDED_MSG = "Too many requests, try again later";
     public static final String RATE_LIMIT_UNAVAILABLE_MSG =
             "Service temporarily unavailable, try again shortly";
+    public static final String MALFORMED_REQUEST_MSG = "The request body could not be read";
+    public static final String INVALID_REQUEST_PARAMETER_MSG = "The request parameter is invalid";
 
 
 }
