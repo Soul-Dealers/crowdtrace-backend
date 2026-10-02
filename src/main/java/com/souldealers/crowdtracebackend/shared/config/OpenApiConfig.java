@@ -128,7 +128,9 @@ public class OpenApiConfig {
                 .addProperties("email", new StringSchema().format("email"))
                 .addProperties("role", new StringSchema())
                 .addProperties("accountStatus", new StringSchema())
-                .addProperties("createdAt", new StringSchema().format("date-time"));
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .addProperties("verified", new BooleanSchema())
+                .addProperties("badgeType", new StringSchema());
     }
 
     private Schema userPageResponseSchema() {

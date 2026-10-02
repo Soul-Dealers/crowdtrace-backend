@@ -27,6 +27,8 @@ class UserResponseTest {
                 "private@example.com",
                 UserRoles.REGISTERED_USER,
                 UserStatus.ACTIVE,
+                true,
+                VerificationType.POLICE,
                 null));
 
         assertThat(userJson)
@@ -36,6 +38,9 @@ class UserResponseTest {
                 .contains("\"displayName\":\"Public Pseudonym\"")
                 .contains("\"email\":\"private@example.com\"")
                 .contains("\"role\":\"REGISTERED_USER\"")
+                // the badge is public metadata; carrying it here must not drag the
+                // evidence or the reviewer's notes along with it
+                .contains("\"verified\":true", "\"badgeType\":\"POLICE\"")
                 .doesNotContain("password", "verification", "passwordHash");
     }
 

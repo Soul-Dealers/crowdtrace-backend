@@ -18,8 +18,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_FOUND_MSG;
@@ -33,13 +38,16 @@ public class UserServiceImpl implements UserService {
     @Override
     public PagedResponse<UserResponse> getAllUsers(Pageable pageable) {
         Page<User> userPage = userRepository.findAll(pageable);
-        return PagedResponse.from(userPage.map(this::buildUserResponse));
+        Map<Long, VerificationType> badges = resolveBadgeTypes(
+                userPage.getContent().stream().map(User::getId).toList());
+        return PagedResponse.from(userPage.map(user -> buildUserResponse(user, badges.get(user.getId()))));
 
     }
 
     @Override
     public UserResponse getCurrentUser(String email) {
-        return buildUserResponse(findUser(email));
+        User user = findUser(email);
+        return buildUserResponse(user, resolveBadgeType(user.getId()));
     }
 
     @Override
@@ -50,7 +58,8 @@ public class UserServiceImpl implements UserService {
 
         User user = findUser(email);
         user.setDisplayName(request.displayName().trim());
-        return buildUserResponse(userRepository.save(user));
+        User saved = userRepository.save(user);
+        return buildUserResponse(saved, resolveBadgeType(saved.getId()));
     }
 
     @Override
@@ -73,11 +82,37 @@ public class UserServiceImpl implements UserService {
      * are filtered out by the query.
      */
     private VerificationType resolveBadgeType(Long userId) {
-        List<VerificationRequest> decisions =
-                verificationRequestRepository.findDecidedRequestsNewestFirst(userId);
+        return badgeFrom(verificationRequestRepository.findDecidedRequestsNewestFirst(userId));
+    }
 
+    /**
+     * The same rule for a page of users, in one query instead of one per row.
+     *
+     * <p>Reads the owning id straight off the lazy proxy, which needs no extra select:
+     * the foreign key is already on the request row.
+     */
+    private Map<Long, VerificationType> resolveBadgeTypes(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<VerificationRequest>> byUser = new LinkedHashMap<>();
+        for (VerificationRequest decision
+                : verificationRequestRepository.findDecidedRequestsNewestFirst(userIds)) {
+            byUser.computeIfAbsent(decision.getUser().getId(), id -> new ArrayList<>()).add(decision);
+        }
+        Map<Long, VerificationType> badges = new HashMap<>();
+        byUser.forEach((userId, decisions) -> {
+            VerificationType badge = badgeFrom(decisions);
+            if (badge != null) {
+                badges.put(userId, badge);
+            }
+        });
+        return badges;
+    }
+
+    private static VerificationType badgeFrom(List<VerificationRequest> decisionsNewestFirst) {
         Set<VerificationType> settled = EnumSet.noneOf(VerificationType.class);
-        for (VerificationRequest decision : decisions) {
+        for (VerificationRequest decision : decisionsNewestFirst) {
             if (!settled.add(decision.getVerificationType())) {
                 continue; // superseded by a later decision for the same type
             }
@@ -88,13 +123,15 @@ public class UserServiceImpl implements UserService {
         return null;
     }
 
-    private UserResponse buildUserResponse(User user){
+    private UserResponse buildUserResponse(User user, VerificationType badgeType) {
         return UserResponse.builder()
                 .displayName(user.getDisplayName())
                 .email(user.getEmail())
                 .accountStatus(user.getAccountStatus())
                 .createdAt(user.getCreatedAt())
                 .role(user.getRole())
+                .verified(badgeType != null)
+                .badgeType(badgeType)
                 .build();
     }
 

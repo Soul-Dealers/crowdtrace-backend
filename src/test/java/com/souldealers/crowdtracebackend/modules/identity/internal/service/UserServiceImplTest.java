@@ -6,6 +6,7 @@ import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
+import com.souldealers.crowdtracebackend.modules.identity.internal.repository.VerificationRequestRepository;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,11 @@ class UserServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    // The badge on the own view is resolved at read time, so every mapping path
+    // reaches this repository. Mockito's default empty list means "no badge".
+    @Mock
+    private VerificationRequestRepository verificationRequestRepository;
 
     @InjectMocks
     private UserServiceImpl userService;

@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +61,7 @@ class VerificationWorkflowTest {
     private static final String OWN = "/api/v1/verification-requests/me";
     private static final String QUEUE = "/api/v1/admin/verification-requests?page=0&size=200";
     private static final String GRANT = "/api/v1/admin/verification-grants";
+    private static final String ME = "/api/v1/auth/me";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -378,6 +380,32 @@ class VerificationWorkflowTest {
         PublicUserResponse afterRevocation = userService.getPublicProfile(applicant.getId());
         assertThat(afterRevocation.verified()).isFalse();
         assertThat(afterRevocation.badgeType()).isNull();
+    }
+
+    @Test
+    void carriesTheBadgeOnTheUsersOwnProfileAndDropsItOnRevocation() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User moderator = saveUser(UserRoles.MODERATOR);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+        long requestId = submit(applicant, VerificationType.POLICE, "own profile evidence");
+
+        mockMvc.perform(get(ME).header("Authorization", bearer(applicant)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verified").value(false))
+                .andExpect(jsonPath("$.data.badgeType").value(nullValue()));
+
+        decide(moderator, requestId, "approve", null);
+        mockMvc.perform(get(ME).header("Authorization", bearer(applicant)))
+                .andExpect(jsonPath("$.data.verified").value(true))
+                .andExpect(jsonPath("$.data.badgeType").value("POLICE"))
+                // the badge rides along with the private view; the evidence does not
+                .andExpect(jsonPath("$.data.evidenceReference").doesNotExist())
+                .andExpect(jsonPath("$.data.reviewNotes").doesNotExist());
+
+        decide(superAdmin, requestId, "revoke", null);
+        mockMvc.perform(get(ME).header("Authorization", bearer(applicant)))
+                .andExpect(jsonPath("$.data.verified").value(false))
+                .andExpect(jsonPath("$.data.badgeType").value(nullValue()));
     }
 
     // --- Logging ------------------------------------------------------------
