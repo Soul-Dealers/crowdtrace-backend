@@ -78,6 +78,12 @@ public class OpenApiConfig {
         schemas.put("UserResponse", userResponseSchema());
         schemas.put("UserPageResponse", userPageResponseSchema());
         schemas.put("UserListResponse", userListResponseSchema());
+        schemas.put("VerificationRequestResponse", verificationRequestResponseSchema());
+        schemas.put("AdminVerificationRequestResponse", adminVerificationRequestResponseSchema());
+        schemas.put("VerificationRequestListResponse", verificationRequestListResponseSchema());
+        schemas.put("AdminVerificationPageResponse", adminVerificationPageResponseSchema());
+        schemas.put("AdminVerificationListResponse", adminVerificationListResponseSchema());
+        schemas.put("AdminVerificationDecisionResponse", adminVerificationDecisionResponseSchema());
         schemas.put("HealthResponse", healthResponseSchema());
         return schemas;
     }
@@ -122,7 +128,9 @@ public class OpenApiConfig {
                 .addProperties("email", new StringSchema().format("email"))
                 .addProperties("role", new StringSchema())
                 .addProperties("accountStatus", new StringSchema())
-                .addProperties("createdAt", new StringSchema().format("date-time"));
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .addProperties("verified", new BooleanSchema())
+                .addProperties("badgeType", new StringSchema());
     }
 
     private Schema userPageResponseSchema() {
@@ -151,6 +159,65 @@ public class OpenApiConfig {
                 .description("Spring Boot health probe response.")
                 .addProperties("status", new StringSchema())
                 .addProperties("components", new ObjectSchema());
+    }
+
+    private Schema verificationRequestResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("verificationType", new StringSchema())
+                .addProperties("evidenceReference", new StringSchema())
+                .addProperties("status", new StringSchema())
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .addProperties("reviewedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema adminVerificationRequestResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("userId", new IntegerSchema().format("int64"))
+                .addProperties("displayName", new StringSchema())
+                .addProperties("verificationType", new StringSchema())
+                .addProperties("evidenceReference", new StringSchema())
+                .addProperties("status", new StringSchema())
+                .addProperties("reviewNotes", new StringSchema())
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .addProperties("reviewedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema verificationRequestListResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("success", new BooleanSchema())
+                .addProperties("message", new StringSchema())
+                .addProperties("data", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/VerificationRequestResponse")))
+                .addProperties("errors", new ObjectSchema());
+    }
+
+    private Schema adminVerificationPageResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("content", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/AdminVerificationRequestResponse")))
+                .addProperties("page", new IntegerSchema().format("int32"))
+                .addProperties("size", new IntegerSchema().format("int32"))
+                .addProperties("totalElements", new IntegerSchema().format("int64"))
+                .addProperties("totalPages", new IntegerSchema().format("int32"))
+                .addProperties("last", new BooleanSchema());
+    }
+
+    private Schema adminVerificationListResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("success", new BooleanSchema())
+                .addProperties("message", new StringSchema())
+                .addProperties("data", new Schema<>().$ref("#/components/schemas/AdminVerificationPageResponse"))
+                .addProperties("errors", new ObjectSchema());
+    }
+
+    private Schema adminVerificationDecisionResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("success", new BooleanSchema())
+                .addProperties("message", new StringSchema())
+                .addProperties("data", new Schema<>().$ref("#/components/schemas/AdminVerificationRequestResponse"))
+                .addProperties("errors", new ObjectSchema());
     }
 
     private Paths contractPaths() {

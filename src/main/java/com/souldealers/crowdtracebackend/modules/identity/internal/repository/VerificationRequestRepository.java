@@ -1,17 +1,24 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.repository;
 
 import com.souldealers.crowdtracebackend.modules.identity.VerificationStatus;
+import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
+import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.VerificationRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.time.LocalDateTime;
 
 public interface VerificationRequestRepository extends JpaRepository<VerificationRequest, Long> {
 
+    @EntityGraph(attributePaths = "user")
     Page<VerificationRequest> findByStatusOrderByCreatedAtAsc(
             VerificationStatus status,
             Pageable pageable);
@@ -19,6 +26,34 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
     Page<VerificationRequest> findByUserIdOrderByCreatedAtDesc(
             Long userId,
             Pageable pageable);
+
+    List<VerificationRequest> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    @EntityGraph(attributePaths = "user")
+    java.util.Optional<VerificationRequest> findWithUserById(Long id);
+
+    boolean existsByUserIdAndVerificationTypeAndStatus(
+            Long userId,
+            VerificationType verificationType,
+            VerificationStatus status);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE VerificationRequest request
+               SET request.status = :toStatus,
+                   request.reviewer = :reviewer,
+                   request.reviewNotes = :reviewNotes,
+                   request.reviewedAt = :reviewedAt
+             WHERE request.id = :id
+               AND request.status = :fromStatus
+            """)
+    int applyDecision(
+            @Param("id") Long id,
+            @Param("fromStatus") VerificationStatus fromStatus,
+            @Param("toStatus") VerificationStatus toStatus,
+            @Param("reviewer") User reviewer,
+            @Param("reviewNotes") String reviewNotes,
+            @Param("reviewedAt") LocalDateTime reviewedAt);
 
     /**
      * Decided requests for one user, newest decision first.
@@ -40,6 +75,27 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
 
     default List<VerificationRequest> findDecidedRequestsNewestFirst(Long userId) {
         return findRequestsByUserExcludingStatus(userId, VerificationStatus.PENDING);
+    }
+
+    /**
+     * The same decided-requests query for a page of users, in one round trip.
+     *
+     * <p>The badge on a user listing would otherwise cost one query per row. Ordering
+     * matches the single-user query, so callers can group by user and apply the
+     * newest-decision-per-type rule to each group unchanged.
+     */
+    @Query("""
+            SELECT request FROM VerificationRequest request
+            WHERE request.user.id IN :userIds
+              AND request.status <> :excludedStatus
+            ORDER BY COALESCE(request.reviewedAt, request.createdAt) DESC, request.id DESC
+            """)
+    List<VerificationRequest> findRequestsByUsersExcludingStatus(
+            @Param("userIds") Collection<Long> userIds,
+            @Param("excludedStatus") VerificationStatus excludedStatus);
+
+    default List<VerificationRequest> findDecidedRequestsNewestFirst(Collection<Long> userIds) {
+        return findRequestsByUsersExcludingStatus(userIds, VerificationStatus.PENDING);
     }
 
     default Page<VerificationRequest> findPendingRequests(Pageable pageable) {

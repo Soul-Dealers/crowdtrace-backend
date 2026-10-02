@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>The badge rule is per type: for each verification type, the most recently decided
  * request wins, and the badge shows if any type's latest decision is APPROVED. A user
- * may hold an IDENTITY badge and separately apply as an ORGANIZATION, so a single
+ * may hold an POLICE badge and separately apply as an NGO, so a single
  * "latest decided request overall" rule would let a rejected second application strip
  * a valid first badge.
  */
@@ -66,19 +66,19 @@ class PublicUserProjectionTest {
     @Test
     void showsTheBadgeTypeTheAdministratorApproved() {
         User user = saveUser("approved@example.com", "Approved Contributor");
-        decide(user, VerificationType.ORGANIZATION, VerificationStatus.APPROVED, JANUARY);
+        decide(user, VerificationType.NGO, VerificationStatus.APPROVED, JANUARY);
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
         assertThat(response.verified()).isTrue();
-        assertThat(response.badgeType()).isEqualTo(VerificationType.ORGANIZATION);
+        assertThat(response.badgeType()).isEqualTo(VerificationType.NGO);
     }
 
     @ParameterizedTest
     @EnumSource(value = VerificationStatus.class, names = {"PENDING", "REJECTED", "REVOKED"})
     void withholdsTheBadgeForEveryStatusOtherThanApproved(VerificationStatus status) {
         User user = saveUser(status.name().toLowerCase() + "@example.com", "Unbadged Contributor");
-        decide(user, VerificationType.IDENTITY, status, JANUARY);
+        decide(user, VerificationType.POLICE, status, JANUARY);
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
@@ -89,8 +89,8 @@ class PublicUserProjectionTest {
     @Test
     void dropsTheBadgeWhenALaterDecisionRevokesTheSameType() {
         User user = saveUser("revoked-later@example.com", "Revoked Contributor");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
-        decide(user, VerificationType.IDENTITY, VerificationStatus.REVOKED, JUNE);
+        decide(user, VerificationType.POLICE, VerificationStatus.APPROVED, JANUARY);
+        decide(user, VerificationType.POLICE, VerificationStatus.REVOKED, JUNE);
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
@@ -101,31 +101,31 @@ class PublicUserProjectionTest {
     @Test
     void keepsAnApprovedBadgeWhenALaterApplicationOfAnotherTypeIsRejected() {
         User user = saveUser("mixed-outcome@example.com", "Mixed Outcome Contributor");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
-        decide(user, VerificationType.ORGANIZATION, VerificationStatus.REJECTED, JUNE);
+        decide(user, VerificationType.POLICE, VerificationStatus.APPROVED, JANUARY);
+        decide(user, VerificationType.NGO, VerificationStatus.REJECTED, JUNE);
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
         assertThat(response.verified()).isTrue();
-        assertThat(response.badgeType()).isEqualTo(VerificationType.IDENTITY);
+        assertThat(response.badgeType()).isEqualTo(VerificationType.POLICE);
     }
 
     @Test
     void ignoresAStillPendingApplicationAlongsideAnApprovedBadge() {
         User user = saveUser("pending-second@example.com", "Applying Again");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
-        pending(user, VerificationType.ORGANIZATION);
+        decide(user, VerificationType.POLICE, VerificationStatus.APPROVED, JANUARY);
+        pending(user, VerificationType.NGO);
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
         assertThat(response.verified()).isTrue();
-        assertThat(response.badgeType()).isEqualTo(VerificationType.IDENTITY);
+        assertThat(response.badgeType()).isEqualTo(VerificationType.POLICE);
     }
 
     @Test
     void keepsPrivateIdentityFieldsOutOfTheSerializedProjection() throws Exception {
         User user = saveUser("private-fields@example.com", "Public Pseudonym");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
+        decide(user, VerificationType.POLICE, VerificationStatus.APPROVED, JANUARY);
 
         String json = objectMapper.writeValueAsString(userService.getPublicProfile(user.getId()));
 
@@ -134,7 +134,7 @@ class PublicUserProjectionTest {
         // checks against a small record would pass or fail on the fixture name.
         // Equality also catches fields nobody thought to enumerate.
         assertThat(json).isEqualTo(
-                "{\"displayName\":\"Public Pseudonym\",\"verified\":true,\"badgeType\":\"IDENTITY\"}");
+                "{\"displayName\":\"Public Pseudonym\",\"verified\":true,\"badgeType\":\"POLICE\"}");
     }
 
     private User saveUser(String email, String displayName) {
