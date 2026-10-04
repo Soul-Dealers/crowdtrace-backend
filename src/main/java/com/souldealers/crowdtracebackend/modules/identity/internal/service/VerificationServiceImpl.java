@@ -20,11 +20,14 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_FOUND_MSG;
 
@@ -32,6 +35,7 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_F
 @RequiredArgsConstructor
 public class VerificationServiceImpl implements VerificationService {
     private static final Logger log = LoggerFactory.getLogger(VerificationServiceImpl.class);
+    private static final String ACTIVE_REQUEST_UNIQUE_INDEX = "uq_verification_requests_active_type";
 
     private final VerificationRequestRepository requestRepository;
     private final UserRepository userRepository;
@@ -49,12 +53,12 @@ public class VerificationServiceImpl implements VerificationService {
             throw new ConflictException("An approved badge already exists for this type");
         }
 
-        VerificationRequest saved = requestRepository.save(VerificationRequest.builder()
+        VerificationRequest saved = saveActiveRequest(VerificationRequest.builder()
                 .user(user)
                 .verificationType(request.verificationType())
                 .evidenceReference(request.evidenceReference())
                 .status(VerificationStatus.PENDING)
-                .build());
+                .build(), "A pending or approved request already exists for this type");
         return toOwnResponse(saved);
     }
 
@@ -117,7 +121,7 @@ public class VerificationServiceImpl implements VerificationService {
         }
 
         LocalDateTime reviewedAt = LocalDateTime.now();
-        VerificationRequest saved = requestRepository.save(VerificationRequest.builder()
+        VerificationRequest saved = saveActiveRequest(VerificationRequest.builder()
                 .user(target)
                 .verificationType(request.verificationType())
                 .evidenceReference(request.evidenceReference())
@@ -125,9 +129,42 @@ public class VerificationServiceImpl implements VerificationService {
                 .reviewer(actor)
                 .reviewNotes(request.reviewNotes())
                 .reviewedAt(reviewedAt)
-                .build());
+                .build(), "A pending or approved verification already exists for this type");
         logDecision(saved.getId(), actor, "grant", null, VerificationStatus.APPROVED);
         return toAdminResponse(saved);
+    }
+
+    /**
+     * Inserts an active request, letting the database settle a race the checks above
+     * cannot.
+     *
+     * <p>The duplicate checks are check-then-act: two concurrent submits, two grants, or
+     * a submit racing a grant all observe "nothing exists" and both insert, because
+     * neither transaction can see the other's uncommitted row. The partial unique index
+     * {@code uq_verification_requests_active_type} rejects the loser, and this turns
+     * that rejection into the same 409 the ordinary duplicate path returns. The checks
+     * stay because they produce the clearer message on the common, uncontended path.
+     *
+     * <p>Flushed explicitly: without it the insert happens at commit, outside this
+     * method, and the violation would surface as a 500 instead. Only this constraint is
+     * translated — every other integrity failure keeps its existing handling.
+     */
+    private VerificationRequest saveActiveRequest(VerificationRequest request, String conflictMessage) {
+        try {
+            return requestRepository.saveAndFlush(request);
+        } catch (DataIntegrityViolationException exception) {
+            if (violatesActiveRequestUniqueness(exception)) {
+                throw new ConflictException(conflictMessage);
+            }
+            throw exception;
+        }
+    }
+
+    private static boolean violatesActiveRequestUniqueness(DataIntegrityViolationException exception) {
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(exception);
+        String message = cause.getMessage();
+        return message != null
+                && message.toLowerCase(Locale.ROOT).contains(ACTIVE_REQUEST_UNIQUE_INDEX);
     }
 
     private AdminVerificationRequestResponse decide(String actorEmail, Long requestId,

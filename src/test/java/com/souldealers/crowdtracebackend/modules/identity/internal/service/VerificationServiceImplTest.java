@@ -18,8 +18,10 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -61,7 +63,7 @@ class VerificationServiceImplTest {
                 new SubmitVerificationRequest(VerificationType.NGO, "evidence")))
                 .isInstanceOf(NotFoundException.class);
 
-        verify(requestRepository, never()).save(any());
+        verify(requestRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -111,7 +113,7 @@ class VerificationServiceImplTest {
         assertThatThrownBy(() -> verificationService.grant(ACTOR, grantFor("target@example.com")))
                 .isInstanceOf(ConflictException.class);
 
-        verify(requestRepository, never()).save(any());
+        verify(requestRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -125,7 +127,7 @@ class VerificationServiceImplTest {
         assertThatThrownBy(() -> verificationService.grant(ACTOR, grantFor("target@example.com")))
                 .isInstanceOf(ConflictException.class);
 
-        verify(requestRepository, never()).save(any());
+        verify(requestRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -135,6 +137,40 @@ class VerificationServiceImplTest {
 
         assertThatThrownBy(() -> verificationService.grant(ACTOR, grantFor("target@example.com")))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void translatesTheActiveRequestUniquenessViolationIntoAConflict() {
+        User actor = user(1L, UserStatus.ACTIVE);
+        when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(actor));
+        when(requestRepository.saveAndFlush(any())).thenThrow(uniquenessViolation(
+                "duplicate key value violates unique constraint \"uq_verification_requests_active_type\""));
+
+        assertThatThrownBy(() -> verificationService.submit(ACTOR,
+                new SubmitVerificationRequest(VerificationType.NGO, "evidence")))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    /**
+     * Only that one constraint becomes a 409. A different integrity failure is a real
+     * fault and must keep surfacing as one rather than being reported as a duplicate.
+     */
+    @Test
+    void leavesEveryOtherIntegrityViolationAlone() {
+        User actor = user(1L, UserStatus.ACTIVE);
+        when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(actor));
+        when(requestRepository.saveAndFlush(any())).thenThrow(uniquenessViolation(
+                "null value in column \"evidence_reference\" violates not-null constraint"));
+
+        assertThatThrownBy(() -> verificationService.submit(ACTOR,
+                new SubmitVerificationRequest(VerificationType.NGO, "evidence")))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(ConflictException.class);
+    }
+
+    private static DataIntegrityViolationException uniquenessViolation(String causeMessage) {
+        return new DataIntegrityViolationException("could not execute statement",
+                new SQLException(causeMessage));
     }
 
     private static GrantVerificationRequest grantFor(String email) {

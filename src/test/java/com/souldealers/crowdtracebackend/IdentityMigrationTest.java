@@ -5,19 +5,46 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * The migrations run against PostgreSQL, not H2.
+ *
+ * <p>They are written for PostgreSQL — V8 relies on an ON CONFLICT upsert and V10 on a
+ * partial unique index, neither of which H2 parses. Validating them on H2 proved the
+ * wrong thing: it rejected V10 with a syntax error while the statement is correct for
+ * every environment that actually runs it.
+ */
 @SpringBootTest(properties = {
         "spring.flyway.enabled=true",
         "spring.jpa.hibernate.ddl-auto=none"
 })
 @ActiveProfiles("test")
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost")
+@Testcontainers
 class IdentityMigrationTest {
+
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+
+    @DynamicPropertySource
+    static void usePostgres(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
+        registry.add("spring.jpa.properties.hibernate.dialect",
+                () -> "org.hibernate.dialect.PostgreSQLDialect");
+    }
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -37,6 +64,7 @@ class IdentityMigrationTest {
         assertThat(indexExists("idx_users_email")).isTrue();
         assertThat(indexExists("idx_users_role")).isTrue();
         assertThat(indexExists("idx_verification_requests_queue")).isTrue();
+        assertThat(indexExists("uq_verification_requests_active_type")).isTrue();
     }
 
     private boolean tableExists(String tableName) {
@@ -58,9 +86,11 @@ class IdentityMigrationTest {
     }
 
     private boolean indexExists(String indexName) {
+        // pg_indexes, not information_schema.indexes: the latter is an H2 extension
+        // and is not part of the SQL standard PostgreSQL implements.
         Integer count = jdbcTemplate.queryForObject(
-                "select count(*) from information_schema.indexes " +
-                        "where lower(index_name) = lower(?)",
+                "select count(*) from pg_indexes " +
+                        "where schemaname = 'public' and lower(indexname) = lower(?)",
                 Integer.class,
                 indexName);
         return count != null && count == 1;
