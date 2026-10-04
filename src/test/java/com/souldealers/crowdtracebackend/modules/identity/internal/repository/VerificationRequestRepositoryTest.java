@@ -7,13 +7,18 @@ import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.VerificationRequest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +31,12 @@ class VerificationRequestRepositoryTest {
 
     @Autowired
     private VerificationRequestRepository verificationRequestRepository;
+
+    @AfterEach
+    void cleanDetachedFixture() {
+        verificationRequestRepository.deleteAll();
+        userRepository.deleteAll();
+    }
 
     @Test
     void findsPendingRequestsInOldestFirstQueueOrder() {
@@ -47,6 +58,22 @@ class VerificationRequestRepositoryTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+    void queueQueryFetchesTheUserNeededForDetachedAdminMapping() {
+        User user = userRepository.saveAndFlush(user("detached@example.com"));
+        verificationRequestRepository.saveAndFlush(request(
+                user, VerificationStatus.PENDING, LocalDateTime.of(2026, 1, 1, 9, 0)));
+
+        VerificationRequest queued = verificationRequestRepository
+                .findPendingRequests(PageRequest.of(0, 10))
+                .getContent()
+                .getFirst();
+
+        assertThat(queued.getUser().getDisplayName()).isEqualTo("Ada");
+    }
+
+    @Test
     void persistsVerificationTypeAndStatusAsExplicitEnums() {
         User user = userRepository.saveAndFlush(user("ada@example.com"));
         VerificationRequest savedRequest = verificationRequestRepository.saveAndFlush(
@@ -56,7 +83,7 @@ class VerificationRequestRepositoryTest {
                 .findById(savedRequest.getId())
                 .orElseThrow();
 
-        assertThat(reloadedRequest.getVerificationType()).isEqualTo(VerificationType.IDENTITY);
+        assertThat(reloadedRequest.getVerificationType()).isEqualTo(VerificationType.POLICE);
         assertThat(reloadedRequest.getStatus()).isEqualTo(VerificationStatus.PENDING);
     }
 
@@ -72,10 +99,67 @@ class VerificationRequestRepositoryTest {
         assertThat(ownedRequests.getContent()).containsExactly(request);
     }
 
+    @Test
+    void findsAllRequestsOwnedByAUserInNewestFirstOrder() {
+        User user = userRepository.saveAndFlush(user("list@example.com"));
+        VerificationRequest oldest = verificationRequestRepository.saveAndFlush(request(
+                user, VerificationStatus.REJECTED, LocalDateTime.of(2026, 1, 1, 9, 0)));
+        VerificationRequest newest = verificationRequestRepository.saveAndFlush(request(
+                user, VerificationStatus.PENDING, LocalDateTime.of(2026, 1, 1, 11, 0)));
+
+        assertThat(verificationRequestRepository.findByUserIdOrderByCreatedAtDesc(user.getId()))
+                .extracting(VerificationRequest::getId)
+                .containsExactly(newest.getId(), oldest.getId());
+    }
+
+    /** One badge per user: the slot check ignores type and looks only at the statuses asked for. */
+    @Test
+    void detectsAnActiveRequestForAUserWhateverItsStatusAmongThoseAsked() {
+        User user = userRepository.saveAndFlush(user("exists@example.com"));
+        verificationRequestRepository.saveAndFlush(request(
+                user, VerificationStatus.PENDING, LocalDateTime.of(2026, 1, 1, 9, 0)));
+
+        assertThat(verificationRequestRepository.existsByUserIdAndStatusIn(
+                user.getId(), List.of(VerificationStatus.PENDING, VerificationStatus.APPROVED))).isTrue();
+        assertThat(verificationRequestRepository.existsByUserIdAndStatusIn(
+                user.getId(), List.of(VerificationStatus.APPROVED))).isFalse();
+    }
+
+    @Test
+    void ignoresDecidedRequestsAndOtherUsersWhenCheckingTheActiveSlot() {
+        User user = userRepository.saveAndFlush(user("freed@example.com"));
+        User other = userRepository.saveAndFlush(user("other@example.com"));
+        verificationRequestRepository.saveAndFlush(request(
+                user, VerificationStatus.REJECTED, LocalDateTime.of(2026, 1, 1, 9, 0)));
+        verificationRequestRepository.saveAndFlush(request(
+                other, VerificationStatus.APPROVED, LocalDateTime.of(2026, 1, 1, 9, 0)));
+
+        assertThat(verificationRequestRepository.existsByUserIdAndStatusIn(
+                user.getId(), List.of(VerificationStatus.PENDING, VerificationStatus.APPROVED))).isFalse();
+    }
+
+    @Test
+    void appliesOnlyTheFirstConditionalDecision() {
+        User user = userRepository.saveAndFlush(user("decision@example.com"));
+        VerificationRequest request = verificationRequestRepository.saveAndFlush(
+                request(user, VerificationStatus.PENDING, LocalDateTime.of(2026, 1, 1, 9, 0)));
+        LocalDateTime reviewedAt = LocalDateTime.of(2026, 1, 2, 9, 0);
+
+        int firstUpdate = verificationRequestRepository.applyDecision(
+                request.getId(), VerificationStatus.PENDING, VerificationStatus.APPROVED,
+                user, "approved", reviewedAt);
+        int secondUpdate = verificationRequestRepository.applyDecision(
+                request.getId(), VerificationStatus.PENDING, VerificationStatus.REJECTED,
+                user, "rejected", reviewedAt.plusMinutes(1));
+
+        assertThat(firstUpdate).isEqualTo(1);
+        assertThat(secondUpdate).isZero();
+    }
+
     private VerificationRequest request(User user, VerificationStatus status, LocalDateTime createdAt) {
         return VerificationRequest.builder()
                 .user(user)
-                .verificationType(VerificationType.IDENTITY)
+                .verificationType(VerificationType.POLICE)
                 .evidenceReference("evidence/identity-proof.pdf")
                 .status(status)
                 .createdAt(createdAt)

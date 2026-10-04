@@ -2,19 +2,16 @@ package com.souldealers.crowdtracebackend.modules.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
-import com.souldealers.crowdtracebackend.modules.identity.internal.model.VerificationRequest;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
-import com.souldealers.crowdtracebackend.modules.identity.internal.repository.VerificationRequestRepository;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,20 +20,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>The public projection is a module-boundary seam rather than an HTTP endpoint —
  * {@code /api/public/**} belongs to discovery (phase 4), and no consumer exists yet.
- * These tests pin the badge rule, the badge type, and the serialized shape.
- *
- * <p>The badge rule is per type: for each verification type, the most recently decided
- * request wins, and the badge shows if any type's latest decision is APPROVED. A user
- * may hold an IDENTITY badge and separately apply as an ORGANIZATION, so a single
- * "latest decided request overall" rule would let a rejected second application strip
- * a valid first badge.
+ * These tests pin that the projection reads the badge from {@code users.badge_type}
+ * (a user holds at most one), the badge type, and the serialized shape. How the column
+ * is written is covered by {@link VerificationWorkflowTest}; request rows alone no
+ * longer influence what the projection shows.
  */
 @SpringBootTest(properties = "cors.allowed-origins=http://localhost")
 @ActiveProfiles("test")
 class PublicUserProjectionTest {
-
-    private static final LocalDateTime JANUARY = LocalDateTime.of(2026, 1, 1, 12, 0);
-    private static final LocalDateTime JUNE = LocalDateTime.of(2026, 6, 1, 12, 0);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -47,14 +38,14 @@ class PublicUserProjectionTest {
     private UserRepository userRepository;
 
     @Autowired
-    private VerificationRequestRepository verificationRequestRepository;
+    private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     private NotificationService notificationService;
 
     @Test
-    void exposesThePseudonymForAUserWithNoVerificationRequest() {
-        User user = saveUser("no-request@example.com", "Quiet Contributor");
+    void exposesThePseudonymForAUserWithNoBadge() {
+        User user = saveUser("no-badge@example.com", "Quiet Contributor", null);
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
@@ -63,69 +54,39 @@ class PublicUserProjectionTest {
         assertThat(response.badgeType()).isNull();
     }
 
-    @Test
-    void showsTheBadgeTypeTheAdministratorApproved() {
-        User user = saveUser("approved@example.com", "Approved Contributor");
-        decide(user, VerificationType.ORGANIZATION, VerificationStatus.APPROVED, JANUARY);
-
-        PublicUserResponse response = userService.getPublicProfile(user.getId());
-
-        assertThat(response.verified()).isTrue();
-        assertThat(response.badgeType()).isEqualTo(VerificationType.ORGANIZATION);
-    }
-
     @ParameterizedTest
-    @EnumSource(value = VerificationStatus.class, names = {"PENDING", "REJECTED", "REVOKED"})
-    void withholdsTheBadgeForEveryStatusOtherThanApproved(VerificationStatus status) {
-        User user = saveUser(status.name().toLowerCase() + "@example.com", "Unbadged Contributor");
-        decide(user, VerificationType.IDENTITY, status, JANUARY);
+    @EnumSource(VerificationType.class)
+    void showsTheBadgeTypeStoredOnTheUser(VerificationType type) {
+        User user = saveUser(type.name().toLowerCase() + "@example.com", "Badged Contributor", type);
+
+        PublicUserResponse response = userService.getPublicProfile(user.getId());
+
+        assertThat(response.verified()).isTrue();
+        assertThat(response.badgeType()).isEqualTo(type);
+    }
+
+    /**
+     * Rows in the request history are not the source of display: an approved request
+     * with no badge on the user row shows nothing, because the workflow sets the column
+     * in the same transaction as the decision and nothing else is consulted.
+     */
+    @Test
+    void readsTheColumnAndNotTheRequestHistory() {
+        User user = saveUser("history-only@example.com", "History Only", null);
+        jdbcTemplate.update("""
+                INSERT INTO verification_requests (user_id, verification_type, evidence_reference, status, created_at)
+                VALUES (?, 'POLICE', 'private/evidence.pdf', 'APPROVED', CURRENT_TIMESTAMP)
+                """, user.getId());
 
         PublicUserResponse response = userService.getPublicProfile(user.getId());
 
         assertThat(response.verified()).isFalse();
         assertThat(response.badgeType()).isNull();
-    }
-
-    @Test
-    void dropsTheBadgeWhenALaterDecisionRevokesTheSameType() {
-        User user = saveUser("revoked-later@example.com", "Revoked Contributor");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
-        decide(user, VerificationType.IDENTITY, VerificationStatus.REVOKED, JUNE);
-
-        PublicUserResponse response = userService.getPublicProfile(user.getId());
-
-        assertThat(response.verified()).isFalse();
-        assertThat(response.badgeType()).isNull();
-    }
-
-    @Test
-    void keepsAnApprovedBadgeWhenALaterApplicationOfAnotherTypeIsRejected() {
-        User user = saveUser("mixed-outcome@example.com", "Mixed Outcome Contributor");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
-        decide(user, VerificationType.ORGANIZATION, VerificationStatus.REJECTED, JUNE);
-
-        PublicUserResponse response = userService.getPublicProfile(user.getId());
-
-        assertThat(response.verified()).isTrue();
-        assertThat(response.badgeType()).isEqualTo(VerificationType.IDENTITY);
-    }
-
-    @Test
-    void ignoresAStillPendingApplicationAlongsideAnApprovedBadge() {
-        User user = saveUser("pending-second@example.com", "Applying Again");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
-        pending(user, VerificationType.ORGANIZATION);
-
-        PublicUserResponse response = userService.getPublicProfile(user.getId());
-
-        assertThat(response.verified()).isTrue();
-        assertThat(response.badgeType()).isEqualTo(VerificationType.IDENTITY);
     }
 
     @Test
     void keepsPrivateIdentityFieldsOutOfTheSerializedProjection() throws Exception {
-        User user = saveUser("private-fields@example.com", "Public Pseudonym");
-        decide(user, VerificationType.IDENTITY, VerificationStatus.APPROVED, JANUARY);
+        User user = saveUser("private-fields@example.com", "Public Pseudonym", VerificationType.POLICE);
 
         String json = objectMapper.writeValueAsString(userService.getPublicProfile(user.getId()));
 
@@ -134,37 +95,17 @@ class PublicUserProjectionTest {
         // checks against a small record would pass or fail on the fixture name.
         // Equality also catches fields nobody thought to enumerate.
         assertThat(json).isEqualTo(
-                "{\"displayName\":\"Public Pseudonym\",\"verified\":true,\"badgeType\":\"IDENTITY\"}");
+                "{\"displayName\":\"Public Pseudonym\",\"verified\":true,\"badgeType\":\"POLICE\"}");
     }
 
-    private User saveUser(String email, String displayName) {
+    private User saveUser(String email, String displayName, VerificationType badgeType) {
         return userRepository.saveAndFlush(User.builder()
                 .email(email)
                 .passwordHash("encoded-password")
                 .displayName(displayName)
                 .role(UserRoles.REGISTERED_USER)
                 .accountStatus(UserStatus.ACTIVE)
+                .badgeType(badgeType)
                 .build());
-    }
-
-    private void decide(
-            User user,
-            VerificationType type,
-            VerificationStatus status,
-            LocalDateTime decidedAt) {
-        verificationRequestRepository.saveAndFlush(VerificationRequest.builder()
-                .user(user)
-                .verificationType(type)
-                .evidenceReference("private/evidence.pdf")
-                .status(status)
-                .createdAt(decidedAt.minusDays(1))
-                // PENDING rows are never "decided"; the repository filters them out, so
-                // leaving reviewedAt set here would not smuggle them into the result.
-                .reviewedAt(status == VerificationStatus.PENDING ? null : decidedAt)
-                .build());
-    }
-
-    private void pending(User user, VerificationType type) {
-        decide(user, type, VerificationStatus.PENDING, JUNE.plusDays(1));
     }
 }

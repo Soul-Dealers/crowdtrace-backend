@@ -14,7 +14,8 @@ package com.souldealers.crowdtracebackend.modules.identity;
  * contributor is credible, not only that they are. The badge is a trust signal and
  * never a permission: the product spec is explicit that there is no privileged
  * investigator role, so a badge must never be read as an authorization decision.
- * The request and decision workflow that sets it belongs to CT-010.
+ * A user holds at most one badge. It is read from {@code users.badge_type}, which the
+ * CT-010 request and decision workflow writes in the same transaction as the decision.
  *
  * <p>Intentionally has no caller yet. It is the seam the {@code casefile} and
  * {@code community} modules will render authors through; {@code /api/public/**}

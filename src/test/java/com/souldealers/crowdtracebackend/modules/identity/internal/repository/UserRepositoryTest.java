@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.identity.internal.repository;
 
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
+import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,29 @@ class UserRepositoryTest {
 
         assertThat(reloadedUser.getRole()).isEqualTo(UserRoles.SUPER_ADMIN);
         assertThat(reloadedUser.getAccountStatus()).isEqualTo(UserStatus.SUSPENDED);
+    }
+
+    @Test
+    void setsTheBadgeWithABulkUpdateAndServesTheFreshValue() {
+        User saved = userRepository.saveAndFlush(user("badge@example.com"));
+
+        assertThat(userRepository.setBadgeType(saved.getId(), VerificationType.NGO)).isEqualTo(1);
+
+        assertThat(userRepository.findById(saved.getId()).orElseThrow().getBadgeType())
+                .isEqualTo(VerificationType.NGO);
+    }
+
+    @Test
+    void clearsTheBadgeOnlyWhileItStillHoldsTheGivenType() {
+        User saved = userRepository.saveAndFlush(user("clear@example.com"));
+        userRepository.setBadgeType(saved.getId(), VerificationType.NGO);
+
+        assertThat(userRepository.clearBadgeType(saved.getId(), VerificationType.POLICE)).isZero();
+        assertThat(userRepository.findById(saved.getId()).orElseThrow().getBadgeType())
+                .isEqualTo(VerificationType.NGO);
+
+        assertThat(userRepository.clearBadgeType(saved.getId(), VerificationType.NGO)).isEqualTo(1);
+        assertThat(userRepository.findById(saved.getId()).orElseThrow().getBadgeType()).isNull();
     }
 
     private User user(String email) {

@@ -22,6 +22,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
@@ -138,6 +139,34 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.errors.name[0]").value("name is required"));
     }
 
+    @Test
+    void shouldRenderMalformedEnumAsBadRequestWithoutEchoingBody() throws Exception {
+        String malformedBody = "{\"verificationType\":\"IDENTITY\",\"evidenceReference\":\"private-proof\"}";
+
+        mockMvc.perform(MockMvcRequestBuilders.post("/verification-input")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_PROBLEM_JSON)
+                        .content(malformedBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Malformed request"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"))
+                .andExpect(jsonPath("$.detail").value("The request body could not be read"))
+                .andExpect(result -> Assertions.assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain(malformedBody));
+    }
+
+    @Test
+    void shouldRenderNonNumericPathIdAsBadRequest() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.post("/verification-input/abc/approve")
+                        .accept(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid request"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.detail").value("The request parameter is invalid"));
+    }
+
     @RestController
     static class FailingController {
 
@@ -164,8 +193,20 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/validation")
         void validation(@Valid @RequestBody ValidationRequest request) {
         }
+
+        @PostMapping("/verification-input")
+        void verificationInput(@RequestBody VerificationInput request) {
+        }
+
+        @PostMapping("/verification-input/{id}/approve")
+        void approve(@PathVariable Long id) {
+        }
     }
 
     record ValidationRequest(@NotBlank(message = "name is required") String name) {
+    }
+
+    record VerificationInput(com.souldealers.crowdtracebackend.modules.identity.VerificationType verificationType,
+                             String evidenceReference) {
     }
 }

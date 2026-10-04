@@ -101,6 +101,17 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/reset-password'].post.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/me'].get.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.security").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/verification-requests'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/verification-requests'].post.tags", hasItem("Identity")))
+                .andExpect(jsonPath("$.paths['/api/v1/verification-requests/me'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests'].get.tags", hasItem("Administration")))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/approve'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/reject'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/revoke'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-grants'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/verification-grants'].post.description",
+                        containsString("badge holder can read")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
                 // Admin operations inherit the document-level bearerAuth requirement.

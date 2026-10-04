@@ -3,6 +3,7 @@ package com.souldealers.crowdtracebackend.modules.identity.internal.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
+import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -65,6 +66,15 @@ public class User {
     @Builder.Default
     @Column(name = "credentials_version", nullable = false)
     private int credentialsVersion = 0;
+
+    /**
+     * The badge this user holds, or null. A user holds at most one. Written only by the
+     * verification workflow, in the same transaction as the decision; a trust signal,
+     * never a permission.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "badge_type", length = 32)
+    private VerificationType badgeType;
 
     @PrePersist
     protected void onCreate() {

@@ -51,7 +51,14 @@ class CanonicalPathTest {
                 "/api/v1/auth/users",
                 "/api/v1/auth/me",
                 "/api/v1/auth/logout",
-                "/api/v1/auth/profile-settings");
+                "/api/v1/auth/profile-settings",
+                "/api/v1/verification-requests",
+                "/api/v1/verification-requests/me",
+                "/api/v1/admin/verification-requests",
+                "/api/v1/admin/verification-requests/{id}/approve",
+                "/api/v1/admin/verification-requests/{id}/reject",
+                "/api/v1/admin/verification-requests/{id}/revoke",
+                "/api/v1/admin/verification-grants");
 
         assertThat(patterns).doesNotContain(
                 "/login", "/signup", "/verify-otp", "/resend-otp",
