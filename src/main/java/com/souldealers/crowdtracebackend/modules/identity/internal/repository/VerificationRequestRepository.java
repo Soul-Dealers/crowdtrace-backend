@@ -1,7 +1,6 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.repository;
 
 import com.souldealers.crowdtracebackend.modules.identity.VerificationStatus;
-import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.VerificationRequest;
 import org.springframework.data.domain.Page;
@@ -32,10 +31,12 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
     @EntityGraph(attributePaths = "user")
     java.util.Optional<VerificationRequest> findWithUserById(Long id);
 
-    boolean existsByUserIdAndVerificationTypeAndStatus(
-            Long userId,
-            VerificationType verificationType,
-            VerificationStatus status);
+    /**
+     * Whether the user has a request in any of the given statuses, whatever its type.
+     * A user holds at most one badge, so callers pass PENDING and APPROVED to ask
+     * "is this user's single slot taken".
+     */
+    boolean existsByUserIdAndStatusIn(Long userId, Collection<VerificationStatus> statuses);
 
     @Modifying(clearAutomatically = true)
     @Query("""
@@ -54,49 +55,6 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
             @Param("reviewer") User reviewer,
             @Param("reviewNotes") String reviewNotes,
             @Param("reviewedAt") LocalDateTime reviewedAt);
-
-    /**
-     * Decided requests for one user, newest decision first.
-     *
-     * <p>Ordered on the review timestamp, falling back to creation so the ordering is
-     * deterministic on both PostgreSQL and the H2 test database — their default NULL
-     * ordering differs, and a rank that depends on the engine would make this pass in
-     * tests and drift in production. The id breaks exact ties.
-     */
-    @Query("""
-            SELECT request FROM VerificationRequest request
-            WHERE request.user.id = :userId
-              AND request.status <> :excludedStatus
-            ORDER BY COALESCE(request.reviewedAt, request.createdAt) DESC, request.id DESC
-            """)
-    List<VerificationRequest> findRequestsByUserExcludingStatus(
-            @Param("userId") Long userId,
-            @Param("excludedStatus") VerificationStatus excludedStatus);
-
-    default List<VerificationRequest> findDecidedRequestsNewestFirst(Long userId) {
-        return findRequestsByUserExcludingStatus(userId, VerificationStatus.PENDING);
-    }
-
-    /**
-     * The same decided-requests query for a page of users, in one round trip.
-     *
-     * <p>The badge on a user listing would otherwise cost one query per row. Ordering
-     * matches the single-user query, so callers can group by user and apply the
-     * newest-decision-per-type rule to each group unchanged.
-     */
-    @Query("""
-            SELECT request FROM VerificationRequest request
-            WHERE request.user.id IN :userIds
-              AND request.status <> :excludedStatus
-            ORDER BY COALESCE(request.reviewedAt, request.createdAt) DESC, request.id DESC
-            """)
-    List<VerificationRequest> findRequestsByUsersExcludingStatus(
-            @Param("userIds") Collection<Long> userIds,
-            @Param("excludedStatus") VerificationStatus excludedStatus);
-
-    default List<VerificationRequest> findDecidedRequestsNewestFirst(Collection<Long> userIds) {
-        return findRequestsByUsersExcludingStatus(userIds, VerificationStatus.PENDING);
-    }
 
     default Page<VerificationRequest> findPendingRequests(Pageable pageable) {
         return findByStatusOrderByCreatedAtAsc(VerificationStatus.PENDING, pageable);

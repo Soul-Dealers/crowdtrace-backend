@@ -136,6 +136,130 @@ class VerificationWorkflowTest {
                 .andExpect(status().isCreated());
     }
 
+    // --- One badge per user -------------------------------------------------
+
+    /** A user holds at most one badge, so a badge holder cannot take a second one of another type. */
+    @Test
+    void refusesABadgeHolderApplyingForADifferentType() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        long requestId = submit(applicant, VerificationType.POLICE, "first badge");
+        decide(saveUser(UserRoles.MODERATOR), requestId, "approve", null);
+
+        mockMvc.perform(post(SUBMIT).header("Authorization", bearer(applicant))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(submitBody(VerificationType.NGO, "second badge")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void refusesAPendingApplicantApplyingForADifferentType() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        submit(applicant, VerificationType.POLICE, "first application");
+
+        mockMvc.perform(post(SUBMIT).header("Authorization", bearer(applicant))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(submitBody(VerificationType.NGO, "second application")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void refusesAGrantOfADifferentTypeToABadgeHolder() throws Exception {
+        User holder = saveUser(UserRoles.REGISTERED_USER);
+        decide(saveUser(UserRoles.MODERATOR), submit(holder, VerificationType.POLICE, "held"), "approve", null);
+
+        mockMvc.perform(post(GRANT)
+                        .header("Authorization", bearer(saveUser(UserRoles.SUPER_ADMIN)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","verificationType":"NGO",
+                                 "evidenceReference":"second badge"}""".formatted(holder.getEmail())))
+                .andExpect(status().isConflict());
+
+        assertThat(badgeColumn(holder)).isEqualTo("POLICE");
+    }
+
+    /** Revocation frees the slot: the same user may then apply, even for another type. */
+    @Test
+    void letsAUserApplyAgainAfterRevocationOfTheirBadge() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User moderator = saveUser(UserRoles.MODERATOR);
+        long policeId = submit(applicant, VerificationType.POLICE, "first badge");
+        decide(moderator, policeId, "approve", null);
+        decide(saveUser(UserRoles.SUPER_ADMIN), policeId, "revoke", null);
+
+        long ngoId = submit(applicant, VerificationType.NGO, "second chance");
+        decide(moderator, ngoId, "approve", null);
+
+        assertThat(badgeColumn(applicant)).isEqualTo("NGO");
+    }
+
+    @Test
+    void letsAUserApplyAgainAfterARejection() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        decide(saveUser(UserRoles.MODERATOR), submit(applicant, VerificationType.POLICE, "refused"), "reject", null);
+
+        submit(applicant, VerificationType.NGO, "second chance");
+    }
+
+    // --- users.badge_type is written with the decision ----------------------
+
+    @Test
+    void setsTheStoredBadgeWhenARequestIsApprovedAndClearsItWhenRevoked() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        long requestId = submit(applicant, VerificationType.SUBJECT_MATTER_EXPERT, "stored badge");
+        assertThat(badgeColumn(applicant)).isNull();
+
+        decide(saveUser(UserRoles.MODERATOR), requestId, "approve", null);
+        assertThat(badgeColumn(applicant)).isEqualTo("SUBJECT_MATTER_EXPERT");
+
+        decide(saveUser(UserRoles.SUPER_ADMIN), requestId, "revoke", null);
+        assertThat(badgeColumn(applicant)).isNull();
+    }
+
+    @Test
+    void setsTheStoredBadgeOnADirectGrantAndClearsItWhenThatGrantIsRevoked() throws Exception {
+        User target = saveUser(UserRoles.REGISTERED_USER);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+
+        MvcResult result = mockMvc.perform(post(GRANT)
+                        .header("Authorization", bearer(superAdmin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","verificationType":"NGO",
+                                 "evidenceReference":"granted"}""".formatted(target.getEmail())))
+                .andExpect(status().isOk())
+                .andReturn();
+        long requestId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data").path("id").asLong();
+        assertThat(badgeColumn(target)).isEqualTo("NGO");
+
+        decide(superAdmin, requestId, "revoke", null);
+        assertThat(badgeColumn(target)).isNull();
+    }
+
+    @Test
+    void leavesTheStoredBadgeUntouchedWhenARequestIsRejected() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        long requestId = submit(applicant, VerificationType.POLICE, "to be refused");
+        jdbcTemplate.update("UPDATE users SET badge_type = 'NGO' WHERE id = ?", applicant.getId());
+
+        decide(saveUser(UserRoles.MODERATOR), requestId, "reject", null);
+
+        assertThat(badgeColumn(applicant)).isEqualTo("NGO");
+    }
+
+    /** Defensive guard: a revocation never wipes a badge that belongs to a different request. */
+    @Test
+    void leavesADifferentStoredBadgeAloneWhenRevokingAnApprovalOfAnotherType() throws Exception {
+        User holder = saveUser(UserRoles.REGISTERED_USER);
+        VerificationRequest stale = saveRequest(holder, VerificationType.POLICE, VerificationStatus.APPROVED);
+        jdbcTemplate.update("UPDATE users SET badge_type = 'NGO' WHERE id = ?", holder.getId());
+
+        decide(saveUser(UserRoles.SUPER_ADMIN), stale.getId(), "revoke", null);
+
+        assertThat(badgeColumn(holder)).isEqualTo("NGO");
+    }
+
     // --- Response projection ------------------------------------------------
 
     @Test
@@ -370,16 +494,14 @@ class VerificationWorkflowTest {
         assertThat(badged.verified()).isTrue();
         assertThat(badged.badgeType()).isEqualTo(VerificationType.POLICE);
 
-        long ngoId = submit(applicant, VerificationType.NGO, "ngo evidence");
-        decide(moderator, ngoId, "reject", null);
-        PublicUserResponse afterRejection = userService.getPublicProfile(applicant.getId());
-        assertThat(afterRejection.verified()).isTrue();
-        assertThat(afterRejection.badgeType()).isEqualTo(VerificationType.POLICE);
-
         decide(superAdmin, policeId, "revoke", null);
         PublicUserResponse afterRevocation = userService.getPublicProfile(applicant.getId());
         assertThat(afterRevocation.verified()).isFalse();
         assertThat(afterRevocation.badgeType()).isNull();
+
+        long ngoId = submit(applicant, VerificationType.NGO, "ngo evidence");
+        decide(moderator, ngoId, "approve", null);
+        assertThat(userService.getPublicProfile(applicant.getId()).badgeType()).isEqualTo(VerificationType.NGO);
     }
 
     @Test
@@ -473,6 +595,11 @@ class VerificationWorkflowTest {
     private static LocalDateTime reviewedAt(Map<String, Object> row) {
         Object value = row.get("reviewed_at");
         return value instanceof Timestamp timestamp ? timestamp.toLocalDateTime() : (LocalDateTime) value;
+    }
+
+    private String badgeColumn(User user) {
+        return jdbcTemplate.queryForObject(
+                "SELECT badge_type FROM users WHERE id = ?", String.class, user.getId());
     }
 
     private Map<String, Object> auditRow(long requestId) {

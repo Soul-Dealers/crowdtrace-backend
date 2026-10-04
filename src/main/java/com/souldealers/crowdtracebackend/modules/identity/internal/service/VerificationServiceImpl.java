@@ -26,8 +26,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_FOUND_MSG;
 
@@ -35,7 +37,13 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_F
 @RequiredArgsConstructor
 public class VerificationServiceImpl implements VerificationService {
     private static final Logger log = LoggerFactory.getLogger(VerificationServiceImpl.class);
-    private static final String ACTIVE_REQUEST_UNIQUE_INDEX = "uq_verification_requests_active_type";
+    private static final String SLOT_TAKEN_MESSAGE =
+            "You already hold a verification badge or have a pending request";
+    private static final String GRANT_SLOT_TAKEN_MESSAGE =
+            "The user already holds a verification badge or has a pending request";
+    private static final Set<VerificationStatus> ACTIVE_STATUSES =
+            EnumSet.of(VerificationStatus.PENDING, VerificationStatus.APPROVED);
+    private static final String ACTIVE_REQUEST_UNIQUE_INDEX = "uq_verification_requests_active_user";
 
     private final VerificationRequestRepository requestRepository;
     private final UserRepository userRepository;
@@ -44,13 +52,8 @@ public class VerificationServiceImpl implements VerificationService {
     @Transactional
     public VerificationRequestResponse submit(String actorEmail, SubmitVerificationRequest request) {
         User user = findUser(actorEmail);
-        if (requestRepository.existsByUserIdAndVerificationTypeAndStatus(
-                user.getId(), request.verificationType(), VerificationStatus.PENDING)) {
-            throw new ConflictException("A pending verification request already exists for this type");
-        }
-        if (requestRepository.existsByUserIdAndVerificationTypeAndStatus(
-                user.getId(), request.verificationType(), VerificationStatus.APPROVED)) {
-            throw new ConflictException("An approved badge already exists for this type");
+        if (hasActiveRequest(user.getId())) {
+            throw new ConflictException(SLOT_TAKEN_MESSAGE);
         }
 
         VerificationRequest saved = saveActiveRequest(VerificationRequest.builder()
@@ -58,7 +61,7 @@ public class VerificationServiceImpl implements VerificationService {
                 .verificationType(request.verificationType())
                 .evidenceReference(request.evidenceReference())
                 .status(VerificationStatus.PENDING)
-                .build(), "A pending or approved request already exists for this type");
+                .build(), SLOT_TAKEN_MESSAGE);
         return toOwnResponse(saved);
     }
 
@@ -113,11 +116,8 @@ public class VerificationServiceImpl implements VerificationService {
         if (target.getAccountStatus() != UserStatus.ACTIVE || target.getDeletedAt() != null) {
             throw new ConflictException("Verification can only be granted to an active user");
         }
-        if (requestRepository.existsByUserIdAndVerificationTypeAndStatus(
-                target.getId(), request.verificationType(), VerificationStatus.PENDING)
-                || requestRepository.existsByUserIdAndVerificationTypeAndStatus(
-                target.getId(), request.verificationType(), VerificationStatus.APPROVED)) {
-            throw new ConflictException("A pending or approved verification already exists for this type");
+        if (hasActiveRequest(target.getId())) {
+            throw new ConflictException(GRANT_SLOT_TAKEN_MESSAGE);
         }
 
         LocalDateTime reviewedAt = LocalDateTime.now();
@@ -129,19 +129,26 @@ public class VerificationServiceImpl implements VerificationService {
                 .reviewer(actor)
                 .reviewNotes(request.reviewNotes())
                 .reviewedAt(reviewedAt)
-                .build(), "A pending or approved verification already exists for this type");
+                .build(), GRANT_SLOT_TAKEN_MESSAGE);
+        userRepository.setBadgeType(target.getId(), request.verificationType());
         logDecision(saved.getId(), actor, "grant", null, VerificationStatus.APPROVED);
         return toAdminResponse(saved);
+    }
+
+    /** A user holds one badge, so any PENDING or APPROVED request, of any type, takes the slot. */
+    private boolean hasActiveRequest(Long userId) {
+        return requestRepository.existsByUserIdAndStatusIn(userId, ACTIVE_STATUSES);
     }
 
     /**
      * Inserts an active request, letting the database settle a race the checks above
      * cannot.
      *
-     * <p>The duplicate checks are check-then-act: two concurrent submits, two grants, or
+     * <p>The active-request check is check-then-act: two concurrent submits, two grants, or
      * a submit racing a grant all observe "nothing exists" and both insert, because
      * neither transaction can see the other's uncommitted row. The partial unique index
-     * {@code uq_verification_requests_active_type} rejects the loser, and this turns
+     * (one active request per user, any type)
+     * {@code uq_verification_requests_active_user} rejects the loser, and this turns
      * that rejection into the same 409 the ordinary duplicate path returns. The checks
      * stay because they produce the clearer message on the common, uncontended path.
      *
@@ -184,10 +191,26 @@ public class VerificationServiceImpl implements VerificationService {
         if (updated == 0) {
             throw new ConflictException("Verification request was already decided");
         }
+        syncBadge(request, to);
         logDecision(requestId, actor, action, from, to);
         VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
         return toAdminResponse(refreshed);
+    }
+
+    /**
+     * Keeps {@code users.badge_type} in step with the decision, inside the decision's
+     * transaction. Approve sets it, revoke clears it (only while it still holds this
+     * request's type), reject leaves it alone. Bulk updates, because the decision query
+     * clears the persistence context and any loaded User is detached by now.
+     */
+    private void syncBadge(VerificationRequest request, VerificationStatus to) {
+        Long userId = request.getUser().getId();
+        if (to == VerificationStatus.APPROVED) {
+            userRepository.setBadgeType(userId, request.getVerificationType());
+        } else if (to == VerificationStatus.REVOKED) {
+            userRepository.clearBadgeType(userId, request.getVerificationType());
+        }
     }
 
     private void logDecision(Long requestId, User actor, String action,

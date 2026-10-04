@@ -3,10 +3,11 @@ package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 import com.souldealers.crowdtracebackend.modules.identity.UpdateUserProfileRequest;
 import com.souldealers.crowdtracebackend.modules.identity.UserResponse;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
+import com.souldealers.crowdtracebackend.modules.identity.PublicUserResponse;
 import com.souldealers.crowdtracebackend.modules.identity.UserStatus;
+import com.souldealers.crowdtracebackend.modules.identity.VerificationType;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
-import com.souldealers.crowdtracebackend.modules.identity.internal.repository.VerificationRequestRepository;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import com.souldealers.crowdtracebackend.shared.PagedResponse;
+
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,11 +34,6 @@ class UserServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
-
-    // The badge on the own view is resolved at read time, so every mapping path
-    // reaches this repository. Mockito's default empty list means "no badge".
-    @Mock
-    private VerificationRequestRepository verificationRequestRepository;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -48,6 +49,71 @@ class UserServiceImplTest {
         assertThat(response.email()).isEqualTo(user.getEmail());
         assertThat(response.role()).isEqualTo(UserRoles.REGISTERED_USER);
         assertThat(response.accountStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    /** The badge is read from the user row, not recomputed, so a null column means unverified. */
+    @Test
+    void getCurrentUserIsUnverifiedWhenTheUserHoldsNoBadge() {
+        User user = user();
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        UserResponse response = userService.getCurrentUser(user.getEmail());
+
+        assertThat(response.verified()).isFalse();
+        assertThat(response.badgeType()).isNull();
+    }
+
+    @Test
+    void getCurrentUserCarriesTheBadgeStoredOnTheUser() {
+        User user = user();
+        user.setBadgeType(VerificationType.NGO);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+
+        UserResponse response = userService.getCurrentUser(user.getEmail());
+
+        assertThat(response.verified()).isTrue();
+        assertThat(response.badgeType()).isEqualTo(VerificationType.NGO);
+    }
+
+    @Test
+    void updateProfileKeepsTheStoredBadgeOnTheResponse() {
+        User user = user();
+        user.setBadgeType(VerificationType.POLICE);
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(userRepository.save(user)).thenReturn(user);
+
+        UserResponse response = userService.updateProfile(
+                user.getEmail(), new UpdateUserProfileRequest("Same Badge"));
+
+        assertThat(response.verified()).isTrue();
+        assertThat(response.badgeType()).isEqualTo(VerificationType.POLICE);
+    }
+
+    @Test
+    void getAllUsersMapsEachRowsOwnBadge() {
+        User badged = user();
+        badged.setBadgeType(VerificationType.SUBJECT_MATTER_EXPERT);
+        User plain = user();
+        when(userRepository.findAll(Pageable.unpaged()))
+                .thenReturn(new PageImpl<>(List.of(badged, plain)));
+
+        PagedResponse<UserResponse> page = userService.getAllUsers(Pageable.unpaged());
+
+        assertThat(page.content()).extracting(UserResponse::badgeType)
+                .containsExactly(VerificationType.SUBJECT_MATTER_EXPERT, null);
+        assertThat(page.content()).extracting(UserResponse::verified).containsExactly(true, false);
+    }
+
+    @Test
+    void getPublicProfileReadsTheBadgeFromTheUser() {
+        User user = user();
+        user.setBadgeType(VerificationType.POLICE);
+        when(userRepository.findById(5L)).thenReturn(Optional.of(user));
+
+        PublicUserResponse response = userService.getPublicProfile(5L);
+
+        assertThat(response.verified()).isTrue();
+        assertThat(response.badgeType()).isEqualTo(VerificationType.POLICE);
     }
 
     @Test

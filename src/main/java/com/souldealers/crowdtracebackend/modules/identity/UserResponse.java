@@ -10,10 +10,11 @@ import java.time.LocalDateTime;
  * another user can read the projection.
  *
  * <p>{@code badgeType} is the credential an administrator approved and is null
- * whenever {@code verified} is false. It is derived from the verification requests
- * at read time rather than stored on the user, so a revocation takes effect the
- * moment it is recorded. Like the public badge it is a trust signal and never a
- * permission: role checks read {@link UserRoles} alone.
+ * whenever {@code verified} is false. A user holds at most one badge; it is read from
+ * {@code users.badge_type}, which the verification workflow writes in the same
+ * transaction as the decision, so a revocation takes effect the moment it is recorded.
+ * Like the public badge it is a trust signal and never a permission: role checks read
+ * {@link UserRoles} alone.
  */
 @Builder
 public record UserResponse(

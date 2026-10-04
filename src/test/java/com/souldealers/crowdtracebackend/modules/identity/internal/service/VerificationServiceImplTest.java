@@ -67,6 +67,74 @@ class VerificationServiceImplTest {
     }
 
     @Test
+    void refusesToSubmitWhileTheUserHoldsAnActiveRequestOfAnyType() {
+        when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(user(1L, UserStatus.ACTIVE)));
+        when(requestRepository.existsByUserIdAndStatusIn(eq(1L), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> verificationService.submit(ACTOR,
+                new SubmitVerificationRequest(VerificationType.NGO, "evidence")))
+                .isInstanceOf(ConflictException.class);
+
+        verify(requestRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void refusesToGrantWhileTheRecipientHoldsAnActiveRequestOfAnyType() {
+        when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(user(1L, UserStatus.ACTIVE)));
+        when(userRepository.findByEmail("target@example.com"))
+                .thenReturn(Optional.of(user(2L, UserStatus.ACTIVE)));
+        when(requestRepository.existsByUserIdAndStatusIn(eq(2L), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> verificationService.grant(ACTOR, grantFor("target@example.com")))
+                .isInstanceOf(ConflictException.class);
+
+        verify(requestRepository, never()).saveAndFlush(any());
+        verify(userRepository, never()).setBadgeType(anyLong(), any());
+    }
+
+    @Test
+    void setsTheApplicantsBadgeWhenARequestIsApproved() {
+        stubDecision(VerificationStatus.PENDING, VerificationStatus.APPROVED);
+
+        verificationService.approve(ACTOR, 10L, null);
+
+        verify(userRepository).setBadgeType(2L, VerificationType.NGO);
+        verify(userRepository, never()).clearBadgeType(anyLong(), any());
+    }
+
+    @Test
+    void clearsTheBadgeOnlyForTheRevokedRequestsTypeWhenItIsRevoked() {
+        stubDecision(VerificationStatus.APPROVED, VerificationStatus.REVOKED);
+
+        verificationService.revoke(ACTOR, 10L, null);
+
+        verify(userRepository).clearBadgeType(2L, VerificationType.NGO);
+        verify(userRepository, never()).setBadgeType(anyLong(), any());
+    }
+
+    @Test
+    void leavesTheBadgeUntouchedWhenARequestIsRejected() {
+        stubDecision(VerificationStatus.PENDING, VerificationStatus.REJECTED);
+
+        verificationService.reject(ACTOR, 10L, null);
+
+        verify(userRepository, never()).setBadgeType(anyLong(), any());
+        verify(userRepository, never()).clearBadgeType(anyLong(), any());
+    }
+
+    private void stubDecision(VerificationStatus from, VerificationStatus to) {
+        User actor = user(1L, UserStatus.ACTIVE);
+        User owner = user(2L, UserStatus.ACTIVE);
+        VerificationRequest request = pendingRequestOwnedBy(owner);
+        request.setStatus(from);
+        when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(actor));
+        when(requestRepository.findById(10L)).thenReturn(Optional.of(request));
+        when(requestRepository.applyDecision(eq(10L), eq(from), eq(to), eq(actor),
+                ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        when(requestRepository.findWithUserById(10L)).thenReturn(Optional.of(request));
+    }
+
+    @Test
     void refusesADecisionWhenTheConditionalUpdateMatchesNoRow() {
         User actor = user(1L, UserStatus.ACTIVE);
         VerificationRequest request = pendingRequestOwnedBy(user(2L, UserStatus.ACTIVE));
@@ -144,7 +212,7 @@ class VerificationServiceImplTest {
         User actor = user(1L, UserStatus.ACTIVE);
         when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(actor));
         when(requestRepository.saveAndFlush(any())).thenThrow(uniquenessViolation(
-                "duplicate key value violates unique constraint \"uq_verification_requests_active_type\""));
+                "duplicate key value violates unique constraint \"uq_verification_requests_active_user\""));
 
         assertThatThrownBy(() -> verificationService.submit(ACTOR,
                 new SubmitVerificationRequest(VerificationType.NGO, "evidence")))

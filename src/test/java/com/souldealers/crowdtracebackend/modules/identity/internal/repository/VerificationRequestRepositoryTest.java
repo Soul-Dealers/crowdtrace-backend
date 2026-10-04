@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -111,16 +112,30 @@ class VerificationRequestRepositoryTest {
                 .containsExactly(newest.getId(), oldest.getId());
     }
 
+    /** One badge per user: the slot check ignores type and looks only at the statuses asked for. */
     @Test
-    void detectsAnExistingRequestForAUserTypeAndStatus() {
+    void detectsAnActiveRequestForAUserWhateverItsStatusAmongThoseAsked() {
         User user = userRepository.saveAndFlush(user("exists@example.com"));
         verificationRequestRepository.saveAndFlush(request(
                 user, VerificationStatus.PENDING, LocalDateTime.of(2026, 1, 1, 9, 0)));
 
-        assertThat(verificationRequestRepository.existsByUserIdAndVerificationTypeAndStatus(
-                user.getId(), VerificationType.POLICE, VerificationStatus.PENDING)).isTrue();
-        assertThat(verificationRequestRepository.existsByUserIdAndVerificationTypeAndStatus(
-                user.getId(), VerificationType.POLICE, VerificationStatus.APPROVED)).isFalse();
+        assertThat(verificationRequestRepository.existsByUserIdAndStatusIn(
+                user.getId(), List.of(VerificationStatus.PENDING, VerificationStatus.APPROVED))).isTrue();
+        assertThat(verificationRequestRepository.existsByUserIdAndStatusIn(
+                user.getId(), List.of(VerificationStatus.APPROVED))).isFalse();
+    }
+
+    @Test
+    void ignoresDecidedRequestsAndOtherUsersWhenCheckingTheActiveSlot() {
+        User user = userRepository.saveAndFlush(user("freed@example.com"));
+        User other = userRepository.saveAndFlush(user("other@example.com"));
+        verificationRequestRepository.saveAndFlush(request(
+                user, VerificationStatus.REJECTED, LocalDateTime.of(2026, 1, 1, 9, 0)));
+        verificationRequestRepository.saveAndFlush(request(
+                other, VerificationStatus.APPROVED, LocalDateTime.of(2026, 1, 1, 9, 0)));
+
+        assertThat(verificationRequestRepository.existsByUserIdAndStatusIn(
+                user.getId(), List.of(VerificationStatus.PENDING, VerificationStatus.APPROVED))).isFalse();
     }
 
     @Test

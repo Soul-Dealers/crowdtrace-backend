@@ -33,7 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * One active request per user and badge type, under concurrency.
+ * One active request per user, whatever the type, under concurrency. A user holds at
+ * most one badge, so the slot is per user rather than per type.
  *
  * <p>The service checks for an existing PENDING or APPROVED request before inserting,
  * which is check-then-act: two transactions can both see nothing and both insert,
@@ -93,7 +94,23 @@ class VerificationRequestConcurrencyTest {
                 verificationService.submit(applicant.getEmail(),
                         new SubmitVerificationRequest(VerificationType.NGO, "concurrent evidence"))));
 
-        assertSingleWinner(outcomes, applicant, VerificationType.NGO);
+        assertSingleWinner(outcomes, applicant);
+    }
+
+    /** Different types must not slip past each other: the slot is the user's, not the type's. */
+    @Test
+    void admitsOnlyOneOfManyConcurrentSubmissionsOfDifferentTypes() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        VerificationType[] types = VerificationType.values();
+
+        List<Callable<Object>> work = new ArrayList<>();
+        for (int i = 0; i < CONCURRENCY; i++) {
+            VerificationType type = types[i % types.length];
+            work.add(() -> verificationService.submit(applicant.getEmail(),
+                    new SubmitVerificationRequest(type, "concurrent evidence")));
+        }
+
+        assertSingleWinner(runConcurrently(work), applicant);
     }
 
     @Test
@@ -106,7 +123,8 @@ class VerificationRequestConcurrencyTest {
                         new GrantVerificationRequest(target.getEmail(), VerificationType.POLICE,
                                 "concurrent grant evidence", "granted under contention"))));
 
-        assertSingleWinner(outcomes, target, VerificationType.POLICE);
+        assertSingleWinner(outcomes, target);
+        assertThat(badgeOf(target)).as("the winning grant set the badge").isEqualTo("POLICE");
     }
 
     @Test
@@ -123,54 +141,61 @@ class VerificationRequestConcurrencyTest {
                             "racing grant", null)));
         }
 
-        assertSingleWinner(runConcurrently(work), applicant, VerificationType.SUBJECT_MATTER_EXPERT);
+        assertSingleWinner(runConcurrently(work), applicant);
     }
 
     /**
      * The index alone, with no scheduling involved: a second active row for the same
-     * user and type is refused by the database even when nothing checked first.
+     * user is refused by the database even when it is of a different type and nothing
+     * checked first.
      */
     @Test
     void rejectsASecondActiveRowAtTheDatabase() {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
-        verificationRequestRepository.saveAndFlush(row(applicant, VerificationStatus.PENDING));
+        verificationRequestRepository.saveAndFlush(row(applicant, VerificationType.NGO, VerificationStatus.PENDING));
 
         assertThatThrownBy(() -> verificationRequestRepository
-                .saveAndFlush(row(applicant, VerificationStatus.APPROVED)))
+                .saveAndFlush(row(applicant, VerificationType.POLICE, VerificationStatus.APPROVED)))
                 .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("uq_verification_requests_active_type");
+                .hasMessageContaining("uq_verification_requests_active_user");
     }
 
-    /** A decided request releases the slot, so the user may apply for that type again. */
+    /** A decided request releases the slot, so the user may apply again, even for another type. */
     @Test
     void allowsAnotherActiveRowOnceTheFirstIsDecided() {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
-        verificationRequestRepository.saveAndFlush(row(applicant, VerificationStatus.REJECTED));
-        verificationRequestRepository.saveAndFlush(row(applicant, VerificationStatus.REVOKED));
+        verificationRequestRepository.saveAndFlush(row(applicant, VerificationType.NGO, VerificationStatus.REJECTED));
+        verificationRequestRepository.saveAndFlush(row(applicant, VerificationType.POLICE, VerificationStatus.REVOKED));
 
-        verificationRequestRepository.saveAndFlush(row(applicant, VerificationStatus.PENDING));
+        verificationRequestRepository.saveAndFlush(
+                row(applicant, VerificationType.SUBJECT_MATTER_EXPERT, VerificationStatus.PENDING));
 
-        assertThat(activeRows(applicant, VerificationType.NGO)).isEqualTo(1);
+        assertThat(activeRows(applicant)).isEqualTo(1);
     }
 
-    private void assertSingleWinner(List<Outcome> outcomes, User user, VerificationType type) {
+    private void assertSingleWinner(List<Outcome> outcomes, User user) {
         assertThat(outcomes.stream().filter(Outcome::succeeded).count())
                 .as("exactly one call may create the active request")
                 .isEqualTo(1);
         assertThat(outcomes.stream().filter(outcome -> !outcome.succeeded()).map(Outcome::failure))
                 .as("every loser is refused as a conflict, never a 500")
                 .allSatisfy(failure -> assertThat(failure).isInstanceOf(ConflictException.class));
-        assertThat(activeRows(user, type))
-                .as("the database holds one active row for this user and type")
+        assertThat(activeRows(user))
+                .as("the database holds one active row for this user")
                 .isEqualTo(1);
     }
 
-    private int activeRows(User user, VerificationType type) {
+    private int activeRows(User user) {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT count(*) FROM verification_requests
-                 WHERE user_id = ? AND verification_type = ? AND status IN ('PENDING', 'APPROVED')
-                """, Integer.class, user.getId(), type.name());
+                 WHERE user_id = ? AND status IN ('PENDING', 'APPROVED')
+                """, Integer.class, user.getId());
         return count == null ? 0 : count;
+    }
+
+    private String badgeOf(User user) {
+        return jdbcTemplate.queryForObject(
+                "SELECT badge_type FROM users WHERE id = ?", String.class, user.getId());
     }
 
     private static List<Callable<Object>> times(int count, Callable<Object> call) {
@@ -207,10 +232,10 @@ class VerificationRequestConcurrencyTest {
         }
     }
 
-    private VerificationRequest row(User user, VerificationStatus status) {
+    private VerificationRequest row(User user, VerificationType type, VerificationStatus status) {
         return VerificationRequest.builder()
                 .user(user)
-                .verificationType(VerificationType.NGO)
+                .verificationType(type)
                 .evidenceReference("private/evidence.pdf")
                 .status(status)
                 .build();

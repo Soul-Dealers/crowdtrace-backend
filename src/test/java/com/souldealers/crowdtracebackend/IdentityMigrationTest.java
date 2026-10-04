@@ -3,6 +3,7 @@ package com.souldealers.crowdtracebackend;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -15,6 +16,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The migrations run against PostgreSQL, not H2.
@@ -56,7 +58,7 @@ class IdentityMigrationTest {
 
         assertThat(columnsFor("users")).containsExactlyInAnyOrder(
                 "id", "email", "password_hash", "display_name", "role", "account_status",
-                "created_at", "updated_at", "deleted_at", "credentials_version");
+                "created_at", "updated_at", "deleted_at", "credentials_version", "badge_type");
         assertThat(columnsFor("verification_requests")).containsExactlyInAnyOrder(
                 "id", "user_id", "verification_type", "evidence_reference", "status",
                 "reviewer_id", "review_notes", "created_at", "reviewed_at");
@@ -64,7 +66,27 @@ class IdentityMigrationTest {
         assertThat(indexExists("idx_users_email")).isTrue();
         assertThat(indexExists("idx_users_role")).isTrue();
         assertThat(indexExists("idx_verification_requests_queue")).isTrue();
-        assertThat(indexExists("uq_verification_requests_active_type")).isTrue();
+        assertThat(indexExists("uq_verification_requests_active_user")).isTrue();
+        assertThat(indexExists("uq_verification_requests_active_type")).isFalse();
+        assertThat(indexExists("idx_users_badge_type")).isTrue();
+    }
+
+    /** The column is the display source of truth, so the database pins its vocabulary. */
+    @Test
+    void restrictsUsersBadgeTypeToTheKnownBadges() {
+        jdbcTemplate.update("""
+                insert into users (email, password_hash, display_name, role, account_status,
+                                   created_at, updated_at, credentials_version)
+                values ('badge-check@example.com', 'hash', 'Badge Check', 'REGISTERED_USER', 'ACTIVE',
+                        now(), now(), 0)
+                """);
+
+        assertThat(jdbcTemplate.update(
+                "update users set badge_type = 'NGO' where email = 'badge-check@example.com'")).isEqualTo(1);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update users set badge_type = 'DETECTIVE' where email = 'badge-check@example.com'"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("users_badge_type_check");
     }
 
     private boolean tableExists(String tableName) {
