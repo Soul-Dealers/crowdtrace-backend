@@ -1,9 +1,10 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 
-import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.modules.identity.PublicUserResponse;
-import com.souldealers.crowdtracebackend.modules.identity.UserResponse;
+import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UpdateUserProfileRequest;
+import com.souldealers.crowdtracebackend.modules.identity.UserResponse;
+import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_FOUND_MSG;
 
@@ -70,4 +72,11 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND_MSG));
     }
+
+    @Override
+    @RequiresModerator
+    public Optional<String> getAccountEmail(Long userId) {
+        return userRepository.findById(userId).map(User::getEmail);
+    }
+
 }
