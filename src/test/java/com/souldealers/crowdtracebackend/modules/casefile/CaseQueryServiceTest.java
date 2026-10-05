@@ -1,5 +1,15 @@
 package com.souldealers.crowdtracebackend.modules.casefile;
 
+import java.util.stream.IntStream;
+
+import java.util.ArrayList;
+
+import java.util.List;
+
+import org.springframework.data.domain.Sort;
+
+import org.springframework.data.domain.PageRequest;
+
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CasePostgresTestSupport;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
@@ -40,4 +50,34 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     void publicReadHidesUnknownCases() {
         assertThatThrownBy(() -> service.getPublicCase(999999L)).isInstanceOf(NotFoundException.class);
     }
+
+    @Test
+    void publicListContainsOnlyApprovedCasesNewestApprovalFirst() {
+        long r = user("public-list@example.com");
+        CaseRecord older = cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.FOUND_SAFE).approvedAt(at(9)).build());
+        CaseRecord newer = cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(10)).build());
+        cases.save(aCase(r).build());
+        cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).build());
+        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).build());
+        var response = service.listPublicCases(PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
+        assertThat(response.content()).extracting(PublicCaseResponse::id).containsExactly(newer.getId(), older.getId());
+        assertThat(response.size()).isEqualTo(50);
+        assertThat(response.totalElements()).isEqualTo(2);
+    }
+
+    @Test
+    void publicPagesAreStableWhenApprovalTimesTie() {
+        long r = user("public-tie@example.com");
+        List<Long> ids = IntStream.range(0, 5).mapToObj(i -> cases.save(aCase(r)
+                .reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).approvedAt(at(9)).build()).getId()).toList();
+        cases.flush();
+        List<Long> seen = new ArrayList<>();
+        for (int page = 0; page < 3; page++) {
+            service.listPublicCases(PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
+        }
+        assertThat(seen).containsExactlyElementsOf(ids.reversed());
+    }
+
 }

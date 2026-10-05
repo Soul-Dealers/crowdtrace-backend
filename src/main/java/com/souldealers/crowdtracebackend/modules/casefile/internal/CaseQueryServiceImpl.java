@@ -1,5 +1,9 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal;
 
+import org.springframework.data.domain.Pageable;
+
+import com.souldealers.crowdtracebackend.shared.PagedResponse;
+
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
@@ -22,4 +26,11 @@ public class CaseQueryServiceImpl implements CaseQueryService {
                 .map(CaseMapper::toPublic)
                 .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
     }
+
+    @Override
+    public PagedResponse<PublicCaseResponse> listPublicCases(Pageable pageable) {
+        return PagedResponse.from(caseRepository.findByReviewStatusOrderByApprovedAtDescIdDesc(
+                ReviewStatus.APPROVED, CasePageRequests.fixed(pageable)).map(CaseMapper::toPublic));
+    }
+
 }
