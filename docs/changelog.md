@@ -1,3 +1,7 @@
+## Unreleased
+
+- CT-011: case registry schema (cases, sensitive details, case files, consents) with migration and query tests.
+
 ## 2026-09-29 — Add CT-009 authentication and current-user endpoints
 - Collapsed the duplicate `/api/auth` controller mapping onto the canonical `/api/v1/auth` prefix and
   extended the canonical-path guard to cover `/me`, `/logout`, and `/profile-settings`.
