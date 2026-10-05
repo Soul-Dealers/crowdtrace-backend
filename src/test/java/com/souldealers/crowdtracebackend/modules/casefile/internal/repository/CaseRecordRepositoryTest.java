@@ -11,15 +11,22 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CaseRecordRepositoryTest extends CasePostgresTestSupport {
     @Autowired private CaseRecordRepository cases;
+    @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private CaseSensitiveDetailsRepository sensitive;
 
     @Test
@@ -110,6 +117,31 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
         assertThat(cases.findByReviewStatusInOrderByPriorityMinorDescSubmittedAtAscIdAsc(
                 List.of(ReviewStatus.SUBMITTED, ReviewStatus.UNDER_REVIEW), PageRequest.of(0, 20)))
                 .extracting(CaseRecord::getId).containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void optimisticLockRejectsAStaleUpdate() {
+        long r = user("stale-update@example.com");
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        Long caseId = null;
+        try {
+            CaseRecord created = tx.execute(status -> cases.saveAndFlush(aCase(r).version(0L).build()));
+            caseId = created.getId();
+            Long id = caseId;
+            CaseRecord first = tx.execute(status -> cases.findById(id).orElseThrow());
+            CaseRecord stale = tx.execute(status -> cases.findById(id).orElseThrow());
+            first.setClosingStatement("First update");
+            tx.executeWithoutResult(status -> cases.saveAndFlush(first));
+            stale.setClosingStatement("Stale update");
+            assertThatThrownBy(() -> tx.executeWithoutResult(status -> cases.saveAndFlush(stale)))
+                    .isInstanceOf(ObjectOptimisticLockingFailureException.class);
+            String statement = tx.execute(status -> cases.findById(id).orElseThrow().getClosingStatement());
+            assertThat(statement).isEqualTo("First update");
+        } finally {
+            if (caseId != null) jdbc.update("DELETE FROM cases WHERE id = ?", caseId);
+            jdbc.update("DELETE FROM users WHERE id = ?", r);
+        }
     }
 
 }
