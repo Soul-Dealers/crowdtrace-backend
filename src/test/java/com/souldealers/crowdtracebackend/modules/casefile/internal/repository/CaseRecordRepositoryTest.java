@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal.repository;
 
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
+
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
@@ -13,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CaseRecordRepositoryTest extends CasePostgresTestSupport {
     @Autowired private CaseRecordRepository cases;
+    @Autowired private CaseSensitiveDetailsRepository sensitive;
 
     @Test
     void findsOnlyApprovedCasesForPublicLookup() {
@@ -49,4 +52,23 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
         assertThat(cases.saveAndFlush(aCase(user("outcome@example.com"))
                 .reviewStatus(ReviewStatus.APPROVED).caseStatus(status).build()).getId()).isNotNull();
     }
+
+    @Test
+    void scopesLookupToTheOwner() {
+        long a = user("repo-owner@example.com"), b = user("repo-other@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(a).build());
+        assertThat(cases.findByIdAndReporterId(c.getId(), b)).isEmpty();
+        assertThat(cases.findByIdAndReporterId(c.getId(), a)).map(CaseRecord::getId).contains(c.getId());
+    }
+
+    @Test
+    void sensitiveDetailsShareTheCaseId() {
+        long r = user("shared-id@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(r).build());
+        CaseRecord other = cases.saveAndFlush(aCase(r).build());
+        sensitive.saveAndFlush(CaseSensitiveDetails.builder().caseRecord(c).reporterRelationship("Brother").build());
+        assertThat(sensitive.findById(c.getId())).map(CaseSensitiveDetails::getCaseId).contains(c.getId());
+        assertThat(sensitive.findById(other.getId())).isEmpty();
+    }
+
 }

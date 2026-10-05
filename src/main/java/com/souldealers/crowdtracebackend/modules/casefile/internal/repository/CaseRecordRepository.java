@@ -14,4 +14,7 @@ public interface CaseRecordRepository extends JpaRepository<CaseRecord, Long> {
 
     Page<CaseRecord> findByReviewStatusOrderByApprovedAtDescIdDesc(ReviewStatus reviewStatus, Pageable pageable);
 
+
+    Optional<CaseRecord> findByIdAndReporterId(Long id, Long reporterId);
+
 }

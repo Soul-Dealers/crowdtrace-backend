@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal;
 
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
+
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
@@ -23,4 +25,11 @@ final class CaseProjectionFixtures {
                 .priorityMinor(true).duplicateFlag(true).version(3L).submittedAt(at).approvedAt(at)
                 .resolvedAt(at).closedAt(at).createdAt(at).updatedAt(at).build();
     }
+
+    static CaseSensitiveDetails fullDetails() {
+        return CaseSensitiveDetails.builder().caseRecord(fullCase()).caseId(7L).reporterRelationship(RELATION)
+                .medicalConditions(MEDICAL).knownAssociates(ASSOCIATES).vehicleInfo(VEHICLE)
+                .socialMediaHandles(SOCIALS).build();
+    }
+
 }

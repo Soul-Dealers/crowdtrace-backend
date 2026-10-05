@@ -1,5 +1,9 @@
 package com.souldealers.crowdtracebackend.modules.casefile;
 
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
+
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
+
 import java.util.stream.IntStream;
 
 import java.util.ArrayList;
@@ -24,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CaseQueryServiceTest extends CasePostgresTestSupport {
     @Autowired private CaseQueryService service;
     @Autowired private CaseRecordRepository cases;
+    @Autowired private CaseSensitiveDetailsRepository sensitive;
 
     @Test
     void publicReadReturnsAnApprovedCase() {
@@ -78,6 +83,35 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
             service.listPublicCases(PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
         }
         assertThat(seen).containsExactlyElementsOf(ids.reversed());
+    }
+
+
+    @Test
+    void ownCaseIsReturnedWithSensitiveDetails() {
+        long r = user("own-detail@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(r).build());
+        sensitive.saveAndFlush(CaseSensitiveDetails.builder().caseRecord(c).reporterRelationship("Sister")
+                .medicalConditions("Asthma").build());
+        ReporterCaseResponse response = service.getOwnCase(c.getId(), r);
+        assertThat(response.id()).isEqualTo(c.getId());
+        assertThat(response.reviewStatus()).isEqualTo(ReviewStatus.SUBMITTED);
+        assertThat(response.sensitiveDetails().reporterRelationship()).isEqualTo("Sister");
+        assertThat(response.sensitiveDetails().medicalConditions()).isEqualTo("Asthma");
+    }
+
+    @Test
+    void anotherReportersCaseIsNotFound() {
+        long a = user("owner@example.com"), b = user("other@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(a).build());
+        assertThatThrownBy(() -> service.getOwnCase(c.getId(), b)).isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void ownCaseWithPurgedSensitiveDetailsStillRenders() {
+        long r = user("purged@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(r).build());
+        assertThat(service.getOwnCase(c.getId(), r).sensitiveDetails()).isNull();
+        assertThatThrownBy(() -> service.getOwnCase(999999L, r)).isInstanceOf(NotFoundException.class);
     }
 
 }

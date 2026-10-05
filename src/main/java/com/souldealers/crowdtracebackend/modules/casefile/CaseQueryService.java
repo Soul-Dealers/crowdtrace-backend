@@ -11,4 +11,8 @@ public interface CaseQueryService {
     /** Approved cases, newest approval first; client sorting is ignored. */
     PagedResponse<PublicCaseResponse> listPublicCases(Pageable pageable);
 
+
+    /** reporterId must come from the authenticated principal, never the request. */
+    ReporterCaseResponse getOwnCase(Long caseId, Long reporterId);
+
 }
