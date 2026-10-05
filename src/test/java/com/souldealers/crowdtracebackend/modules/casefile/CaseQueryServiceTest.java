@@ -1,10 +1,15 @@
 package com.souldealers.crowdtracebackend.modules.casefile;
 
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseConsent;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseFile;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseConsentRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseFileRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CasePostgresTestSupport;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
+import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,18 +17,27 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doReturn;
 
 class CaseQueryServiceTest extends CasePostgresTestSupport {
     @Autowired private CaseQueryService service;
     @Autowired private CaseRecordRepository cases;
     @Autowired private CaseSensitiveDetailsRepository sensitive;
+    @Autowired private CaseFileRepository files;
+    @Autowired private CaseConsentRepository consents;
+    @MockitoSpyBean private UserService userService;
 
     @Test
     void publicReadReturnsAnApprovedCase() {
@@ -131,6 +145,59 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         var response = service.listOwnCases(r, PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
         assertThat(response.size()).isEqualTo(50);
         assertThat(response.content()).extracting(ReporterCaseSummaryResponse::id).containsExactly(newer.getId(), older.getId());
+    }
+
+    @Test @WithMockUser(authorities = "MODERATOR")
+    void adminCaseIncludesReporterEmailFlagsLiveFilesAndConsents() {
+        long r = user("admin-detail@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(r).priorityMinor(true).duplicateFlag(true).build());
+        sensitive.saveAndFlush(CaseSensitiveDetails.builder().caseRecord(c).reporterRelationship("Sister")
+                .medicalConditions("Asthma").build());
+        CaseFile live = files.save(CaseFile.builder().caseId(c.getId()).uploadedBy(r).purpose(CaseFilePurpose.REPORT)
+                .visibility(FileVisibility.PRIVATE).storageKey("live.pdf").contentType("application/pdf")
+                .sizeBytes(123).checksumSha256("a".repeat(64)).uploadedAt(at(9)).attachedAt(at(9)).build());
+        files.saveAndFlush(CaseFile.builder().caseId(c.getId()).uploadedBy(r).purpose(CaseFilePurpose.PHOTO)
+                .visibility(FileVisibility.PUBLIC).storageKey("deleted.jpg").contentType("image/jpeg")
+                .sizeBytes(123).checksumSha256("b".repeat(64)).uploadedAt(at(10)).attachedAt(at(10)).deletedAt(at(11)).build());
+        consents.save(CaseConsent.builder().caseId(c.getId()).userId(r).consentType(ConsentType.SENSITIVE_DATA_COLLECTION)
+                .consentVersion("v2").source(ConsentSource.MOBILE).acceptedAt(at(10)).build());
+        consents.saveAndFlush(CaseConsent.builder().caseId(c.getId()).userId(r).consentType(ConsentType.SENSITIVE_DATA_COLLECTION)
+                .consentVersion("v1").source(ConsentSource.WEB).acceptedAt(at(9)).build());
+        AdminCaseResponse response = service.getAdminCase(c.getId());
+        assertThat(response.reporterId()).isEqualTo(r);
+        assertThat(response.reporterAccountEmail()).isEqualTo("admin-detail@example.com");
+        assertThat(response.priorityMinor()).isTrue();
+        assertThat(response.duplicateFlag()).isTrue();
+        assertThat(response.sensitiveDetails().medicalConditions()).isEqualTo("Asthma");
+        assertThat(response.files()).extracting(CaseFileMetadataResponse::id).containsExactly(live.getId());
+        assertThat(response.consents()).extracting(CaseConsentResponse::consentVersion).containsExactly("v1", "v2");
+    }
+
+    @Test @WithMockUser(authorities = "MODERATOR")
+    void adminCaseWithAMissingAccountHasNullEmail() {
+        long r = user("missing-account@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(r).build());
+        doReturn(Optional.empty()).when(userService).getAccountEmail(r);
+        assertThat(service.getAdminCase(c.getId()).reporterAccountEmail()).isNull();
+        assertThat(service.getAdminCase(c.getId()).sensitiveDetails()).isNull();
+    }
+
+    @Test @WithMockUser(authorities = "REGISTERED_USER")
+    void adminDetailIsDeniedToRegisteredUsers() {
+        assertThatThrownBy(() -> service.getAdminCase(1L)).isInstanceOf(AuthorizationDeniedException.class);
+    }
+
+    @Test @WithAnonymousUser
+    void adminDetailIsDeniedToAnonymousUsers() {
+        assertThatThrownBy(() -> service.getAdminCase(1L)).isInstanceOf(AuthorizationDeniedException.class);
+    }
+
+    @Test @WithMockUser(authorities = "SUPER_ADMIN")
+    void adminDetailIsAvailableToSuperAdminsAndUnknownCasesAreNotFound() {
+        long r = user("super-admin-detail@example.com");
+        CaseRecord c = cases.saveAndFlush(aCase(r).build());
+        assertThat(service.getAdminCase(c.getId()).id()).isEqualTo(c.getId());
+        assertThatThrownBy(() -> service.getAdminCase(999999L)).isInstanceOf(NotFoundException.class);
     }
 
 }
