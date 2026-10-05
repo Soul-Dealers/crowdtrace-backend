@@ -87,4 +87,12 @@ class CaseProjectionContractTest {
         assertThat(admin.consents()).isEmpty();
     }
 
+    @Test
+    void adminSummaryCarriesFlagsButNoSensitiveData() {
+        String raw = mapper.writeValueAsString(CaseMapper.toAdminSummary(fullCase()));
+        assertThat(raw).contains("priorityMinor", "duplicateFlag").doesNotContain(MEDICAL, EMAIL);
+        assertThat(mapper.readTree(raw).propertyNames()).containsExactlyInAnyOrder(
+                "id", "fullName", "age", "region", "reviewStatus", "priorityMinor", "duplicateFlag", "submittedAt");
+    }
+
 }

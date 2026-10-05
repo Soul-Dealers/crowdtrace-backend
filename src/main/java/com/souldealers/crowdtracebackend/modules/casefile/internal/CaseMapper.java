@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal;
 
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseConsentResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseFileMetadataResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
@@ -53,6 +54,11 @@ final class CaseMapper {
                         f.getContentType(), f.getSizeBytes(), f.getUploadedAt())).toList(),
                 consents.stream().map(consent -> new CaseConsentResponse(consent.getConsentType(), consent.getConsentVersion(),
                         consent.getSource(), consent.getAcceptedAt())).toList());
+    }
+
+    static AdminCaseSummaryResponse toAdminSummary(CaseRecord c) {
+        return new AdminCaseSummaryResponse(c.getId(), c.getFullName(), c.getAge(), c.getRegion(),
+                c.getReviewStatus(), c.isPriorityMinor(), c.isDuplicateFlag(), c.getSubmittedAt());
     }
 
 }

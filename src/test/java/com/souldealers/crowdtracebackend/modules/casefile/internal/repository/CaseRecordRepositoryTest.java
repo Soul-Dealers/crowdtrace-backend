@@ -99,4 +99,17 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
         assertThat(seen).containsExactlyElementsOf(ids.reversed());
     }
 
+    @Test
+    void reviewQueueShowsMinorsFirstThenOldest() {
+        long r = user("repo-queue@example.com");
+        CaseRecord adult = cases.save(aCase(r).submittedAt(at(9)).build());
+        CaseRecord earlyMinor = cases.save(aCase(r).submittedAt(at(10)).priorityMinor(true).build());
+        CaseRecord laterMinor = cases.save(aCase(r).submittedAt(at(11)).priorityMinor(true)
+                .reviewStatus(ReviewStatus.UNDER_REVIEW).build());
+        cases.saveAndFlush(aCase(r).submittedAt(at(8)).reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).build());
+        assertThat(cases.findByReviewStatusInOrderByPriorityMinorDescSubmittedAtAscIdAsc(
+                List.of(ReviewStatus.SUBMITTED, ReviewStatus.UNDER_REVIEW), PageRequest.of(0, 20)))
+                .extracting(CaseRecord::getId).containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());
+    }
+
 }

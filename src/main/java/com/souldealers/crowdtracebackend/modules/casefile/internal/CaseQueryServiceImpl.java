@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal;
 
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
@@ -20,11 +21,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
+import static com.souldealers.crowdtracebackend.shared.CustomMessages.CASE_NOT_FOUND;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CaseQueryServiceImpl implements CaseQueryService {
-    private static final String CASE_NOT_FOUND = "Case not found";
     private final CaseRecordRepository caseRepository;
     private final CaseSensitiveDetailsRepository sensitiveRepository;
     private final CaseFileRepository fileRepository;
@@ -65,6 +69,14 @@ public class CaseQueryServiceImpl implements CaseQueryService {
                 userService.getAccountEmail(c.getReporterId()).orElse(null),
                 fileRepository.findByCaseIdAndDeletedAtIsNullOrderByUploadedAtAscIdAsc(caseId),
                 consentRepository.findByCaseIdOrderByAcceptedAtAscIdAsc(caseId));
+    }
+
+    @Override
+    @RequiresModerator
+    public PagedResponse<AdminCaseSummaryResponse> listReviewQueue(Pageable pageable) {
+        return PagedResponse.from(caseRepository.findByReviewStatusInOrderByPriorityMinorDescSubmittedAtAscIdAsc(
+                List.of(ReviewStatus.SUBMITTED, ReviewStatus.UNDER_REVIEW), CasePageRequests.fixed(pageable))
+                .map(CaseMapper::toAdminSummary));
     }
 
 }

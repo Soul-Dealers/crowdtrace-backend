@@ -20,4 +20,7 @@ public interface CaseQueryService {
     @RequiresModerator
     AdminCaseResponse getAdminCase(Long caseId);
 
+    @RequiresModerator
+    PagedResponse<AdminCaseSummaryResponse> listReviewQueue(Pageable pageable);
+
 }
