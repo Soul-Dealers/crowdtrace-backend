@@ -1,16 +1,21 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal.repository;
 
-import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
-
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CaseRecordRepositoryTest extends CasePostgresTestSupport {
@@ -69,6 +74,29 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
         sensitive.saveAndFlush(CaseSensitiveDetails.builder().caseRecord(c).reporterRelationship("Brother").build());
         assertThat(sensitive.findById(c.getId())).map(CaseSensitiveDetails::getCaseId).contains(c.getId());
         assertThat(sensitive.findById(other.getId())).isEmpty();
+    }
+
+    @Test
+    void listsOnlyTheReportersOwnCasesNewestFirst() {
+        long a = user("list-a@example.com"), b = user("list-b@example.com");
+        CaseRecord older = cases.save(aCase(a).createdAt(at(9)).build());
+        CaseRecord newer = cases.save(aCase(a).createdAt(at(10)).build());
+        cases.saveAndFlush(aCase(b).createdAt(at(11)).build());
+        assertThat(cases.findByReporterIdOrderByCreatedAtDescIdDesc(a, PageRequest.of(0, 20)))
+                .extracting(CaseRecord::getId).containsExactly(newer.getId(), older.getId());
+    }
+
+    @Test
+    void pagesAreStableWhenTimestampsTie() {
+        long r = user("tie@example.com");
+        List<Long> ids = IntStream.range(0, 5).mapToObj(i -> cases.save(aCase(r)
+                .createdAt(at(9)).submittedAt(at(9)).build()).getId()).toList();
+        cases.flush();
+        List<Long> seen = new ArrayList<>();
+        for (int page = 0; page < 3; page++) {
+            cases.findByReporterIdOrderByCreatedAtDescIdDesc(r, PageRequest.of(page, 2)).forEach(c -> seen.add(c.getId()));
+        }
+        assertThat(seen).containsExactlyElementsOf(ids.reversed());
     }
 
 }

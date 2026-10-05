@@ -3,6 +3,7 @@ package com.souldealers.crowdtracebackend.modules.casefile.internal;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
 import static com.souldealers.crowdtracebackend.modules.casefile.internal.CaseProjectionFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,6 +48,13 @@ class CaseProjectionContractTest {
     @Test
     void reporterMapsACaseWhoseSensitiveDetailsWerePurged() {
         assertThat(CaseMapper.toReporter(fullCase(), null).sensitiveDetails()).isNull();
+    }
+
+    @Test
+    void reporterSummaryHasNoSensitiveOrFlagFields() {
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(CaseMapper.toReporterSummary(fullCase())));
+        assertThat(json.propertyNames()).containsExactlyInAnyOrder("id", "fullName", "reviewStatus", "caseStatus", "submittedAt");
+        assertThat(json.get("reviewStatus").asText()).isEqualTo("APPROVED");
     }
 
 }

@@ -1,21 +1,17 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal;
 
-import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
-
-import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
-
-import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
-
-import org.springframework.data.domain.Pageable;
-
-import com.souldealers.crowdtracebackend.shared.PagedResponse;
-
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
+import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,12 +36,17 @@ public class CaseQueryServiceImpl implements CaseQueryService {
                 ReviewStatus.APPROVED, CasePageRequests.fixed(pageable)).map(CaseMapper::toPublic));
     }
 
-
     @Override
     public ReporterCaseResponse getOwnCase(Long caseId, Long reporterId) {
         CaseRecord c = caseRepository.findByIdAndReporterId(caseId, reporterId)
                 .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
         return CaseMapper.toReporter(c, sensitiveRepository.findById(caseId).orElse(null));
+    }
+
+    @Override
+    public PagedResponse<ReporterCaseSummaryResponse> listOwnCases(Long reporterId, Pageable pageable) {
+        return PagedResponse.from(caseRepository.findByReporterIdOrderByCreatedAtDescIdDesc(
+                reporterId, CasePageRequests.fixed(pageable)).map(CaseMapper::toReporterSummary));
     }
 
 }

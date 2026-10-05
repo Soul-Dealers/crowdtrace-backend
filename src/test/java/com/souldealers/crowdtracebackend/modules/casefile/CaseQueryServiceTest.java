@@ -1,27 +1,22 @@
 package com.souldealers.crowdtracebackend.modules.casefile;
 
-import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
-
-import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
-
-import java.util.stream.IntStream;
-
-import java.util.ArrayList;
-
-import java.util.List;
-
-import org.springframework.data.domain.Sort;
-
-import org.springframework.data.domain.PageRequest;
-
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CasePostgresTestSupport;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -85,7 +80,6 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         assertThat(seen).containsExactlyElementsOf(ids.reversed());
     }
 
-
     @Test
     void ownCaseIsReturnedWithSensitiveDetails() {
         long r = user("own-detail@example.com");
@@ -112,6 +106,31 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         CaseRecord c = cases.saveAndFlush(aCase(r).build());
         assertThat(service.getOwnCase(c.getId(), r).sensitiveDetails()).isNull();
         assertThatThrownBy(() -> service.getOwnCase(999999L, r)).isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void ownCaseListIncludesRejectedAndTakenDownCases() {
+        long r = user("own-list@example.com"), other = user("other-list@example.com");
+        CaseRecord rejected = cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).createdAt(at(9)).build());
+        CaseRecord takenDown = cases.save(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN)
+                .caseStatus(CaseStatus.MISSING).createdAt(at(10)).build());
+        cases.saveAndFlush(aCase(other).createdAt(at(11)).build());
+        var response = service.listOwnCases(r, PageRequest.of(0, 20));
+        assertThat(response.content()).extracting(ReporterCaseSummaryResponse::id)
+                .containsExactly(takenDown.getId(), rejected.getId());
+        assertThat(response.content()).extracting(ReporterCaseSummaryResponse::reviewStatus)
+                .containsExactly(ReviewStatus.TAKEN_DOWN, ReviewStatus.REJECTED);
+        assertThat(response.totalElements()).isEqualTo(2);
+    }
+
+    @Test
+    void ignoresClientSortAndClampsPageSize() {
+        long r = user("clamp@example.com");
+        CaseRecord older = cases.save(aCase(r).createdAt(at(9)).duplicateFlag(false).build());
+        CaseRecord newer = cases.saveAndFlush(aCase(r).createdAt(at(10)).duplicateFlag(true).build());
+        var response = service.listOwnCases(r, PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
+        assertThat(response.size()).isEqualTo(50);
+        assertThat(response.content()).extracting(ReporterCaseSummaryResponse::id).containsExactly(newer.getId(), older.getId());
     }
 
 }
