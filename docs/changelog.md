@@ -1,5 +1,6 @@
 ## Unreleased
 
+- CT-012: case entities, repositories, and public/reporter/admin projections behind CaseQueryService.
 - CT-011: case registry schema (cases, sensitive details, case files, consents) with migration and query tests.
 
 ## 2026-09-29 — Add CT-009 authentication and current-user endpoints

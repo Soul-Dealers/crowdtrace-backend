@@ -8,6 +8,7 @@ public class CustomMessages {
     public static final String UNAUTHORIZED_MSG = "You are not authorized to perform this action";
     public static final String VALIDATION_FAILED_MSG = "One or more fields are invalid";
     public static final String JWT_EXC_MSG = "Could not authenticate you, try again";
+    public static final String CASE_NOT_FOUND = "Case not found";
     public static final String USER_NOT_FOUND_MSG = "User not found";
     public static final String EMAIL_NOT_NULL_MSG = "Email cannot be null";
     public static final String EXISTING_EMAIL = "This email is already registered";
@@ -23,6 +24,5 @@ public class CustomMessages {
             "Service temporarily unavailable, try again shortly";
     public static final String MALFORMED_REQUEST_MSG = "The request body could not be read";
     public static final String INVALID_REQUEST_PARAMETER_MSG = "The request parameter is invalid";
-
 
 }
