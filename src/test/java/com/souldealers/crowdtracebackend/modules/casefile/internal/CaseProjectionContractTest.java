@@ -78,6 +78,23 @@ class CaseProjectionContractTest {
     }
 
     @Test
+    void standaloneFileMetadataJsonHasExactlyTheSafeFields() {
+        var file = reportFile();
+        String raw = mapper.writeValueAsString(CaseMapper.toFileMetadata(file));
+        assertThat(raw).doesNotContain(file.getStorageKey(), file.getChecksumSha256(),
+                "storageKey", "checksum", "uploadedBy", "caseId", "attachedAt", "deletedAt");
+        JsonNode json = mapper.readTree(raw);
+        assertThat(json.propertyNames()).containsExactlyInAnyOrder(
+                "id", "purpose", "visibility", "contentType", "sizeBytes", "uploadedAt");
+        assertThat(json.get("id").asLong()).isEqualTo(file.getId());
+        assertThat(json.get("purpose").asText()).isEqualTo("REPORT");
+        assertThat(json.get("visibility").asText()).isEqualTo("PRIVATE");
+        assertThat(json.get("contentType").asText()).isEqualTo("application/pdf");
+        assertThat(json.get("sizeBytes").asLong()).isEqualTo(123L);
+        assertThat(json.get("uploadedAt").asText()).isEqualTo("2026-10-01T09:00:00");
+    }
+
+    @Test
     void mapsACaseWhoseSensitiveDetailsWerePurged() {
         assertThat(CaseMapper.toReporter(fullCase(), null).sensitiveDetails()).isNull();
         var admin = CaseMapper.toAdmin(fullCase(), null, null, List.of(), List.of());

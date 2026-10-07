@@ -108,47 +108,47 @@ The public service interfaces live in `modules.casefile` (the module API, like `
 
 ### Task 1: Purpose→visibility, properties, `StorageKey`
 
-- [ ] `CaseFilePurposeTest`: `REPORT.visibility() == PRIVATE`, `PHOTO.visibility() == PUBLIC`; every purpose has a visibility (loop over `values()`, so a new purpose can't skip one).
-- [ ] `StorageKeyTest`:
+- [x] `CaseFilePurposeTest`: `REPORT.visibility() == PRIVATE`, `PHOTO.visibility() == PUBLIC`; every purpose has a visibility (loop over `values()`, so a new purpose can't skip one).
+- [x] `StorageKeyTest`:
   - `generate(REPORT)` matches `^reports/[0-9a-f-]{36}$`; two calls give different keys.
   - The constructor rejects: `../etc/passwd`, `reports/../x`, `/reports/<uuid>`, `reports/<uuid>.pdf`, `photos/<uuid>` when the purpose is REPORT, blank, null, and a 513-char string.
   - `toString()` doesn't contain the uuid (keeps keys out of logs).
-- [ ] Implement. Bind `CaseFileProperties` with defaults; add `crowdtrace.case-files.*` to `application.yaml`.
-- [ ] Commit `feat(casefile): derive file visibility from purpose and generate storage keys [CT-015]`.
+- [x] Implement. Bind `CaseFileProperties` with defaults; add `crowdtrace.case-files.*` to `application.yaml`.
+- [x] Commit `feat(casefile): derive file visibility from purpose and generate storage keys [CT-015]`.
 
 ### Task 2: `FileContentInspector`
 
-- [ ] `FileContentInspectorTest` (fixtures built in-test from byte arrays; no binary files checked in):
+- [x] `FileContentInspectorTest` (fixtures built in-test from byte arrays; no binary files checked in):
   - A minimal valid PDF / JPEG / PNG is detected as the right type.
   - Rejected: empty; unknown bytes; PDF missing `%%EOF`; JPEG missing `FFD9`; PNG missing `IEND`; PNG whose first chunk isn't `IHDR`; a PDF uploaded as PHOTO (type not allowed for that purpose); HTML/SVG/ZIP disguised with a `.png` name.
   - Trailing whitespace/newline after `%%EOF` is accepted (real PDFs have it).
-- [ ] Implement it reading the first 16 bytes and the last 1 KB of a `Path`. Return `DetectedType` or throw `ValidationException`.
-- [ ] Commit `feat(casefile): detect upload type from content with header and trailer checks [CT-015]`.
+- [x] Implement it reading the first 16 bytes and the last 1 KB of a `Path`. Return `DetectedType` or throw `ValidationException`.
+- [x] Commit `feat(casefile): detect upload type from content with header and trailer checks [CT-015]`.
 
 ### Task 3: `SpooledUpload`, port, in-memory adapter
 
-- [ ] `SpooledUploadTest`: the size equals the bytes written; SHA-256 matches `MessageDigest` over the same bytes; a stream of max+1 bytes throws `ValidationException` and leaves no temp file; `close()` deletes the temp file.
-- [ ] `InMemoryFileStorageTest`: `put` then `delete` removes the object; putting a duplicate key throws (it's a bug, not an overwrite).
-- [ ] Implement `SpooledUpload.from(InputStream, maxBytes)` using `DigestInputStream` and a counting copy into `Files.createTempFile`. Implement the port, the `StoredObject` record and the adapter (startup WARN, "not for production").
-- [ ] Commit `feat(casefile): add file storage port with bounded spooling and checksum [CT-015]`.
+- [x] `SpooledUploadTest`: the size equals the bytes written; SHA-256 matches `MessageDigest` over the same bytes; a stream of max+1 bytes throws `ValidationException` and leaves no temp file; `close()` deletes the temp file.
+- [x] `InMemoryFileStorageTest`: `put` then `delete` removes the object; putting a duplicate key throws (it's a bug, not an overwrite).
+- [x] Implement `SpooledUpload.from(InputStream, maxBytes)` using `DigestInputStream` and a counting copy into `Files.createTempFile`. Implement the port, the `StoredObject` record and the adapter (startup WARN, "not for production").
+- [x] Commit `feat(casefile): add file storage port with bounded spooling and checksum [CT-015]`.
 
 ### Task 4: `CaseFileUploadService`
 
-- [ ] `CaseFileUploadServiceTest` (Postgres, a recording `FileStorage` test double):
+- [x] `CaseFileUploadServiceTest` (Postgres, a recording `FileStorage` test double):
   - A valid report → row has `case_id NULL`, `uploaded_by`, `purpose REPORT`, `visibility PRIVATE`, detected `content_type`, actual `size_bytes`, server checksum, and a key matching `reports/…`. The adapter received the same metadata. The response has no key/checksum fields.
   - `ignoresClientFilenameAndType`: the API takes no filename or declared type, so assert by signature, and that a PNG uploaded "as" PDF is stored as `image/png`.
   - Oversize, empty and wrong type for the purpose → `ValidationException`, nothing stored, no row.
   - A client checksum that matches is accepted; a mismatch is rejected before storing.
   - `deletesStoredObjectWhenTransactionRollsBack`: force the insert to fail (e.g. a non-existent `uploaded_by` FK) → the object is deleted from the adapter.
   - The adapter throws on `put` → no row, and the exception surfaces as an upload failure without the key.
-- [ ] Implement it: `try (SpooledUpload s = …)` → inspect → `StorageKey.generate` → `storage.put` → register the rollback-delete synchronization → `repository.save` → map with `CaseMapper` to `CaseFileMetadataResponse`.
-- [ ] Commit `feat(casefile): validate, store, and record case file uploads [CT-015]`.
+- [x] Implement it: `try (SpooledUpload s = …)` → inspect → `StorageKey.generate` → `storage.put` → register the rollback-delete synchronization → `repository.save` → map with `CaseMapper` to `CaseFileMetadataResponse`.
+- [x] Commit `feat(casefile): validate, store, and record case file uploads [CT-015]`.
 
 ### Task 5: `CaseFileAttachmentService` + entity/repository hardening
 
-- [ ] `CaseFileTest` additions: `attachTo(null, …)` and `attachTo(id, null)` throw; attaching a deleted file throws.
-- [ ] `CaseFileRepositoryTest`: rename the unattached-query test, and add the case that a soft-deleted unattached file is **excluded**. Add `findAllByIdInOrderByIdAsc` with `@Lock(PESSIMISTIC_WRITE)`.
-- [ ] `CaseFileAttachmentServiceTest` (Postgres):
+- [x] `CaseFileTest` additions: `attachTo(null, …)` and `attachTo(id, null)` throw; attaching a deleted file throws.
+- [x] `CaseFileRepositoryTest`: rename the unattached-query test, and add the case that a soft-deleted unattached file is **excluded**. Add `findAllByIdInOrderByIdAsc` with `@Lock(PESSIMISTIC_WRITE)`.
+- [x] `CaseFileAttachmentServiceTest` (Postgres):
   - A report plus 2 photos attaches all of them, with the same `attached_at`.
   - No REPORT among the ids → `ValidationException` ("a missing-person report is required"); nothing attached.
   - 6 photos → `ValidationException`. Empty list / duplicate ids → `ValidationException`.
@@ -159,17 +159,28 @@ The public service interfaces live in `modules.casefile` (the module API, like `
   - Called outside a transaction → `IllegalTransactionStateException` (`MANDATORY`).
   - **Race:** two threads attach the same report to two cases; exactly one succeeds and the other gets `ConflictException`.
   - Any failure → no file in the batch is attached.
-- [ ] Implement it. Both entry points share one private `attach(…, requireReport, allowedPurposes)`. Check everything before mutating anything, then call `attachTo` on each file. Add `countByCaseIdAndPurposeAndDeletedAtIsNull` for the cap.
-- [ ] Commit `feat(casefile): attach owned, unattached files to a case atomically [CT-015]`.
+- [x] Implement it. Both entry points share one private `attach(…, requireReport, allowedPurposes)`. Check everything before mutating anything, then call `attachTo` on each file. Add `countByCaseIdAndPurposeAndDeletedAtIsNull` for the cap.
+- [x] Commit `feat(casefile): attach owned, unattached files to a case atomically [CT-015]`.
 
 ### Task 6: Boundary guards
 
-- [ ] Architecture test: only `modules.casefile.internal..` may depend on `FileStorage` / `StorageKey`. No public `modules.casefile` type exposes `StorageKey` or a field named `storageKey`/`checksum*`.
-- [ ] Extend the CT-012 projection contract test so `CaseFileMetadataResponse` JSON has exactly `id, purpose, visibility, contentType, sizeBytes, uploadedAt`.
-- [ ] Run the full suite + `CrowdtraceModulesTest`.
-- [ ] Commit `test(casefile): guard storage keys and file metadata exposure [CT-015]`.
+- [x] Architecture test: only `modules.casefile.internal..` may depend on `FileStorage` / `StorageKey`. No public `modules.casefile` type exposes `StorageKey` or a field named `storageKey`/`checksum*`.
+- [x] Extend the CT-012 projection contract test so `CaseFileMetadataResponse` JSON has exactly `id, purpose, visibility, contentType, sizeBytes, uploadedAt`.
+- [x] Run the full suite + `CrowdtraceModulesTest`.
+- [x] Commit `test(casefile): guard storage keys and file metadata exposure [CT-015]`.
 
 ---
+
+## Implementation notes
+
+Two small implementation adjustments were reviewed with Claude Opus 5.5:
+
+- Attachment locks the parent case first, then locks file rows in id order. The parent lock serializes attachment batches for the same case, so concurrent requests cannot both observe available photo capacity and exceed the aggregate cap. Ordered file locks still protect against a file being attached to two cases.
+- The conditional in-memory fallback is registered through deferred `@AutoConfiguration` with `@ConditionalOnMissingBean(FileStorage.class)`. This evaluates the fallback after application storage beans are registered, allowing CT-030's adapter to replace it reliably.
+
+Task 5 was split into two verified operation commits to match Edem's incremental commit preference: submission attachment and entity/repository hardening (`3e788ee`), followed by adding photos with the aggregate cap (`aad3a2f`). Tasks 1–4 are `998fefa`, `b0b8fcb`, `6233236`, and `5cfce9a` respectively.
+
+Boundary guards also protect `StoredObject`, because its metadata carries the key and checksum. Negative fixtures prove the guards reject external storage dependencies, keys wrapped in generic fields or method signatures, and sensitive field names. The standalone file metadata JSON contract pins its six safe fields and excludes stored key/checksum values.
 
 ## Acceptance-criteria trace
 
@@ -183,7 +194,7 @@ The public service interfaces live in `modules.casefile` (the module API, like `
 
 ## Handoff notes
 
-- **→ CT-013:** Add `POST /api/user/case-files` (multipart, `purpose` param) → `CaseFileUploadService.upload`. Raise `spring.servlet.multipart.max-file-size` only together with `crowdtrace.case-files.max-size-bytes`. The submission takes `reportFileIds` + `photoFileIds` (or one `fileIds` list) and calls `CaseFileAttachmentService.attach` **inside** the submission transaction, after creating the case. Add a per-user upload rate limit/quota on the endpoint.
+- **→ CT-013:** Add `POST /api/user/case-files` (multipart, `purpose` param) → `CaseFileUploadService.upload`. Raise `spring.servlet.multipart.max-file-size` only together with `crowdtrace.case-files.max-size-bytes`. The submission takes `reportFileIds` + `photoFileIds` (or one `fileIds` list) and calls `CaseFileAttachmentService.attachSubmission` **inside** the submission transaction, after creating the case. Add a per-user upload rate limit/quota on the endpoint.
 - **→ CT-018:** Add-photo on a live case = CT-013 upload + `attachPhotos`. CT-018 owns the case-state check (live, not taken down), the audit, and the follower event.
 - **→ CT-023 / CT-030:** Implement `FileStorage` with S3, choosing the bucket/prefix by `StoredObject.visibility`. Add download/URL methods to the port. Photos are served only for approved cases. CT-023 strips EXIF/GPS before first serve and records the stripped checksum.
 - **→ CT-032 / phase 6:** Stale unattached uploads (`idx_case_files_unattached`) and orphaned objects from failed rollback-deletes need a sweep job.
