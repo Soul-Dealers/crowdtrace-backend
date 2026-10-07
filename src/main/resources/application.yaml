@@ -26,6 +26,11 @@ rate-limit:
     identity-otp-send: { limit: 3,  window: 1h }
     identity-otp-attempt: { limit: 5, window: 10m }
 
+crowdtrace:
+  case-files:
+    max-size-bytes: 10485760
+    max-photos-per-case: 5
+
 management:
   endpoints:
     web:
