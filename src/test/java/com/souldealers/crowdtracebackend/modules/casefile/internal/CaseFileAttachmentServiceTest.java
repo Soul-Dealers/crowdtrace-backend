@@ -202,14 +202,148 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void attachesPhotosWithoutRequiringAReport() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
+
+        attachPhotos(caseId, reporter, ids);
+
+        List<CaseFile> attached = files.findAllById(ids);
+        assertThat(attached).extracting(CaseFile::getCaseId).containsOnly(caseId);
+        assertThat(attached).extracting(CaseFile::getAttachedAt).doesNotContainNull()
+                .containsOnly(attached.getFirst().getAttachedAt());
+    }
+
+    @Test
+    void rejectsAReportInAPhotoBatchAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.REPORT));
+
+        assertThatThrownBy(() -> attachPhotos(caseId, reporter, ids)).isInstanceOf(ValidationException.class);
+        assertUnattached(ids);
+    }
+
+    @Test
+    void acceptsOnePhotoWhenTheCaseAlreadyHasFourLivePhotos() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        existingPhotos(caseId, reporter, 4);
+        long photo = upload(reporter, CaseFilePurpose.PHOTO);
+
+        attachPhotos(caseId, reporter, List.of(photo));
+
+        assertThat(files.findById(photo).orElseThrow().getCaseId()).isEqualTo(caseId);
+        assertThat(files.countByCaseIdAndPurposeAndDeletedAtIsNull(caseId, CaseFilePurpose.PHOTO)).isEqualTo(5);
+    }
+
+    @Test
+    void rejectsTwoPhotosWhenTheCaseAlreadyHasFourLivePhotos() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        existingPhotos(caseId, reporter, 4);
+        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
+
+        assertThatThrownBy(() -> attachPhotos(caseId, reporter, ids)).isInstanceOf(ValidationException.class);
+
+        assertUnattached(ids);
+        assertThat(files.countByCaseIdAndPurposeAndDeletedAtIsNull(caseId, CaseFilePurpose.PHOTO)).isEqualTo(4);
+    }
+
+    @Test
+    void deletedPhotosDoNotCountTowardsTheCap() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        existingPhotos(caseId, reporter, 5);
+        long deleted = files.findByCaseIdAndDeletedAtIsNullOrderByUploadedAtAscIdAsc(caseId).getFirst().getId();
+        jdbc.update("UPDATE case_files SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deleted);
+        long photo = upload(reporter, CaseFilePurpose.PHOTO);
+
+        attachPhotos(caseId, reporter, List.of(photo));
+
+        assertThat(files.countByCaseIdAndPurposeAndDeletedAtIsNull(caseId, CaseFilePurpose.PHOTO)).isEqualTo(5);
+        assertThat(files.findById(deleted).orElseThrow().getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    void photoAdditionsUseTheConfiguredCap() {
+        properties.setMaxPhotosPerCase(2);
+        long reporter = reporter(), caseId = ownCase(reporter);
+        existingPhotos(caseId, reporter, 1);
+        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
+
+        assertThatThrownBy(() -> attachPhotos(caseId, reporter, ids)).isInstanceOf(ValidationException.class);
+        assertUnattached(ids);
+        attachPhotos(caseId, reporter, List.of(ids.getFirst()));
+        assertThat(files.countByCaseIdAndPurposeAndDeletedAtIsNull(caseId, CaseFilePurpose.PHOTO)).isEqualTo(2);
+    }
+
+    @Test
+    void photoAdditionsRequireAnExistingTransaction() {
+        assertThatThrownBy(() -> service.attachPhotos(1L, 1L, List.of(1L)))
+                .isInstanceOf(IllegalTransactionStateException.class);
+    }
+
+    @Test
+    void photoBatchesUseTheSameOwnershipAndAvailabilityRules() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        long photo = upload(reporter, CaseFilePurpose.PHOTO);
+        long foreign = upload(reporter(), CaseFilePurpose.PHOTO);
+        long deleted = upload(reporter, CaseFilePurpose.PHOTO);
+        jdbc.update("UPDATE case_files SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deleted);
+
+        for (long unavailable : List.of(Long.MAX_VALUE, foreign, deleted)) {
+            assertThatThrownBy(() -> attachPhotos(caseId, reporter, List.of(photo, unavailable)))
+                    .isInstanceOf(NotFoundException.class).hasMessage("File not found");
+            assertUnattached(List.of(photo));
+        }
+    }
+
+    @Test
+    void photoAdditionsRollBackWithTheCaller() {
+        long reporter = reporter(), caseId = ownCase(reporter), photo = upload(reporter, CaseFilePurpose.PHOTO);
+
+        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            service.attachPhotos(caseId, reporter, List.of(photo));
+            throw new IllegalStateException("Photo update failed");
+        })).isInstanceOf(IllegalStateException.class).hasMessage("Photo update failed");
+        assertUnattached(List.of(photo));
+    }
+
+    @Test
+    void competingPhotoBatchesCannotExceedTheCaseCap() throws Exception {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        existingPhotos(caseId, reporter, 4);
+        long firstPhoto = upload(reporter, CaseFilePurpose.PHOTO), secondPhoto = upload(reporter, CaseFilePurpose.PHOTO);
+        CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
+
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> competingAttach(() ->
+                    service.attachPhotos(caseId, reporter, List.of(firstPhoto)), ready, start));
+            var second = executor.submit(() -> competingAttach(() ->
+                    service.attachPhotos(caseId, reporter, List.of(secondPhoto)), ready, start));
+            try {
+                assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                start.countDown();
+            }
+            List<Throwable> outcomes = Arrays.asList(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+            assertThat(outcomes.stream().filter(java.util.Objects::isNull).count()).isEqualTo(1);
+            assertThat(outcomes.stream().filter(java.util.Objects::nonNull).toList())
+                    .singleElement().isInstanceOf(ValidationException.class);
+        }
+        assertThat(files.countByCaseIdAndPurposeAndDeletedAtIsNull(caseId, CaseFilePurpose.PHOTO)).isEqualTo(5);
+        assertThat(files.findAllById(List.of(firstPhoto, secondPhoto))).filteredOn(file -> file.getCaseId() != null)
+                .hasSize(1);
+    }
+
+    @Test
     void competingSubmissionsCanAttachAReportOnlyOnce() throws Exception {
         long reporter = reporter(), firstCase = ownCase(reporter), secondCase = ownCase(reporter);
         long report = upload(reporter, CaseFilePurpose.REPORT);
         CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
 
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> competingAttach(firstCase, reporter, report, ready, start));
-            var second = executor.submit(() -> competingAttach(secondCase, reporter, report, ready, start));
+            var first = executor.submit(() -> competingAttach(() ->
+                    service.attachSubmission(firstCase, reporter, List.of(report)), ready, start));
+            var second = executor.submit(() -> competingAttach(() ->
+                    service.attachSubmission(secondCase, reporter, List.of(report)), ready, start));
             try {
                 assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
             } finally {
@@ -223,8 +357,7 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
         assertThat(files.findById(report).orElseThrow().getCaseId()).isIn(firstCase, secondCase);
     }
 
-    private Throwable competingAttach(long caseId, long reporter, long report, CountDownLatch ready,
-            CountDownLatch start) {
+    private Throwable competingAttach(Runnable attachment, CountDownLatch ready, CountDownLatch start) {
         return catchThrowable(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             ready.countDown();
             try {
@@ -233,13 +366,18 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException(failure);
             }
-            service.attachSubmission(caseId, reporter, List.of(report));
+            attachment.run();
         }));
     }
 
     private void attach(long caseId, long reporter, List<Long> ids) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status ->
                 service.attachSubmission(caseId, reporter, ids));
+    }
+
+    private void attachPhotos(long caseId, long reporter, List<Long> ids) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                service.attachPhotos(caseId, reporter, ids));
     }
 
     private long reporter() { return user(UUID.randomUUID() + "@example.com"); }
