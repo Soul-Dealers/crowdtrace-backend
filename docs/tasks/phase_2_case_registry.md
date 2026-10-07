@@ -39,11 +39,15 @@ consent while preserving a strict public/admin data boundary.
 - **Labels:** `epic:case-registry`, `type:feature`, `type:security`, `priority:p0`
 - **Depends on:** CT-009, CT-011, CT-012, CT-015
 - **Issue:** Implement `POST /api/user/cases` with public details, sensitive details, public contact,
-  report-file reference, explicit consent, age/date validation, and initial review status.
+  report-file reference, optional public photo references, explicit consent, age/date validation, and
+  initial review status. Also implement `POST /api/user/case-files` (multipart report/photo upload via
+  CT-015's services) with a per-user upload limit.
 - **Acceptance criteria:** Valid submissions enter review; missing report or consent returns actionable
   validation errors; consent version/timestamp/source are stored; response returns a safe case reference;
-  possible duplicates do not block submission.
-- **Tests:** Valid submission, missing file, missing consent, invalid dates/age, ownership, and safe-response tests.
+  possible duplicates do not block submission; reporters can upload a report and up to 5 photos and attach
+  only their own unattached uploads.
+- **Tests:** Valid submission, missing file, missing consent, invalid dates/age, ownership, safe-response,
+  upload endpoint, photo attachment/cap, and foreign-file tests.
 
 ### CT-014 — Implement non-blocking duplicate detection and minor prioritization
 

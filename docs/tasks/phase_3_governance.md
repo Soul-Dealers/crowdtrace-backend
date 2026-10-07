@@ -40,10 +40,11 @@ validated, and auditable.
 - **Depends on:** CT-017
 - **Issue:** Implement separate review and public-status state machines. Support reporter/admin
   updates, closing statements, admin takedown, respectful `FOUND_DECEASED` presentation metadata,
-  follower events, and reporter status-change events.
+  follower events, and reporter status-change events. Let the reporter add public photos to their own
+  live case (CT-013 upload + CT-015 `attachPhotos`), within the photo cap, audited.
 - **Acceptance criteria:** Invalid transitions fail; only the reporter or admin may update a live case;
   takedown is admin-only; status changes and closing statements are audited; notifications are emitted transactionally.
-- **Tests:** Full transition matrix, ownership, takedown, deceased-banner, and event tests.
+- **Tests:** Full transition matrix, ownership, takedown, deceased-banner, event, and add-photo tests.
 
 ### CT-019 — Implement comment reporting and moderation resolution
 

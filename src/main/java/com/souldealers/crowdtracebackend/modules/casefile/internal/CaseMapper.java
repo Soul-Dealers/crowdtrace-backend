@@ -50,8 +50,7 @@ final class CaseMapper {
                 c.getClothing(), c.getCircumstances(), c.getPublicContactNumber(), c.getReviewStatus(), c.getCaseStatus(),
                 c.getClosingStatement(), c.isPriorityMinor(), c.isDuplicateFlag(), c.getSubmittedAt(), c.getApprovedAt(),
                 c.getResolvedAt(), c.getClosedAt(), toSensitive(d),
-                liveFiles.stream().map(f -> new CaseFileMetadataResponse(f.getId(), f.getPurpose(), f.getVisibility(),
-                        f.getContentType(), f.getSizeBytes(), f.getUploadedAt())).toList(),
+                liveFiles.stream().map(CaseMapper::toFileMetadata).toList(),
                 consents.stream().map(consent -> new CaseConsentResponse(consent.getConsentType(), consent.getConsentVersion(),
                         consent.getSource(), consent.getAcceptedAt())).toList());
     }
@@ -59,6 +58,11 @@ final class CaseMapper {
     static AdminCaseSummaryResponse toAdminSummary(CaseRecord c) {
         return new AdminCaseSummaryResponse(c.getId(), c.getFullName(), c.getAge(), c.getRegion(),
                 c.getReviewStatus(), c.isPriorityMinor(), c.isDuplicateFlag(), c.getSubmittedAt());
+    }
+
+    static CaseFileMetadataResponse toFileMetadata(CaseFile file) {
+        return new CaseFileMetadataResponse(file.getId(), file.getPurpose(), file.getVisibility(),
+                file.getContentType(), file.getSizeBytes(), file.getUploadedAt());
     }
 
 }

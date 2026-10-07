@@ -48,13 +48,38 @@ class CaseFileRepositoryTest extends CasePostgresTestSupport {
     }
 
     @Test
-    void findsUnattachedUploadsByUploader() {
+    void findsOnlyLiveUnattachedUploadsByUploader() {
         long a = user("upload-a@example.com"), b = user("upload-b@example.com");
         long c = cases.save(aCase(a).build()).getId();
         CaseFile pending = upload(a, null, "pending", at(9), null, CaseFilePurpose.REPORT);
         upload(a, c, "attached", at(9), null, CaseFilePurpose.REPORT);
         upload(b, null, "other-pending", at(9), null, CaseFilePurpose.REPORT);
-        assertThat(files.findByUploadedByAndCaseIdIsNull(a)).extracting(CaseFile::getId).containsExactly(pending.getId());
+        upload(a, null, "deleted-pending", at(9), at(10), CaseFilePurpose.REPORT);
+        assertThat(files.findByUploadedByAndCaseIdIsNullAndDeletedAtIsNull(a)).extracting(CaseFile::getId)
+                .containsExactly(pending.getId());
+    }
+
+    @Test
+    void locksSelectedFilesInIdOrder() {
+        long r = user("lock-files@example.com");
+        CaseFile first = upload(r, null, "lock-first", at(9), null, CaseFilePurpose.REPORT);
+        CaseFile second = upload(r, null, "lock-second", at(9), null, CaseFilePurpose.PHOTO);
+        upload(r, null, "not-selected", at(9), null, CaseFilePurpose.PHOTO);
+
+        assertThat(files.findAllByIdInOrderByIdAsc(java.util.List.of(second.getId(), first.getId())))
+                .extracting(CaseFile::getId).containsExactly(first.getId(), second.getId());
+    }
+
+    @Test
+    void countsOnlyLivePhotosOnTheSelectedCase() {
+        long r = user("count-photos@example.com"), c = cases.save(aCase(r).build()).getId();
+        long other = cases.save(aCase(r).build()).getId();
+        upload(r, c, "count-live-photo", at(9), null, CaseFilePurpose.PHOTO);
+        upload(r, c, "count-deleted-photo", at(9), at(10), CaseFilePurpose.PHOTO);
+        upload(r, c, "count-report", at(9), null, CaseFilePurpose.REPORT);
+        upload(r, other, "count-other-photo", at(9), null, CaseFilePurpose.PHOTO);
+
+        assertThat(files.countByCaseIdAndPurposeAndDeletedAtIsNull(c, CaseFilePurpose.PHOTO)).isEqualTo(1);
     }
 
     @Test
