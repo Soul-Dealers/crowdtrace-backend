@@ -7,6 +7,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CaseFileTest {
     @Test
+    void attachmentCannotBeChangedThroughPublicSetters() {
+        assertThat(CaseFile.class.getMethods()).extracting(java.lang.reflect.Method::getName)
+                .doesNotContain("setCaseId", "setAttachedAt");
+    }
+
+    @Test
     void attachingSetsTheCaseAndAttachmentTime() {
         CaseFile file = CaseFile.builder().build();
         LocalDateTime at = LocalDateTime.of(2026, 10, 1, 9, 0);

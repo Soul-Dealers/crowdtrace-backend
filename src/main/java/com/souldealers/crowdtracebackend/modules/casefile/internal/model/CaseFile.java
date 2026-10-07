@@ -34,6 +34,7 @@ public class CaseFile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter(AccessLevel.NONE)
     @Column(name = "case_id")
     private Long caseId;
 
@@ -64,6 +65,7 @@ public class CaseFile {
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
 
+    @Setter(AccessLevel.NONE)
     @Column(name = "attached_at")
     private LocalDateTime attachedAt;
 
