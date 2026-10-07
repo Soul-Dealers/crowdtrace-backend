@@ -30,4 +30,30 @@ class CaseFileTest {
         assertThat(file.getCaseId()).isEqualTo(42L);
         assertThat(file.getAttachedAt()).isEqualTo(at);
     }
+
+    @Test
+    void attachingWithoutACaseIsRejected() {
+        CaseFile file = CaseFile.builder().build();
+        assertThatThrownBy(() -> file.attachTo(null, LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(file.getCaseId()).isNull();
+        assertThat(file.getAttachedAt()).isNull();
+    }
+
+    @Test
+    void attachingWithoutATimeIsRejected() {
+        CaseFile file = CaseFile.builder().build();
+        assertThatThrownBy(() -> file.attachTo(42L, null)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(file.getCaseId()).isNull();
+        assertThat(file.getAttachedAt()).isNull();
+    }
+
+    @Test
+    void attachingADeletedFileIsRejected() {
+        CaseFile file = CaseFile.builder().deletedAt(LocalDateTime.now()).build();
+        assertThatThrownBy(() -> file.attachTo(42L, LocalDateTime.now()))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(file.getCaseId()).isNull();
+        assertThat(file.getAttachedAt()).isNull();
+    }
 }

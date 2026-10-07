@@ -73,6 +73,12 @@ public class CaseFile {
     private LocalDateTime deletedAt;
 
     public void attachTo(Long caseId, LocalDateTime at) {
+        if (caseId == null || at == null) {
+            throw new IllegalArgumentException("Case and attachment time are required");
+        }
+        if (deletedAt != null) {
+            throw new IllegalStateException("Deleted file cannot be attached to a case");
+        }
         if (this.caseId != null) {
             throw new IllegalStateException("File is already attached to a case");
         }
