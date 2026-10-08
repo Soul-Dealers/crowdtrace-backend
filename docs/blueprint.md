@@ -319,14 +319,20 @@ Tasks:
 Tasks:
 ├── Create DuplicateDetectionService
 │   ├── Compare normalized full name
-│   ├── Compare last-seen and reported dates
+│   ├── Compare last-seen dates only (never submitted_at)
 │   └── Return possible matches with confidence/reason metadata
-├── Set duplicate_flag without blocking submission
-├── Create MinorPriorityService
-│   └── Set priority_minor when age at disappearance is under 18
+├── Flag only the new case after commit without failing submission
+├── Minor priority: already set at creation by CT-013
+│   └── A separate MinorPriorityService is superseded
 ├── Store detection results for moderator review
-└── Add tests for false positives, missing dates, and boundary age 18
+└── Add tests for false positives, missing dates, concurrency and non-blocking delivery
 ```
+
+CT-014 stores directional, versioned duplicate-match metadata without name snapshots and uses
+normalized name plus last-seen date (default similarity 0.90, date window 7 days). Detection runs
+synchronously after commit in its own transaction; failures log only case id and exception type.
+Per-case locking makes redelivery idempotent. Existing cases and minor priority are unchanged.
+Minor age-boundary tests remain in CT-013; moderator decisions and match display belong to CT-017.
 
 **Chunk 3 Deliverable:** A registered user can submit a case with mandatory evidence and consent, while sensitive fields remain protected and review flags are generated.
 
