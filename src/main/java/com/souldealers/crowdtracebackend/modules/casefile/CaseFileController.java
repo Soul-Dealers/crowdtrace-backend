@@ -6,6 +6,7 @@ import com.souldealers.crowdtracebackend.modules.identity.SecurityUser;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import com.souldealers.crowdtracebackend.shared.ratelimit.RateLimitDecision;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -34,9 +35,9 @@ public class CaseFileController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CaseFileMetadataResponse> upload(
             @AuthenticationPrincipal SecurityUser principal,
-            @RequestParam CaseFilePurpose purpose,
+            @Parameter(hidden = true) @RequestParam CaseFilePurpose purpose,
             @RequestPart MultipartFile file,
-            @RequestParam Optional<String> sha256) throws IOException {
+            @Parameter(hidden = true) @RequestParam Optional<String> sha256) throws IOException {
         Long userId = principal.userId();
         RateLimitDecision reservation = rateLimitGuard.check(userId);
         try (InputStream content = file.getInputStream()) {

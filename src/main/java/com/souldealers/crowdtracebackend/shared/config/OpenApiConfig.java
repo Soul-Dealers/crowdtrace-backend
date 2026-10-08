@@ -9,6 +9,8 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.parameters.Parameter;
+import io.swagger.v3.oas.models.parameters.RequestBody;
+import io.swagger.v3.oas.models.headers.Header;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -22,6 +24,7 @@ import io.swagger.v3.oas.models.responses.ApiResponses;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +53,9 @@ public class OpenApiConfig {
                         new io.swagger.v3.oas.models.tags.Tag()
                                 .name("Identity")
                                 .description("Current identity endpoints"),
+                        new io.swagger.v3.oas.models.tags.Tag()
+                                .name("Case Submission")
+                                .description("Registered-user case submission and evidence uploads"),
                         new io.swagger.v3.oas.models.tags.Tag()
                                 .name("Authentication")
                                 .description("Planned authentication endpoints"),
@@ -85,7 +91,109 @@ public class OpenApiConfig {
         schemas.put("AdminVerificationListResponse", adminVerificationListResponseSchema());
         schemas.put("AdminVerificationDecisionResponse", adminVerificationDecisionResponseSchema());
         schemas.put("HealthResponse", healthResponseSchema());
+        schemas.put("CaseFileUploadRequest", caseFileUploadRequestSchema());
+        schemas.put("CaseFileMetadataResponse", caseFileMetadataResponseSchema());
+        schemas.put("CaseFileUploadResponse", caseResponseEnvelope("Safe uploaded-file metadata",
+                "#/components/schemas/CaseFileMetadataResponse"));
+        schemas.put("CaseSubmissionRequest", caseSubmissionRequestSchema());
+        schemas.put("SensitiveDetailsInput", sensitiveDetailsInputSchema());
+        schemas.put("ConsentInput", consentInputSchema());
+        schemas.put("CaseSubmissionResponse", caseSubmissionResponseSchema());
+        schemas.put("CaseSubmissionApiResponse", caseResponseEnvelope("Case submission confirmation",
+                "#/components/schemas/CaseSubmissionResponse"));
         return schemas;
+    }
+
+    private Schema caseFileUploadRequestSchema() {
+        return new ObjectSchema()
+                .description("Upload one file before submission. Reports accept PDF, JPEG or PNG; photos accept JPEG "
+                        + "or PNG. The maximum file size is 10 MB.")
+                .required(List.of("file", "purpose"))
+                .addProperties("file", new StringSchema().format("binary"))
+                .addProperties("purpose", new StringSchema()._enum(List.of("REPORT", "PHOTO")))
+                .addProperties("sha256", new StringSchema()
+                        .description("Optional SHA-256 checksum checked against the uploaded content."));
+    }
+
+    private Schema caseFileMetadataResponseSchema() {
+        return new ObjectSchema()
+                .description("Safe file metadata; storage keys and checksums are never returned.")
+                .required(List.of("id", "purpose", "visibility", "contentType", "sizeBytes", "uploadedAt"))
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("purpose", new StringSchema()._enum(List.of("REPORT", "PHOTO")))
+                .addProperties("visibility", new StringSchema()._enum(List.of("PRIVATE", "PUBLIC")))
+                .addProperties("contentType", new StringSchema())
+                .addProperties("sizeBytes", new IntegerSchema().format("int64"))
+                .addProperties("uploadedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema caseSubmissionRequestSchema() {
+        return new ObjectSchema()
+                .description("Public case details, private sensitive details, explicit consent and owned upload ids. "
+                        + "File ids must be distinct across both slots and match the slot's REPORT or PHOTO purpose.")
+                .required(List.of("fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
+                        "physicalDescription", "clothing", "circumstances", "publicContactNumber",
+                        "sensitiveDetails", "consent", "reportFileIds"))
+                .addProperties("fullName", new StringSchema().minLength(1).maxLength(255))
+                .addProperties("age", new IntegerSchema().format("int32")
+                        .minimum(BigDecimal.ZERO).maximum(BigDecimal.valueOf(130))
+                        .description("Age at disappearance. Cases under 18 receive minor priority at submission."))
+                .addProperties("gender", new StringSchema()._enum(List.of("MALE", "FEMALE", "UNKNOWN")))
+                .addProperties("lastSeenDate", new StringSchema().format("date")
+                        .description("From 1900-01-01 through today's date in the server's UTC clock, inclusive."))
+                .addProperties("region", new StringSchema()._enum(List.of("AHAFO", "ASHANTI", "BONO", "BONO_EAST",
+                        "CENTRAL", "EASTERN", "GREATER_ACCRA", "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH",
+                        "UPPER_EAST", "UPPER_WEST", "VOLTA", "WESTERN", "WESTERN_NORTH")))
+                .addProperties("lastSeenLocation", new StringSchema().minLength(1).maxLength(500))
+                .addProperties("physicalDescription", new StringSchema().minLength(1))
+                .addProperties("clothing", new StringSchema().minLength(1))
+                .addProperties("circumstances", new StringSchema().minLength(1))
+                .addProperties("publicContactNumber", new StringSchema().minLength(1).maxLength(32))
+                .addProperties("sensitiveDetails", new Schema<>().$ref("#/components/schemas/SensitiveDetailsInput"))
+                .addProperties("consent", new Schema<>().$ref("#/components/schemas/ConsentInput"))
+                .addProperties("reportFileIds", new ArraySchema().minItems(1)
+                        .items(new IntegerSchema().format("int64").minimum(BigDecimal.ONE)))
+                .addProperties("photoFileIds", new ArraySchema().maxItems(5)
+                        .items(new IntegerSchema().format("int64").minimum(BigDecimal.ONE)));
+    }
+
+    private Schema sensitiveDetailsInputSchema() {
+        return new ObjectSchema()
+                .description("Private sensitive details, excluded from public responses.")
+                .required(List.of("reporterRelationship"))
+                .addProperties("reporterRelationship", new StringSchema().minLength(1).maxLength(100))
+                .addProperties("medicalConditions", new StringSchema())
+                .addProperties("knownAssociates", new StringSchema())
+                .addProperties("vehicleInfo", new StringSchema())
+                .addProperties("socialMediaHandles", new StringSchema());
+    }
+
+    private Schema consentInputSchema() {
+        return new ObjectSchema()
+                .description("Explicit consent to sensitive-data collection. The server stores the authenticated "
+                        + "user, current policy version, source and acceptance time.")
+                .required(List.of("accepted", "version", "source"))
+                .addProperties("accepted", new BooleanSchema()._enum(List.of(true)))
+                .addProperties("version", new StringSchema().minLength(1).maxLength(32)
+                        .description("Must match crowdtrace.consent.sensitive-data-version; an outdated version returns 400."))
+                .addProperties("source", new StringSchema()._enum(List.of("WEB", "MOBILE", "API")));
+    }
+
+    private Schema caseSubmissionResponseSchema() {
+        return new ObjectSchema()
+                .description("Submission confirmation containing only the numeric case reference, review status and time.")
+                .required(List.of("caseId", "reviewStatus", "submittedAt"))
+                .addProperties("caseId", new IntegerSchema().format("int64"))
+                .addProperties("reviewStatus", new StringSchema()._enum(List.of("SUBMITTED")))
+                .addProperties("submittedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema caseResponseEnvelope(String description, String dataReference) {
+        return new ObjectSchema().description(description)
+                .addProperties("success", new BooleanSchema())
+                .addProperties("message", new StringSchema())
+                .addProperties("data", new Schema<>().$ref(dataReference))
+                .addProperties("errors", new ObjectSchema());
     }
 
     private Schema problemDetailSchema() {
@@ -226,6 +334,8 @@ public class OpenApiConfig {
                         "Liveness probe", "Returns the current liveness status."))
                 .addPathItem("/actuator/health/readiness", healthPath(
                         "Readiness probe", "Returns the current readiness status, including database health."))
+                .addPathItem("/api/user/case-files", new PathItem().post(caseFileUploadOperation()))
+                .addPathItem("/api/user/cases", new PathItem().post(caseSubmissionOperation()))
                 .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
@@ -236,6 +346,60 @@ public class OpenApiConfig {
                 .addPathItem("/api/admin/cases/{caseId}/decision", new PathItem().post(
                         plannedOperation("Administration", "Decide case", "Planned case decision operation.")
                                 .parameters(List.of(caseIdParameter()))));
+    }
+
+    private Operation caseFileUploadOperation() {
+        return new Operation().tags(List.of("Case Submission"))
+                .summary("Upload case evidence")
+                .description("Requires a registered-user JWT. Upload a private REPORT or public PHOTO before submitting "
+                        + "a case. The per-user limit is 20 successful uploads per 24-hour window; validation-rejected "
+                        + "uploads are refunded. Keep the returned file id for its submission slot.")
+                .security(List.of(new SecurityRequirement().addList("bearerAuth")))
+                .requestBody(new RequestBody().required(true).content(new Content()
+                        .addMediaType("multipart/form-data", new MediaType()
+                                .schema(new Schema<>().$ref("#/components/schemas/CaseFileUploadRequest")))))
+                .responses(new ApiResponses()
+                        .addApiResponse("201", jsonResponse("File uploaded", "#/components/schemas/CaseFileUploadResponse"))
+                        .addApiResponse("400", caseProblemResponse("Missing part, invalid purpose, file content or checksum"))
+                        .addApiResponse("401", caseProblemResponse("Authentication required"))
+                        .addApiResponse("403", caseProblemResponse("Registered-user authorization required"))
+                        .addApiResponse("413", caseProblemResponse("File exceeds the multipart upload limit"))
+                        .addApiResponse("429", retryableCaseProblemResponse("Per-user upload quota exhausted"))
+                        .addApiResponse("503", retryableCaseProblemResponse("Upload quota store unavailable")));
+    }
+
+    private Operation caseSubmissionOperation() {
+        return new Operation().tags(List.of("Case Submission"))
+                .summary("Submit a case for review")
+                .description("Requires a registered-user JWT. Atomically records the case as SUBMITTED, sensitive details, "
+                        + "current-version consent and owned unattached reports/photos. Duplicates never block submission: "
+                        + "CaseSubmittedEvent is published inside the transaction for best-effort AFTER_COMMIT detection. "
+                        + "There is no replay; the consumer writes duplicate metadata in REQUIRES_NEW. Minor priority is "
+                        + "set immediately from age at disappearance.")
+                .security(List.of(new SecurityRequirement().addList("bearerAuth")))
+                .requestBody(new RequestBody().required(true).content(new Content()
+                        .addMediaType("application/json", new MediaType()
+                                .schema(new Schema<>().$ref("#/components/schemas/CaseSubmissionRequest")))))
+                .responses(new ApiResponses()
+                        .addApiResponse("201", jsonResponse("Case submitted", "#/components/schemas/CaseSubmissionApiResponse"))
+                        .addApiResponse("400", caseProblemResponse("Invalid fields, missing report or consent, outdated consent "
+                                + "version, duplicate ids, wrong file purpose or photo cap exceeded"))
+                        .addApiResponse("401", caseProblemResponse("Authentication required"))
+                        .addApiResponse("403", caseProblemResponse("Registered-user authorization required"))
+                        .addApiResponse("404", caseProblemResponse("A referenced file is missing, deleted or belongs to another user"))
+                        .addApiResponse("409", caseProblemResponse("A referenced file is already attached")));
+    }
+
+    private io.swagger.v3.oas.models.responses.ApiResponse caseProblemResponse(String description) {
+        return new io.swagger.v3.oas.models.responses.ApiResponse().description(description)
+                .content(new Content().addMediaType("application/problem+json", new MediaType()
+                        .schema(new Schema<>().$ref("#/components/schemas/ProblemDetail"))));
+    }
+
+    private io.swagger.v3.oas.models.responses.ApiResponse retryableCaseProblemResponse(String description) {
+        return caseProblemResponse(description).addHeaderObject("Retry-After", new Header()
+                .description("Seconds until the request may be retried.")
+                .schema(new IntegerSchema().format("int64").minimum(BigDecimal.ONE)));
     }
 
     private PathItem healthPath(String summary, String description) {

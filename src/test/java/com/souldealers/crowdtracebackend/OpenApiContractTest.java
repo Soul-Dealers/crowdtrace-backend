@@ -9,6 +9,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -133,6 +136,131 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.accountStatus").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.createdAt").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void documentsTheRegisteredUserUploadAndMultipartContract() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.tags", hasItem("Case Submission")))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.description",
+                        containsString("registered-user JWT")))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post['x-crowdtrace-status']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.requestBody.required").value(true))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.requestBody.content['multipart/form-data'].schema.$ref")
+                        .value("#/components/schemas/CaseFileUploadRequest"))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.required",
+                        containsInAnyOrder("file", "purpose")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.properties.file.format").value("binary"))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.properties.purpose.enum",
+                        containsInAnyOrder("REPORT", "PHOTO")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.properties.sha256.type").value("string"))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.parameters").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.201.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/CaseFileUploadResponse"))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.401").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.403").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.413").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.429.headers['Retry-After']").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.503.headers['Retry-After']").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.400.content['application/problem+json'].schema.$ref")
+                        .value("#/components/schemas/ProblemDetail"));
+    }
+
+    @Test
+    void documentsTheSubmissionAndNonBlockingEventContract() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.tags", hasItem("Case Submission")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post['x-crowdtrace-status']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.description", containsString("Duplicates never block")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.description", containsString("AFTER_COMMIT")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.description", containsString("best-effort")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.requestBody.required").value(true))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/CaseSubmissionRequest"))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.201.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/CaseSubmissionApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.401").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.403").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.404").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.404.content['application/problem+json'].schema.$ref")
+                        .value("#/components/schemas/ProblemDetail"));
+    }
+
+    @Test
+    void describesSubmissionValidationAndConsentInTheRequestSchemas() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.required", containsInAnyOrder(
+                        "fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
+                        "physicalDescription", "clothing", "circumstances", "publicContactNumber",
+                        "sensitiveDetails", "consent", "reportFileIds")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.fullName.maxLength").value(255))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.age.minimum").value(0))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.age.maximum").value(130))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.gender.enum",
+                        containsInAnyOrder("MALE", "FEMALE", "UNKNOWN")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.region.enum", containsInAnyOrder(
+                        "AHAFO", "ASHANTI", "BONO", "BONO_EAST", "CENTRAL", "EASTERN", "GREATER_ACCRA",
+                        "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH", "UPPER_EAST", "UPPER_WEST",
+                        "VOLTA", "WESTERN", "WESTERN_NORTH")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenDate.format").value("date"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenDate.description",
+                        containsString("1900-01-01")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenDate.description",
+                        containsString("UTC")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenLocation.maxLength").value(500))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.publicContactNumber.maxLength").value(32))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.sensitiveDetails.$ref")
+                        .value("#/components/schemas/SensitiveDetailsInput"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.consent.$ref")
+                        .value("#/components/schemas/ConsentInput"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.reportFileIds.minItems").value(1))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.reportFileIds.items.minimum").value(1))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.photoFileIds.maxItems").value(5))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.photoFileIds.items.minimum").value(1))
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.required", contains("reporterRelationship")))
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.reporterRelationship.maxLength").value(100))
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.medicalConditions").exists())
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.knownAssociates").exists())
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.vehicleInfo").exists())
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.socialMediaHandles").exists())
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.required", containsInAnyOrder("accepted", "version", "source")))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.accepted.enum", contains(true)))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.version.maxLength").value(32))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.version.description",
+                        containsString("crowdtrace.consent.sensitive-data-version")))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.source.enum",
+                        containsInAnyOrder("WEB", "MOBILE", "API")));
+    }
+
+    @Test
+    void documentsOnlySafeUploadMetadataAndSubmissionResponseFields() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadResponse.properties.data.$ref")
+                        .value("#/components/schemas/CaseFileMetadataResponse"))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties", aMapWithSize(6)))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.id").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.purpose.enum",
+                        containsInAnyOrder("REPORT", "PHOTO")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.visibility.enum",
+                        containsInAnyOrder("PRIVATE", "PUBLIC")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.contentType").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.sizeBytes").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.uploadedAt").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/CaseSubmissionResponse"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties", aMapWithSize(3)))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties.caseId.format").value("int64"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties.reviewStatus.enum", contains("SUBMITTED")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties.submittedAt.format").value("date-time"));
     }
 
     @Test

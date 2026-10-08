@@ -39,25 +39,35 @@ consent while preserving a strict public/admin data boundary.
 - **Labels:** `epic:case-registry`, `type:feature`, `type:security`, `priority:p0`
 - **Depends on:** CT-009, CT-011, CT-012, CT-015
 - **Issue:** Implement `POST /api/user/cases` with public details, sensitive details, public contact,
-  report-file reference, optional public photo references, explicit consent, age/date validation, and
-  initial review status. Also implement `POST /api/user/case-files` (multipart report/photo upload via
-  CT-015's services) with a per-user upload limit.
+  one or more `reportFileIds`, optional `photoFileIds` (up to 5), explicit current-version consent,
+  and age/date validation. Create cases as `SUBMITTED` with no public outcome, set
+  `priority_minor = age < 18` at insert, and publish `CaseSubmittedEvent(caseId)` inside the submission
+  transaction. Also implement `POST /api/user/case-files` (multipart report/photo upload via CT-015's
+  services) with a limit of 20 successful uploads per user per 24-hour window; rejected files refund
+  their quota charge.
 - **Acceptance criteria:** Valid submissions enter review; missing report or consent returns actionable
   validation errors; consent version/timestamp/source are stored; response returns a safe case reference;
   possible duplicates do not block submission; reporters can upload a report and up to 5 photos and attach
-  only their own unattached uploads.
+  only their own unattached uploads in the matching report/photo slots. Case, sensitive details,
+  consent and attachments commit atomically. The response contains only `caseId`, `reviewStatus`
+  and `submittedAt`; age 17 receives minor priority and age 18 does not.
 - **Tests:** Valid submission, missing file, missing consent, invalid dates/age, ownership, safe-response,
-  upload endpoint, photo attachment/cap, and foreign-file tests.
+  upload endpoint/quota/refund, photo attachment/cap, foreign-file, atomic rollback, boundary-age,
+  and throwing-after-commit-listener tests.
 
-### CT-014 — Implement non-blocking duplicate detection and minor prioritization
+### CT-014 — Implement non-blocking duplicate detection
 
 - **Labels:** `epic:case-registry`, `type:feature`, `priority:p1`
-- **Depends on:** CT-012
+- **Depends on:** CT-012, CT-013
 - **Issue:** Add normalized-name plus reported/last-seen date matching, confidence/reason metadata,
-  and a minor flag for age under 18. Store results for reviewers without rejecting intake.
+  and the duplicate review signal. Consume CT-013's `CaseSubmittedEvent(caseId)` with
+  `@TransactionalEventListener(AFTER_COMMIT)` and write results in `REQUIRES_NEW`. Delivery is
+  best-effort with no replay while the application uses Modulith core only. CT-013 owns minor
+  priority at creation; CT-014 must not change `priority_minor`.
 - **Acceptance criteria:** Detection is deterministic for the same data; missing dates are handled;
-  age 17 is flagged and age 18 is not; a possible match marks the case but does not block it.
-- **Tests:** False-positive, missing-date, boundary-age, and non-blocking submission tests.
+  a possible match marks the case for reviewers; listener failures cannot reject or roll back intake.
+- **Tests:** False-positive, missing-date, deterministic matching, duplicate metadata, after-commit
+  processing and non-blocking listener failure tests. Minor age boundaries are covered by CT-013.
 
 ### CT-015 — Implement file metadata validation and case-file association
 
