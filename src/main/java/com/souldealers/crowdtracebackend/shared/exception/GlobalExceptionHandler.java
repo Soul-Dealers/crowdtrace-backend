@@ -27,9 +27,12 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.validation.FieldError;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.*;
@@ -145,6 +148,42 @@ public class GlobalExceptionHandler {
                 "Validation failed",
                 exception.getMessage(),
                 "VALIDATION_FAILED",
+                request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "Payload too large",
+                "The uploaded file exceeds the maximum allowed size",
+                "PAYLOAD_TOO_LARGE",
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ProblemDetail handleMissingRequestPart(
+            MissingServletRequestPartException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid request",
+                "The required request part '" + exception.getRequestPartName() + "' is missing",
+                "INVALID_REQUEST",
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingRequestParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid request",
+                "The required request parameter '" + exception.getParameterName() + "' is missing",
+                "INVALID_REQUEST",
                 request);
     }
 

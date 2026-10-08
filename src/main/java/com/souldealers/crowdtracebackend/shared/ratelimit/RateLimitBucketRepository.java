@@ -102,6 +102,22 @@ public class RateLimitBucketRepository {
                 .executeUpdate();
     }
 
+    /** Refunds one reservation without touching a later window for the same subject. */
+    @Transactional
+    public void release(String scope, String action, byte[] subjectKey, Instant windowEndsAt) {
+        entityManager.createNativeQuery("""
+                        UPDATE rate_limit_bucket
+                        SET request_count = greatest(request_count - 1, 0)
+                        WHERE scope = :scope AND action = :action AND subject_key = :subjectKey
+                          AND window_ends_at = :windowEndsAt
+                        """)
+                .setParameter("scope", scope)
+                .setParameter("action", action)
+                .setParameter("subjectKey", subjectKey)
+                .setParameter("windowEndsAt", windowEndsAt)
+                .executeUpdate();
+    }
+
     @Transactional
     public int purgeExpired() {
         return entityManager.createNativeQuery(
