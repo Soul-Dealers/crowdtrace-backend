@@ -19,7 +19,7 @@
 
 ## Decisions
 
-Settled by Edem. Design produced by Claude and Codex ("Astra") independently, then reconciled. The one disagreement (D6) went to Edem.
+D1–D12 were settled by Edem. D10a records the connection-pool correction found during final review. Design produced by Claude and Codex ("Astra") independently, then reconciled. The one disagreement (D6) went to Edem.
 
 | # | Decision | Rationale |
 |---|---|---|
@@ -34,6 +34,7 @@ Settled by Edem. Design produced by Claude and Codex ("Astra") independently, th
 | D8a | **Serialize detection per case:** `detect(caseId)` first loads the new case with `PESSIMISTIC_WRITE` (the existing `findOwnedByIdForUpdate` pattern, or an unowned `findByIdForUpdate`). It then skips any candidate whose `(case_id, matched_case_id)` row already exists | Astra's finding: the unique key alone *rejects* a concurrent second delivery with a violation, but doesn't make it a no-op. Locking the case row means a second delivery waits, then sees the rows the first one committed, and inserts nothing. The unique key stays as the backstop. |
 | D9 | **Flag via the entity, not a bulk `UPDATE`:** load the new `CaseRecord`, call `setDuplicateFlag(true)`, let `@Version` bump | A bulk update bypasses optimistic locking. A moderator holding a stale copy would then silently overwrite the flag back to `false`, because JPA writes every column. Going through the entity turns that race into an `OptimisticLockException` for the stale writer. |
 | D10 | **Delivery:** `DuplicateDetectionListener` (`@TransactionalEventListener(phase = AFTER_COMMIT)`) → `DuplicateDetectionService.detect(caseId)` (`@Transactional(propagation = REQUIRES_NEW)`). The listener catches `RuntimeException` and logs WARN with **only the case id and exception type**. Synchronous, best-effort | Spring already swallows AFTER_COMMIT exceptions. Catching explicitly keeps the log useful and free of PII. `REQUIRES_NEW` is required because the original transaction's resources are still bound after commit. The request waits for detection, but it's one indexed range query plus in-memory matching. `@Async` is deferred until there's a measured latency problem. |
+| D10a | **Release Hibernate connections after transaction completion:** `DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION` | Prevents synchronous AFTER_COMMIT detection from waiting for an extra connection while every submission still holds its original one. Applies globally. Hibernate read-only sessions still skip flushing, but Spring no longer sets the JDBC read-only hint; custom transaction isolation would need additional configuration. The current application uses default isolation throughout. |
 | D11 | **Index:** `CREATE INDEX idx_cases_last_seen ON cases (last_seen_date, id)` | Supports the D7 prefilter. The blueprint's step 4.1 already asks for a date index. |
 | D12 | **Config:** `crowdtrace.duplicates.{date-window-days: 7, name-threshold-permille: 900}`, validated at startup. The algorithm version is a code constant, not config | Lets thresholds be tuned without a deploy. The version tracks the *code*, so it can't be config. |
 
@@ -157,3 +158,8 @@ Showing matches in the review queue or admin detail API, and the moderator's dup
   when D12’s window is widened. Name similarity is stored with HALF_UP rounding, while
   threshold comparison uses the unrounded fraction. Ordered normalized tokens distinguish
   exact names from reordered names.
+
+- Final review found connection-pool starvation at concurrent submission callbacks. Added a
+  two-connection-pool HTTP regression test that synchronizes both committed submissions,
+  verifies zero connections retained before detection, and requires flags plus both directional
+  match rows. The test failed with two retained connections before applying D10a.

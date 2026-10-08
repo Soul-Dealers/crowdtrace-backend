@@ -77,7 +77,9 @@ consent while preserving a strict public/admin data boundary.
   With the default 7-day window this is the agreed `days/8` formula. Similarity is rounded to
   permille only for storage; threshold comparison uses the exact fraction. Review APIs and
   moderator duplicate/distinct decisions belong to CT-017. Logs contain only case id and
-  exception type; failures never reject intake.
+  exception type; failures never reject intake. Hibernate releases physical connections at commit
+  before detection starts, preventing pool starvation under concurrent submissions. See plan D10a
+  for the JDBC read-only hint and custom-isolation tradeoffs.
 - **Acceptance criteria:** Detection is deterministic for the same data; missing dates are handled;
   a possible match marks the case for reviewers; listener failures cannot reject or roll back intake.
 - **Tests:** False-positive, missing-date, deterministic matching, duplicate metadata, after-commit

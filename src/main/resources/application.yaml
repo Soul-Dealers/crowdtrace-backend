@@ -1,4 +1,8 @@
 spring:
+  jpa:
+    properties:
+      # Return the committed intake connection before AFTER_COMMIT starts REQUIRES_NEW detection.
+      hibernate.connection.handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION
   application:
     name: crowdtrace-backend
   profiles:

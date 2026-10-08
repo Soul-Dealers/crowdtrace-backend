@@ -331,6 +331,7 @@ Tasks:
 CT-014 stores directional, versioned duplicate-match metadata without name snapshots and uses
 normalized name plus last-seen date (default similarity 0.90, date window 7 days). Detection runs
 synchronously after commit in its own transaction; failures log only case id and exception type.
+Committed intake connections are released before detection to prevent connection-pool starvation.
 Per-case locking makes redelivery idempotent. Existing cases and minor priority are unchanged.
 Minor age-boundary tests remain in CT-013; moderator decisions and match display belong to CT-017.
 
