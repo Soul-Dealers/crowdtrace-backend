@@ -64,7 +64,8 @@ class CaseSubmissionServiceTest extends CasePostgresTestSupport {
         List<Long> reports = List.of(upload(reporter, CaseFilePurpose.REPORT),
                 upload(reporter, CaseFilePurpose.REPORT));
         List<Long> photos = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
-        CaseSubmissionRequest request = validSubmission(reports).photoFileIds(photos).build();
+        String name = "Ama " + UUID.randomUUID();
+        CaseSubmissionRequest request = validSubmission(reports).fullName(name).photoFileIds(photos).build();
 
         CaseSubmissionResponse response = service.submit(reporter, request);
 
@@ -74,13 +75,15 @@ class CaseSubmissionServiceTest extends CasePostgresTestSupport {
         assertThat(record).extracting(CaseRecord::getFullName, CaseRecord::getAge, CaseRecord::getGender,
                 CaseRecord::getLastSeenDate, CaseRecord::getRegion, CaseRecord::getLastSeenLocation,
                 CaseRecord::getPhysicalDescription, CaseRecord::getClothing, CaseRecord::getCircumstances,
-                CaseRecord::getPublicContactNumber).containsExactly("Ama Mensah", 24, Gender.FEMALE,
+                CaseRecord::getPublicContactNumber).containsExactly(name, 24, Gender.FEMALE,
                 LocalDate.of(2026, 10, 1), GhanaRegion.GREATER_ACCRA, "Madina market", "Slim, short hair",
                 "Blue shirt", "Did not return home", "+233200000000");
         assertThat(record.getReviewStatus()).isEqualTo(ReviewStatus.SUBMITTED);
         assertThat(record.getCaseStatus()).isNull();
         assertThat(record.isPriorityMinor()).isFalse();
         assertThat(record.isDuplicateFlag()).isFalse();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM case_duplicate_matches WHERE case_id=?",
+                Long.class, record.getId())).isZero();
         assertThat(record.getSubmittedAt()).isEqualTo(SUBMITTED_AT);
         assertThat(record.getCreatedAt()).isNotNull();
         assertThat(record.getUpdatedAt()).isNotNull();

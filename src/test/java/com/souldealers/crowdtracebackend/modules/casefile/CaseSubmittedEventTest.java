@@ -1,12 +1,19 @@
 package com.souldealers.crowdtracebackend.modules.casefile;
 
 import com.souldealers.crowdtracebackend.modules.casefile.internal.CaseSubmissionEndpointSupport;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.duplicates.DuplicateDetectionService;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseDuplicateMatchRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -16,16 +23,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@ExtendWith(OutputCaptureExtension.class)
 @Import(CaseSubmittedEventTest.ListenerConfiguration.class)
 class CaseSubmittedEventTest extends CaseSubmissionEndpointSupport {
     @Autowired private EventProbe probe;
+    @Autowired private CaseRecordRepository cases;
+    @Autowired private CaseDuplicateMatchRepository matches;
+    @MockitoSpyBean private DuplicateDetectionService detector;
     @Autowired private CaseSubmissionService service;
     @Autowired private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void resetProbe() {
+        clearInvocations(detector);
         probe.delivered.clear();
         probe.throwAfterCommit = false;
     }
@@ -54,9 +71,43 @@ class CaseSubmittedEventTest extends CaseSubmissionEndpointSupport {
         });
 
         assertThat(response).isNotNull();
+        verifyNoInteractions(detector);
         assertThat(probe.delivered).isEmpty();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM cases WHERE id=?", Long.class, response.caseId())).isZero();
         assertThat(files.findById(reportId).orElseThrow().getCaseId()).isNull();
+    }
+
+    @Test
+    void matchingSubmissionIsCreatedAndFlaggedAfterCommit() throws Exception {
+        String name = "Ama " + java.util.UUID.randomUUID();
+        CaseSubmissionRequest request = validRequest().toBuilder().fullName(name).build();
+        long original = cases.saveAndFlush(aCase(reporterId).fullName(name)
+                .lastSeenDate(request.lastSeenDate()).build()).getId();
+
+        String body = submit(request).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.reviewStatus").value("SUBMITTED"))
+                .andReturn().getResponse().getContentAsString();
+        long id = ((Number) com.jayway.jsonpath.JsonPath.read(body, "$.data.caseId")).longValue();
+        assertThat(cases.findById(id).orElseThrow().isDuplicateFlag()).isTrue();
+        assertThat(matches.findByCaseIdOrderByConfidenceDescMatchedCaseIdAsc(id))
+                .singleElement().satisfies(match -> assertThat(match.getMatchedCaseId()).isEqualTo(original));
+        assertThat(cases.findById(original).orElseThrow().isDuplicateFlag()).isFalse();
+        assertThat(body).doesNotContain("duplicateFlag", "nameSimilarity", "algorithmVersion");
+    }
+
+    @Test
+    void throwingDetectorDoesNotFailSubmission(CapturedOutput output) throws Exception {
+        doThrow(new IllegalStateException("Ama Mensah 2026-10-01 sensitive failure"))
+                .when(detector).detect(anyLong());
+        String body = submit(validRequest()).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = ((Number) com.jayway.jsonpath.JsonPath.read(body, "$.data.caseId")).longValue();
+        assertThat(cases.findById(id).orElseThrow().isDuplicateFlag()).isFalse();
+        assertThat(matches.findByCaseIdOrderByConfidenceDescMatchedCaseIdAsc(id)).isEmpty();
+        assertThat(output.getAll().lines().filter(line -> line.contains("Duplicate detection failed")).toList())
+                .singleElement().satisfies(line -> assertThat(line)
+                        .contains("WARN", Long.toString(id), "IllegalStateException")
+                        .doesNotContain("Ama Mensah", "2026-10-01", "sensitive failure"));
     }
 
     @TestConfiguration(proxyBeanMethods = false)
