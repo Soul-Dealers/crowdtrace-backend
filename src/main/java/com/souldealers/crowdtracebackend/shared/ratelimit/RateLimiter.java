@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.shared.ratelimit;
 
+import java.time.Instant;
+
 /**
  * Charges and inspects rate-limit buckets.
  *
@@ -19,6 +21,9 @@ public interface RateLimiter {
 
     /** Reports the bucket's current state without charging it. */
     RateLimitDecision peek(RateLimitScope scope, String policyName, String subject);
+
+    /** Refunds one charge only in the window in which it was reserved. */
+    void release(RateLimitScope scope, String policyName, String subject, Instant windowEndsAt);
 
     /** Clears the bucket, refunding everything charged in the current window. */
     void reset(RateLimitScope scope, String policyName, String subject);

@@ -68,17 +68,26 @@ public class PostgresRateLimiter implements RateLimiter {
         repository.reset(scope.name(), policyName, subjectKey(subject));
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void release(RateLimitScope scope, String policyName, String subject, Instant windowEndsAt) {
+        if (!properties.isEnabled() || windowEndsAt == null) {
+            return;
+        }
+        repository.release(scope.name(), policyName, subjectKey(subject), windowEndsAt);
+    }
+
     private RateLimitDecision decide(
             int count, Instant windowEndsAt, RateLimitProperties.Policy policy, String policyName) {
 
         if (count <= policy.limit()) {
-            return RateLimitDecision.allow(policyName);
+            return new RateLimitDecision(true, 0, policyName, windowEndsAt);
         }
 
         // An expired window that peek observed before the next charge resets it
         // would otherwise yield a negative delta.
         long seconds = Duration.between(Instant.now(), windowEndsAt).toSeconds();
-        return RateLimitDecision.deny(Math.max(1, seconds + 1), policyName);
+        return new RateLimitDecision(false, Math.max(1, seconds + 1), policyName, windowEndsAt);
     }
 
     /**

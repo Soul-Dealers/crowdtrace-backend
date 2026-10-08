@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -64,6 +67,12 @@ class PostgresRateLimiterTest {
         }
 
         @Transactional
+        public void releaseThenFail(String subject, Instant windowEndsAt) {
+            rateLimiter.release(RateLimitScope.USER, "test-policy", subject, windowEndsAt);
+            throw new IllegalStateException("upload rejected");
+        }
+
+        @Transactional
         public void chargeThenFail(String subject) {
             rateLimiter.record(RateLimitScope.IDENTITY, "test-policy", subject);
             throw new IllegalStateException("the request failed, as a wrong OTP does");
@@ -86,6 +95,9 @@ class PostgresRateLimiterTest {
 
     @Autowired
     private jakarta.persistence.EntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @MockitoBean
     private NotificationService notificationService;
@@ -202,6 +214,65 @@ class PostgresRateLimiterTest {
         rateLimiter.reset(RateLimitScope.IDENTITY, "test-policy", subject);
 
         assertThat(rateLimiter.record(RateLimitScope.IDENTITY, "test-policy", subject).allowed()).isTrue();
+    }
+
+    @Test
+    void releaseRefundsExactlyOneCharge() {
+        RateLimitDecision reservation = rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        for (int i = 0; i < 3; i++) {
+            rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        }
+
+        rateLimiter.release(RateLimitScope.USER, "test-policy", subject, reservation.windowEndsAt());
+
+        assertThat(rateLimiter.peek(RateLimitScope.USER, "test-policy", subject).allowed()).isTrue();
+        assertThat(rateLimiter.record(RateLimitScope.USER, "test-policy", subject).denied()).isTrue();
+    }
+
+    @Test
+    void releaseNeverMakesTheCounterNegative() {
+        RateLimitDecision reservation = rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        for (int i = 0; i < 3; i++) {
+            rateLimiter.release(RateLimitScope.USER, "test-policy", subject, reservation.windowEndsAt());
+        }
+        assertThat(jdbc.queryForObject("SELECT request_count FROM rate_limit_bucket WHERE scope='USER' AND window_ends_at=?",
+                Integer.class, java.sql.Timestamp.from(reservation.windowEndsAt()))).isZero();
+    }
+
+    @Test
+    void anOldReservationCannotRefundANewWindow() {
+        RateLimitDecision old = rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        jdbc.update("UPDATE rate_limit_bucket SET window_ends_at=now()-interval '1 second' WHERE scope='USER' AND window_ends_at=?",
+                java.sql.Timestamp.from(old.windowEndsAt()));
+        for (int i = 0; i < 3; i++) {
+            rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        }
+
+        rateLimiter.release(RateLimitScope.USER, "test-policy", subject, old.windowEndsAt());
+
+        assertThat(rateLimiter.record(RateLimitScope.USER, "test-policy", subject).denied()).isTrue();
+    }
+
+    @Test
+    void aRefundSurvivesTheCallersRollback() {
+        RateLimitDecision reservation = rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        for (int i = 0; i < 3; i++) {
+            rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        }
+
+        assertThatThrownBy(() -> rollbackProbe.releaseThenFail(subject, reservation.windowEndsAt()))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(rateLimiter.peek(RateLimitScope.USER, "test-policy", subject).allowed()).isTrue();
+    }
+
+    @Test
+    void releaseWithoutAReservationDoesNotRefund() {
+        for (int i = 0; i < 3; i++) {
+            rateLimiter.record(RateLimitScope.USER, "test-policy", subject);
+        }
+        rateLimiter.release(RateLimitScope.USER, "test-policy", subject, null);
+        assertThat(rateLimiter.record(RateLimitScope.USER, "test-policy", subject).denied()).isTrue();
     }
 
     @Test
