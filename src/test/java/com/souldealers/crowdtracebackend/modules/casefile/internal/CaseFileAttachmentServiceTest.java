@@ -53,10 +53,11 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
     @Test
     void attachesAReportAndPhotosWithOneAttachmentTime() {
         long reporter = reporter(), caseId = ownCase(reporter);
-        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.REPORT),
-                upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
+        long report = upload(reporter, CaseFilePurpose.REPORT);
+        List<Long> photos = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
+        List<Long> ids = List.of(report, photos.get(0), photos.get(1));
 
-        attach(caseId, reporter, ids);
+        attach(caseId, reporter, List.of(report), photos);
 
         List<CaseFile> attached = files.findAllById(ids);
         assertThat(attached).extracting(CaseFile::getCaseId).containsOnly(caseId);
@@ -69,66 +70,158 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
         long reporter = reporter(), caseId = ownCase(reporter);
         List<Long> ids = List.of(upload(reporter, CaseFilePurpose.PHOTO));
 
-        assertThatThrownBy(() -> attach(caseId, reporter, ids)).isInstanceOf(ValidationException.class)
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(), ids)).isInstanceOf(ValidationException.class)
                 .hasMessage("A missing-person report is required");
         assertUnattached(ids);
     }
 
     @Test
+    void attachesMultipleReports() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        List<Long> reports = List.of(upload(reporter, CaseFilePurpose.REPORT),
+                upload(reporter, CaseFilePurpose.REPORT));
+
+        attach(caseId, reporter, reports, List.of());
+
+        List<CaseFile> attached = files.findAllById(reports);
+        assertThat(attached).extracting(CaseFile::getCaseId).containsOnly(caseId);
+        assertThat(attached).extracting(CaseFile::getAttachedAt).doesNotContainNull();
+    }
+
+    @Test
+    void acceptsANullPhotoList() {
+        long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
+
+        attach(caseId, reporter, List.of(report), null);
+
+        assertThat(files.findById(report).orElseThrow().getCaseId()).isEqualTo(caseId);
+    }
+
+    @Test
+    void rejectsAPhotoInTheReportSlotAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        long report = upload(reporter, CaseFilePurpose.REPORT), photo = upload(reporter, CaseFilePurpose.PHOTO);
+
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, photo), List.of()))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report, photo));
+    }
+
+    @Test
+    void rejectsAReportInThePhotoSlotAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        long report = upload(reporter, CaseFilePurpose.REPORT), secondReport = upload(reporter, CaseFilePurpose.REPORT);
+
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of(secondReport)))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report, secondReport));
+    }
+
+    @Test
+    void rejectsTheSameIdAcrossSlotsAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
+
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of(report)))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report));
+    }
+
+    @Test
+    void rejectsDuplicatePhotoIdsAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        long report = upload(reporter, CaseFilePurpose.REPORT), photo = upload(reporter, CaseFilePurpose.PHOTO);
+
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of(photo, photo)))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report, photo));
+    }
+
+    @Test
+    void rejectsANullPhotoIdAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        long report = upload(reporter, CaseFilePurpose.REPORT), photo = upload(reporter, CaseFilePurpose.PHOTO);
+
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), Arrays.asList(photo, null)))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report, photo));
+    }
+
+    @Test
+    void rejectsNonPositiveIdsInEitherSlotAtomically() {
+        long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
+
+        for (long invalid : List.of(0L, -1L)) {
+            assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, invalid), List.of()))
+                    .isInstanceOf(ValidationException.class);
+            assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of(invalid)))
+                    .isInstanceOf(ValidationException.class);
+        }
+        assertUnattached(List.of(report));
+    }
+
+    @Test
     void rejectsSixPhotosAtomically() {
         long reporter = reporter(), caseId = ownCase(reporter);
-        List<Long> ids = new ArrayList<>(List.of(upload(reporter, CaseFilePurpose.REPORT)));
-        for (int i = 0; i < 6; i++) ids.add(upload(reporter, CaseFilePurpose.PHOTO));
+        long report = upload(reporter, CaseFilePurpose.REPORT);
+        List<Long> photos = new ArrayList<>();
+        for (int i = 0; i < 6; i++) photos.add(upload(reporter, CaseFilePurpose.PHOTO));
 
-        assertThatThrownBy(() -> attach(caseId, reporter, ids)).isInstanceOf(ValidationException.class);
-        assertUnattached(ids);
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), photos))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report));
+        assertUnattached(photos);
     }
 
     @Test
     void submissionPhotoCapCountsExistingLivePhotos() {
         long reporter = reporter(), caseId = ownCase(reporter);
         existingPhotos(caseId, reporter, 5);
-        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.REPORT), upload(reporter, CaseFilePurpose.PHOTO));
+        long report = upload(reporter, CaseFilePurpose.REPORT), photo = upload(reporter, CaseFilePurpose.PHOTO);
 
-        assertThatThrownBy(() -> attach(caseId, reporter, ids)).isInstanceOf(ValidationException.class);
-        assertUnattached(ids);
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of(photo)))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report, photo));
     }
 
     @Test
     void submissionUsesConfiguredPhotoCap() {
         properties.setMaxPhotosPerCase(1);
         long reporter = reporter(), caseId = ownCase(reporter);
-        List<Long> ids = List.of(upload(reporter, CaseFilePurpose.REPORT), upload(reporter, CaseFilePurpose.PHOTO),
-                upload(reporter, CaseFilePurpose.PHOTO));
+        long report = upload(reporter, CaseFilePurpose.REPORT);
+        List<Long> photos = List.of(upload(reporter, CaseFilePurpose.PHOTO), upload(reporter, CaseFilePurpose.PHOTO));
 
-        assertThatThrownBy(() -> attach(caseId, reporter, ids)).isInstanceOf(ValidationException.class);
-        assertUnattached(ids);
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), photos))
+                .isInstanceOf(ValidationException.class);
+        assertUnattached(List.of(report));
+        assertUnattached(photos);
     }
 
     @Test
-    void rejectsEmptyIds() {
+    void rejectsEmptyReportIds() {
         long reporter = reporter(), caseId = ownCase(reporter);
-        assertThatThrownBy(() -> attach(caseId, reporter, List.of())).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(), List.of()))
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test
-    void rejectsNullIds() {
+    void rejectsNullReportIds() {
         long reporter = reporter(), caseId = ownCase(reporter);
-        assertThatThrownBy(() -> attach(caseId, reporter, null)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> attach(caseId, reporter, null, List.of()))
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test
-    void rejectsNullIdWithinABatchAtomically() {
+    void rejectsANullReportIdAtomically() {
         long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
-        assertThatThrownBy(() -> attach(caseId, reporter, Arrays.asList(report, null)))
+        assertThatThrownBy(() -> attach(caseId, reporter, Arrays.asList(report, null), List.of()))
                 .isInstanceOf(ValidationException.class);
         assertUnattached(List.of(report));
     }
 
     @Test
-    void rejectsDuplicateIdsAtomically() {
+    void rejectsDuplicateReportIdsAtomically() {
         long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
-        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, report)))
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, report), List.of()))
                 .isInstanceOf(ValidationException.class);
         assertUnattached(List.of(report));
     }
@@ -142,7 +235,22 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
         jdbc.update("UPDATE case_files SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deleted);
 
         for (long unavailable : List.of(Long.MAX_VALUE, foreign, deleted)) {
-            assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, unavailable)))
+            assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of(unavailable)))
+                    .isInstanceOf(NotFoundException.class).hasMessage("File not found");
+            assertUnattached(List.of(report, foreign, deleted));
+        }
+    }
+
+    @Test
+    void unavailableReportsHaveTheSameNotFoundMessage() {
+        long reporter = reporter(), caseId = ownCase(reporter);
+        long report = upload(reporter, CaseFilePurpose.REPORT);
+        long foreign = upload(reporter(), CaseFilePurpose.REPORT);
+        long deleted = upload(reporter, CaseFilePurpose.REPORT);
+        jdbc.update("UPDATE case_files SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", deleted);
+
+        for (long unavailable : List.of(Long.MAX_VALUE, foreign, deleted)) {
+            assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, unavailable), List.of()))
                     .isInstanceOf(NotFoundException.class).hasMessage("File not found");
             assertUnattached(List.of(report, foreign, deleted));
         }
@@ -151,14 +259,15 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
     @Test
     void rejectsAnotherReportersCaseAtomically() {
         long reporter = reporter(), caseId = ownCase(reporter()), report = upload(reporter, CaseFilePurpose.REPORT);
-        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report))).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of()))
+                .isInstanceOf(NotFoundException.class);
         assertUnattached(List.of(report));
     }
 
     @Test
     void rejectsAnUnknownCaseAtomically() {
         long reporter = reporter(), report = upload(reporter, CaseFilePurpose.REPORT);
-        assertThatThrownBy(() -> attach(Long.MAX_VALUE, reporter, List.of(report)))
+        assertThatThrownBy(() -> attach(Long.MAX_VALUE, reporter, List.of(report), List.of()))
                 .isInstanceOf(NotFoundException.class);
         assertUnattached(List.of(report));
     }
@@ -167,10 +276,10 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
     void rejectsAnAlreadyAttachedFileAtomically() {
         long reporter = reporter(), caseId = ownCase(reporter), otherCase = ownCase(reporter);
         long attached = upload(reporter, CaseFilePurpose.REPORT);
-        attach(otherCase, reporter, List.of(attached));
+        attach(otherCase, reporter, List.of(attached), List.of());
         long report = upload(reporter, CaseFilePurpose.REPORT);
 
-        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, attached)))
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report, attached), List.of()))
                 .isInstanceOf(ConflictException.class);
         assertUnattached(List.of(report));
         assertThat(files.findById(attached).orElseThrow().getCaseId()).isEqualTo(otherCase);
@@ -179,14 +288,15 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
     @Test
     void rejectsAttachingTheSameFileAgainToTheSameCase() {
         long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
-        attach(caseId, reporter, List.of(report));
+        attach(caseId, reporter, List.of(report), List.of());
 
-        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report))).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(report), List.of()))
+                .isInstanceOf(ConflictException.class);
     }
 
     @Test
     void requiresAnExistingTransaction() {
-        assertThatThrownBy(() -> service.attachSubmission(1L, 1L, List.of(1L)))
+        assertThatThrownBy(() -> service.attachSubmission(1L, 1L, List.of(1L), List.of()))
                 .isInstanceOf(IllegalTransactionStateException.class);
     }
 
@@ -195,7 +305,7 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
         long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
 
         assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            service.attachSubmission(caseId, reporter, List.of(report));
+            service.attachSubmission(caseId, reporter, List.of(report), List.of());
             throw new IllegalStateException("Submission failed");
         })).isInstanceOf(IllegalStateException.class).hasMessage("Submission failed");
         assertUnattached(List.of(report));
@@ -341,9 +451,9 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
 
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> competingAttach(() ->
-                    service.attachSubmission(firstCase, reporter, List.of(report)), ready, start));
+                    service.attachSubmission(firstCase, reporter, List.of(report), List.of()), ready, start));
             var second = executor.submit(() -> competingAttach(() ->
-                    service.attachSubmission(secondCase, reporter, List.of(report)), ready, start));
+                    service.attachSubmission(secondCase, reporter, List.of(report), List.of()), ready, start));
             try {
                 assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
             } finally {
@@ -370,9 +480,9 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
         }));
     }
 
-    private void attach(long caseId, long reporter, List<Long> ids) {
+    private void attach(long caseId, long reporter, List<Long> reportIds, List<Long> photoIds) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status ->
-                service.attachSubmission(caseId, reporter, ids));
+                service.attachSubmission(caseId, reporter, reportIds, photoIds));
     }
 
     private void attachPhotos(long caseId, long reporter, List<Long> ids) {

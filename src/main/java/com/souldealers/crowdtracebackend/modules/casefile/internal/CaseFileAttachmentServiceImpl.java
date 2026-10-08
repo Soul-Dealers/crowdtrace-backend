@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,20 +31,24 @@ public class CaseFileAttachmentServiceImpl implements CaseFileAttachmentService 
     private final CaseFileProperties properties;
 
     @Override
-    public void attachSubmission(Long caseId, Long reporterId, List<Long> fileIds) {
-        attach(caseId, reporterId, fileIds, true, Set.of(CaseFilePurpose.REPORT, CaseFilePurpose.PHOTO));
+    public void attachSubmission(Long caseId, Long reporterId, List<Long> reportFileIds, List<Long> photoFileIds) {
+        if (reportFileIds == null || reportFileIds.isEmpty()) {
+            throw new ValidationException("A missing-person report is required");
+        }
+        List<Long> fileIds = new ArrayList<>(reportFileIds);
+        if (photoFileIds != null) fileIds.addAll(photoFileIds);
+        attach(caseId, reporterId, fileIds, new HashSet<>(reportFileIds));
     }
 
     @Override
     public void attachPhotos(Long caseId, Long reporterId, List<Long> photoIds) {
-        attach(caseId, reporterId, photoIds, false, Set.of(CaseFilePurpose.PHOTO));
+        attach(caseId, reporterId, photoIds, Set.of());
     }
 
-    private void attach(Long caseId, Long reporterId, List<Long> fileIds, boolean requireReport,
-            Set<CaseFilePurpose> allowedPurposes) {
-        if (fileIds == null || fileIds.isEmpty() || fileIds.stream().anyMatch(id -> id == null)
+    private void attach(Long caseId, Long reporterId, List<Long> fileIds, Set<Long> reportFileIds) {
+        if (fileIds == null || fileIds.isEmpty() || fileIds.stream().anyMatch(id -> id == null || id <= 0)
                 || new HashSet<>(fileIds).size() != fileIds.size()) {
-            throw new ValidationException("File ids must be non-empty, non-null and distinct");
+            throw new ValidationException("File ids must be non-empty, non-null, positive and distinct");
         }
 
         caseRepository.findOwnedByIdForUpdate(caseId, reporterId)
@@ -56,11 +61,9 @@ public class CaseFileAttachmentServiceImpl implements CaseFileAttachmentService 
         if (files.stream().anyMatch(file -> file.getCaseId() != null)) {
             throw new ConflictException("File is already attached to a case");
         }
-        if (files.stream().anyMatch(file -> !allowedPurposes.contains(file.getPurpose()))) {
+        if (files.stream().anyMatch(file -> file.getPurpose() !=
+                (reportFileIds.contains(file.getId()) ? CaseFilePurpose.REPORT : CaseFilePurpose.PHOTO))) {
             throw new ValidationException("File purpose is not allowed for this attachment");
-        }
-        if (requireReport && files.stream().noneMatch(file -> file.getPurpose() == CaseFilePurpose.REPORT)) {
-            throw new ValidationException("A missing-person report is required");
         }
         long newPhotos = files.stream().filter(file -> file.getPurpose() == CaseFilePurpose.PHOTO).count();
         long existingPhotos = fileRepository.countByCaseIdAndPurposeAndDeletedAtIsNull(caseId,
