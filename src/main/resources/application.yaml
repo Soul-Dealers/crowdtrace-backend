@@ -32,6 +32,9 @@ rate-limit:
     user-case-upload: { limit: 20, window: 24h }
 
 crowdtrace:
+  duplicates:
+    date-window-days: 7
+    name-threshold-permille: 900
   consent:
     sensitive-data-version: ${CROWDTRACE_CONSENT_SENSITIVE_DATA_VERSION:v1}
   case-files:
