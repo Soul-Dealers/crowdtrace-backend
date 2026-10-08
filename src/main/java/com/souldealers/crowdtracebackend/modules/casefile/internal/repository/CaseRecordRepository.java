@@ -10,7 +10,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface CaseRecordRepository extends JpaRepository<CaseRecord, Long> {
@@ -28,5 +30,18 @@ public interface CaseRecordRepository extends JpaRepository<CaseRecord, Long> {
 
     Page<CaseRecord> findByReviewStatusInOrderByPriorityMinorDescSubmittedAtAscIdAsc(
             Collection<ReviewStatus> statuses, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM CaseRecord c WHERE c.id = :id")
+    Optional<CaseRecord> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("""
+            SELECT c.id AS id, c.fullName AS fullName, c.lastSeenDate AS lastSeenDate
+            FROM CaseRecord c
+            WHERE c.id <> :caseId AND c.lastSeenDate BETWEEN :from AND :to
+            ORDER BY c.id
+            """)
+    List<CaseDuplicateCandidate> findDuplicateCandidates(
+            @Param("caseId") Long caseId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
 }
