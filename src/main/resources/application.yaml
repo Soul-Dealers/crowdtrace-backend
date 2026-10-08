@@ -1,4 +1,8 @@
 spring:
+  jpa:
+    properties:
+      # Return the committed intake connection before AFTER_COMMIT starts REQUIRES_NEW detection.
+      hibernate.connection.handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION
   application:
     name: crowdtrace-backend
   profiles:
@@ -32,6 +36,9 @@ rate-limit:
     user-case-upload: { limit: 20, window: 24h }
 
 crowdtrace:
+  duplicates:
+    date-window-days: 7
+    name-threshold-permille: 900
   consent:
     sensitive-data-version: ${CROWDTRACE_CONSENT_SENSITIVE_DATA_VERSION:v1}
   case-files:

@@ -1,5 +1,11 @@
 ## Unreleased
 
+- CT-014: deterministic normalized-name and last-seen duplicate detection after submission commits,
+  directional match metadata without name snapshots, and a review flag on the new case only.
+  Configurable validated thresholds, concurrent/idempotent detection and PII-safe failure logging;
+  detection failures cannot reject intake. Release committed intake connections before detection
+  to prevent connection-pool starvation during concurrent submissions. No new dependencies or admin API changes.
+
 - CT-013: authenticated report/photo uploads with per-user quotas and atomic validated case submission,
   current-version consent, immediate minor priority, safe responses and a non-blocking submitted-case event.
 - CT-012: case entities, repositories, and public/reporter/admin projections behind CaseQueryService.
