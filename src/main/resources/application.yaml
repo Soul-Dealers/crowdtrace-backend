@@ -32,6 +32,8 @@ rate-limit:
     user-case-upload: { limit: 20, window: 24h }
 
 crowdtrace:
+  consent:
+    sensitive-data-version: ${CROWDTRACE_CONSENT_SENSITIVE_DATA_VERSION:v1}
   case-files:
     max-size-bytes: 10485760
     max-photos-per-case: 5
