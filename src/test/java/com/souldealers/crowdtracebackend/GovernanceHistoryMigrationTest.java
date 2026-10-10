@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -13,12 +14,15 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Proves review and report history cannot be rewritten (V17). */
+/** Proves review and report history cannot be rewritten (V17) and defaults are UTC (V18). */
 @SpringBootTest(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=none"})
 @ActiveProfiles("test")
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost")
@@ -136,6 +140,36 @@ class GovernanceHistoryMigrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .satisfies(failure -> assertThat(failure.getCause().getMessage())
                         .contains("content_reports_resolved_after_created_check"));
+    }
+
+    @Test
+    void defaultTimestampsAreUtcWhateverTheSessionTimeZone() {
+        long reporter = user();
+        Duration skew = jdbc.execute((ConnectionCallback<Duration>) connection -> {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET TIME ZONE 'Pacific/Kiritimati'");
+                try (ResultSet row = statement.executeQuery("""
+                        WITH inserted AS (
+                            INSERT INTO content_reports (comment_id, reporter_id, reason)
+                            VALUES (9105, %d, 'SPAM') RETURNING created_at)
+                        SELECT extract(epoch FROM (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - created_at)
+                        FROM inserted""".formatted(reporter))) {
+                    row.next();
+                    return Duration.ofMillis(Math.round(row.getDouble(1) * 1000));
+                }
+            } finally {
+                try (Statement reset = connection.createStatement()) {
+                    reset.execute("RESET TIME ZONE");
+                }
+            }
+        });
+
+        assertThat(skew.abs()).isLessThan(Duration.ofMinutes(1));
+        assertThat(jdbc.queryForList("""
+                SELECT table_name || '.' || column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND column_default ILIKE '%CURRENT_TIMESTAMP%'
+                  AND column_default NOT ILIKE '%UTC%'""", String.class)).isEmpty();
     }
 
     private void assertAppendOnly(Runnable statement, String message) {
