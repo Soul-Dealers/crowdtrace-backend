@@ -392,26 +392,32 @@ class VerificationWorkflowTest {
         assertThat(reviewedAt(row)).isAfterOrEqualTo(before);
     }
 
-    /**
-     * A revocation overwrites the reviewer and notes of the approval it undoes: the row
-     * holds the latest decision only. That is the accepted CT-020 gap — the append-only
-     * trail arrives with the audit service — so this test pins the current behaviour
-     * rather than asserting a history the schema cannot hold.
-     */
     @Test
-    void replacesTheApprovalRecordWhenTheBadgeIsRevoked() throws Exception {
+    void preservesApprovalAttributionWhenTheBadgeIsRevoked() throws Exception {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         User moderator = saveUser(UserRoles.MODERATOR);
         User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
         long requestId = submit(applicant, VerificationType.POLICE, "revocation evidence");
-        decide(moderator, requestId, "approve", "Approved by the moderator.");
+        JsonNode approvalResponse = decide(moderator, requestId, "approve", "ok");
+        LocalDateTime approvedAt = reviewedAt(auditRow(requestId));
 
-        decide(superAdmin, requestId, "revoke", "Withdrawn by the issuing body.");
+        JsonNode response = decide(superAdmin, requestId, "revoke", "fraud");
 
         Map<String, Object> row = auditRow(requestId);
         assertThat(row.get("status")).isEqualTo("REVOKED");
-        assertThat(((Number) row.get("reviewer_id")).longValue()).isEqualTo(superAdmin.getId());
-        assertThat(row.get("review_notes")).isEqualTo("Withdrawn by the issuing body.");
+        assertThat(((Number) row.get("reviewer_id")).longValue()).isEqualTo(moderator.getId());
+        assertThat(row.get("review_notes")).isEqualTo("ok");
+        assertThat(reviewedAt(row)).isEqualTo(approvedAt);
+        assertThat(((Number) row.get("revoked_by")).longValue()).isEqualTo(superAdmin.getId());
+        assertThat(row.get("revocation_notes")).isEqualTo("fraud");
+        assertThat(response.path("data").path("reviewNotes").asText()).isEqualTo("ok");
+        assertThat(response.path("data").path("revocationNotes").asText()).isEqualTo("fraud");
+        assertThat(LocalDateTime.parse(response.path("data").path("reviewedAt").asText())).isEqualTo(approvedAt);
+        assertThat(response.path("data").path("reviewedAt").asText())
+                .isEqualTo(approvalResponse.path("data").path("reviewedAt").asText());
+        assertThat(response.path("data").path("revokedAt").isMissingNode()).isFalse();
+        assertThat(LocalDateTime.parse(response.path("data").path("revokedAt").asText()))
+                .isEqualTo(timestamp(row.get("revoked_at")));
     }
 
     @Test
@@ -532,12 +538,9 @@ class VerificationWorkflowTest {
 
     // --- Logging ------------------------------------------------------------
 
-    /**
-     * Review Focus #7 — a decision log line carries the request id, the action, the
-     * transition and the actor id. Evidence and email never reach the console.
-     */
+    /** Approval and revocation write central audit logs without logging private details. */
     @Test
-    void keepsEvidenceAndEmailOutOfTheDecisionLog(CapturedOutput output) throws Exception {
+    void logsApprovalAndRevocationAuditEventsWithoutPrivateDetails(CapturedOutput output) throws Exception {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         User moderator = saveUser(UserRoles.MODERATOR);
         User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
@@ -550,7 +553,8 @@ class VerificationWorkflowTest {
 
         String logged = output.getOut().substring(mark);
         assertThat(logged)
-                .contains("verification_decision")
+                .contains("audit_recorded")
+                .doesNotContain("verification_decision")
                 .doesNotContain(evidence)
                 .doesNotContain(applicant.getEmail())
                 .doesNotContain("sensitive reviewer reasoning")
@@ -570,14 +574,16 @@ class VerificationWorkflowTest {
                 .path("data").path("id").asLong();
     }
 
-    private void decide(User actor, long requestId, String action, String reviewNotes) throws Exception {
+    private JsonNode decide(User actor, long requestId, String action, String reviewNotes) throws Exception {
         String body = reviewNotes == null ? "{}" : objectMapper.writeValueAsString(
                 new VerificationDecisionRequest(reviewNotes));
-        mockMvc.perform(post(decisionPath(requestId, action))
+        MvcResult result = mockMvc.perform(post(decisionPath(requestId, action))
                         .header("Authorization", bearer(actor))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString());
     }
 
     private JsonNode queueRow(MvcResult result, long requestId) throws Exception {
@@ -593,7 +599,10 @@ class VerificationWorkflowTest {
 
     /** H2 and PostgreSQL hand back different Java types for a timestamp column. */
     private static LocalDateTime reviewedAt(Map<String, Object> row) {
-        Object value = row.get("reviewed_at");
+        return timestamp(row.get("reviewed_at"));
+    }
+
+    private static LocalDateTime timestamp(Object value) {
         return value instanceof Timestamp timestamp ? timestamp.toLocalDateTime() : (LocalDateTime) value;
     }
 
@@ -604,7 +613,8 @@ class VerificationWorkflowTest {
 
     private Map<String, Object> auditRow(long requestId) {
         return jdbcTemplate.queryForMap(
-                "SELECT status, reviewer_id, review_notes, reviewed_at FROM verification_requests WHERE id = ?",
+                "SELECT status, reviewer_id, review_notes, reviewed_at, revoked_by, revoked_at, revocation_notes " +
+                        "FROM verification_requests WHERE id = ?",
                 requestId);
     }
 

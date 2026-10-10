@@ -112,6 +112,10 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/approve'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/reject'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/revoke'].post").exists())
+                .andExpect(jsonPath("$.components.schemas.AdminVerificationRequestResponse.properties.revokedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.AdminVerificationRequestResponse.properties.revocationNotes.type")
+                        .value("string"))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-grants'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-grants'].post.description",
                         containsString("badge holder can read")))

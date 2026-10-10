@@ -19,6 +19,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -164,8 +165,12 @@ class VerificationRequestConcurrencyTest {
     @Test
     void allowsAnotherActiveRowOnceTheFirstIsDecided() {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User revoker = saveUser(UserRoles.SUPER_ADMIN);
         verificationRequestRepository.saveAndFlush(row(applicant, VerificationType.NGO, VerificationStatus.REJECTED));
-        verificationRequestRepository.saveAndFlush(row(applicant, VerificationType.POLICE, VerificationStatus.REVOKED));
+        VerificationRequest revoked = row(applicant, VerificationType.POLICE, VerificationStatus.REVOKED);
+        revoked.setRevokedBy(revoker);
+        revoked.setRevokedAt(LocalDateTime.now());
+        verificationRequestRepository.saveAndFlush(revoked);
 
         verificationRequestRepository.saveAndFlush(
                 row(applicant, VerificationType.SUBJECT_MATTER_EXPERT, VerificationStatus.PENDING));

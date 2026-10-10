@@ -56,6 +56,22 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
             @Param("reviewNotes") String reviewNotes,
             @Param("reviewedAt") LocalDateTime reviewedAt);
 
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE VerificationRequest request
+               SET request.status = com.souldealers.crowdtracebackend.modules.identity.VerificationStatus.REVOKED,
+                   request.revokedBy = :revokedBy,
+                   request.revocationNotes = :revocationNotes,
+                   request.revokedAt = :revokedAt
+             WHERE request.id = :id
+               AND request.status = com.souldealers.crowdtracebackend.modules.identity.VerificationStatus.APPROVED
+            """)
+    int applyRevocation(
+            @Param("id") Long id,
+            @Param("revokedBy") User revokedBy,
+            @Param("revocationNotes") String revocationNotes,
+            @Param("revokedAt") LocalDateTime revokedAt);
+
     default Page<VerificationRequest> findPendingRequests(Pageable pageable) {
         return findByStatusOrderByCreatedAtAsc(VerificationStatus.PENDING, pageable);
     }

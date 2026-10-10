@@ -26,6 +26,13 @@ class CrowdtraceModulesTest {
 
         modules.verify();
 
+        var shared = modules.getModuleByName("shared").orElseThrow();
+        var auditApi = shared.getNamedInterfaces().getByName("audit").orElseThrow();
+        assertTrue(auditApi.contains(com.souldealers.crowdtracebackend.shared.audit.AuditRecorder.class));
+        assertTrue(!shared.isExposed(com.souldealers.crowdtracebackend.shared.audit.internal.AuditEvent.class));
+        assertTrue(!shared.isExposed(shared.getType(
+                "com.souldealers.crowdtracebackend.shared.audit.internal.AuditEventRepository").orElseThrow()));
+
         Set<String> discoveredModules = modules.stream()
                 .map(module -> module.getName())
                 .collect(Collectors.toSet());

@@ -13,6 +13,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -104,6 +105,15 @@ class GovernanceMigrationTest {
     }
 
     @Test
+    void reviewSourceDefaultsToHuman() {
+        long reviewer = user();
+        long caseId = caseFor(user());
+        jdbc.update("INSERT INTO case_reviews (case_id, reviewer_id, decision) VALUES (?, ?, 'APPROVED')", caseId, reviewer);
+        assertThat(jdbc.queryForObject("SELECT review_source FROM case_reviews WHERE case_id = ?", String.class, caseId))
+                .isEqualTo("HUMAN");
+    }
+
+    @Test
     void reviewRequiresExistingCaseAndReviewer() {
         long reviewer = user();
         long caseId = caseFor(user());
@@ -182,16 +192,16 @@ class GovernanceMigrationTest {
     }
 
     @Test
-    void metadataIsCappedAt4Kb() {
-        String asciiAtLimit = "{\"k\":\"" + "x".repeat(4087) + "\"}";
-        String asciiOverLimit = "{\"k\":\"" + "x".repeat(4088) + "\"}";
-        String multibyteAtLimit = "{\"k\":\"" + "é".repeat(2039) + "x".repeat(9) + "\"}";
-        String multibyteOverLimit = "{\"k\":\"" + "é".repeat(2039) + "x".repeat(10) + "\"}";
+    void metadataHasAn8KbDatabaseBackstop() {
+        String asciiAtLimit = "{\"k\":\"" + "x".repeat(8183) + "\"}";
+        String asciiOverLimit = "{\"k\":\"" + "x".repeat(8184) + "\"}";
+        String multibyteAtLimit = "{\"k\":\"" + "é".repeat(4087) + "x".repeat(9) + "\"}";
+        String multibyteOverLimit = "{\"k\":\"" + "é".repeat(4087) + "x".repeat(10) + "\"}";
 
-        assertThat(normalizedMetadataBytes(asciiAtLimit)).isEqualTo(4096);
-        assertThat(normalizedMetadataBytes(asciiOverLimit)).isEqualTo(4097);
-        assertThat(normalizedMetadataBytes(multibyteAtLimit)).isEqualTo(4096);
-        assertThat(normalizedMetadataBytes(multibyteOverLimit)).isEqualTo(4097);
+        assertThat(normalizedMetadataBytes(asciiAtLimit)).isEqualTo(8192);
+        assertThat(normalizedMetadataBytes(asciiOverLimit)).isEqualTo(8193);
+        assertThat(normalizedMetadataBytes(multibyteAtLimit)).isEqualTo(8192);
+        assertThat(normalizedMetadataBytes(multibyteOverLimit)).isEqualTo(8193);
 
         insertAuditWithMetadata("CASE.ASCII_LIMIT", asciiAtLimit);
         insertAuditWithMetadata("CASE.MULTIBYTE_LIMIT", multibyteAtLimit);
@@ -199,9 +209,27 @@ class GovernanceMigrationTest {
                 SELECT octet_length(metadata::text)
                 FROM audit_events
                 WHERE action IN ('CASE.ASCII_LIMIT', 'CASE.MULTIBYTE_LIMIT')
-                """, Integer.class)).containsOnly(4096);
+                """, Integer.class)).containsOnly(8192);
         assertViolation("audit_events_metadata_size_check", () -> insertAuditWithMetadata("CASE.ASCII_OVER_LIMIT", asciiOverLimit));
         assertViolation("audit_events_metadata_size_check", () -> insertAuditWithMetadata("CASE.MULTIBYTE_OVER_LIMIT", multibyteOverLimit));
+    }
+
+    @Test
+    void compactMetadataAtTheApplicationLimitIsAccepted() {
+        // Many small entries: Postgres adds a space after every ':' and ',' when normalizing.
+        StringBuilder json = new StringBuilder("{");
+        for (int i = 0; ; i++) {
+            String entry = (i == 0 ? "" : ",") + "\"" + Integer.toString(i, 36) + "\":[0,0]";
+            if (json.length() + entry.length() + 1 > 4096) {
+                break;
+            }
+            json.append(entry);
+        }
+        String compact = json.append("}").toString();
+        assertThat(compact.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(4096);
+        assertThat(normalizedMetadataBytes(compact)).isGreaterThan(5000);
+
+        insertAuditWithMetadata("CASE.COMPACT_LIMIT", compact);
     }
 
     @Test
@@ -324,8 +352,10 @@ class GovernanceMigrationTest {
     @Test
     void governanceIndexesExist() {
         assertThat(indexesOn("case_reviews")).contains("idx_case_reviews_case", "idx_case_reviews_reviewer");
-        assertThat(indexesOn("audit_events")).contains("idx_audit_events_target", "idx_audit_events_actor", "idx_audit_events_action", "idx_audit_events_occurred");
-        assertThat(indexesOn("content_reports")).contains("uq_content_reports_open_reporter", "idx_content_reports_open_queue", "idx_content_reports_open_comment", "idx_content_reports_reporter");
+        assertThat(indexesOn("audit_events")).contains("idx_audit_events_target", "idx_audit_events_actor")
+                .doesNotContain("idx_audit_events_action", "idx_audit_events_occurred");
+        assertThat(indexesOn("content_reports")).contains("uq_content_reports_open_reporter", "idx_content_reports_open_queue", "idx_content_reports_reporter")
+                .doesNotContain("idx_content_reports_open_comment");
     }
 
     private long user() {

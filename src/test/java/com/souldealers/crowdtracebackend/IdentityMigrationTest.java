@@ -61,7 +61,8 @@ class IdentityMigrationTest {
                 "created_at", "updated_at", "deleted_at", "credentials_version", "badge_type");
         assertThat(columnsFor("verification_requests")).containsExactlyInAnyOrder(
                 "id", "user_id", "verification_type", "evidence_reference", "status",
-                "reviewer_id", "review_notes", "created_at", "reviewed_at");
+                "reviewer_id", "review_notes", "created_at", "reviewed_at",
+                "revoked_by", "revoked_at", "revocation_notes");
 
         assertThat(indexExists("idx_users_email")).isTrue();
         assertThat(indexExists("idx_users_role")).isTrue();

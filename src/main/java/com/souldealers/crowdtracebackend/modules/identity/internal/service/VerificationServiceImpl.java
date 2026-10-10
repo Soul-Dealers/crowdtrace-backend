@@ -15,10 +15,12 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.repository.Ve
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import com.souldealers.crowdtracebackend.shared.audit.AuditAction;
+import com.souldealers.crowdtracebackend.shared.audit.AuditMetadata;
+import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
+import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,6 +28,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +39,6 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_F
 @Service
 @RequiredArgsConstructor
 public class VerificationServiceImpl implements VerificationService {
-    private static final Logger log = LoggerFactory.getLogger(VerificationServiceImpl.class);
     private static final String SLOT_TAKEN_MESSAGE =
             "You already hold a verification badge or have a pending request";
     private static final String GRANT_SLOT_TAKEN_MESSAGE =
@@ -47,6 +49,8 @@ public class VerificationServiceImpl implements VerificationService {
 
     private final VerificationRequestRepository requestRepository;
     private final UserRepository userRepository;
+    private final AuditRecorder auditRecorder;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -82,30 +86,55 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_APPROVED)
     public AdminVerificationRequestResponse approve(String actorEmail, Long requestId,
                                                     VerificationDecisionRequest decision) {
-        return decide(actorEmail, requestId, VerificationStatus.PENDING, VerificationStatus.APPROVED,
-                decision == null ? null : decision.reviewNotes(), "approve");
+        User actor = findUser(actorEmail);
+        return decide(actor, requestId, VerificationStatus.PENDING, VerificationStatus.APPROVED,
+                decision == null ? null : decision.reviewNotes(), AuditAction.VERIFICATION_APPROVED);
     }
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_REJECTED)
     public AdminVerificationRequestResponse reject(String actorEmail, Long requestId,
                                                    VerificationDecisionRequest decision) {
-        return decide(actorEmail, requestId, VerificationStatus.PENDING, VerificationStatus.REJECTED,
-                decision == null ? null : decision.reviewNotes(), "reject");
+        User actor = findUser(actorEmail);
+        return decide(actor, requestId, VerificationStatus.PENDING, VerificationStatus.REJECTED,
+                decision == null ? null : decision.reviewNotes(), AuditAction.VERIFICATION_REJECTED);
     }
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_REVOKED)
     public AdminVerificationRequestResponse revoke(String actorEmail, Long requestId,
                                                    VerificationDecisionRequest decision) {
-        return decide(actorEmail, requestId, VerificationStatus.APPROVED, VerificationStatus.REVOKED,
-                decision == null ? null : decision.reviewNotes(), "revoke");
+        User actor = findUser(actorEmail);
+        VerificationRequest request = requestRepository.findById(requestId)
+                .orElseThrow(() -> new NotFoundException("Verification request not found"));
+        if (actor.getId().equals(request.getUser().getId())) {
+            throw new AccessDeniedException("Administrators cannot decide their own request");
+        }
+        if (request.getStatus() != VerificationStatus.APPROVED) {
+            throw new ConflictException("Verification request is not in the required state");
+        }
+        LocalDateTime revokedAt = LocalDateTime.now(clock);
+        int updated = requestRepository.applyRevocation(requestId, actor,
+                decision == null ? null : decision.reviewNotes(), revokedAt);
+        if (updated == 0) {
+            throw new ConflictException("Verification request was already decided");
+        }
+        syncBadge(request, VerificationStatus.REVOKED);
+        VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
+                .orElseThrow(() -> new NotFoundException("Verification request not found"));
+        AdminVerificationRequestResponse response = toAdminResponse(refreshed);
+        recordVerification(actor, AuditAction.VERIFICATION_REVOKED, requestId, response);
+        return response;
     }
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_GRANTED)
     public AdminVerificationRequestResponse grant(String actorEmail, GrantVerificationRequest request) {
         User actor = findUser(actorEmail);
         User target = userRepository.findByEmail(request.email())
@@ -120,7 +149,7 @@ public class VerificationServiceImpl implements VerificationService {
             throw new ConflictException(GRANT_SLOT_TAKEN_MESSAGE);
         }
 
-        LocalDateTime reviewedAt = LocalDateTime.now();
+        LocalDateTime reviewedAt = LocalDateTime.now(clock);
         VerificationRequest saved = saveActiveRequest(VerificationRequest.builder()
                 .user(target)
                 .verificationType(request.verificationType())
@@ -131,8 +160,9 @@ public class VerificationServiceImpl implements VerificationService {
                 .reviewedAt(reviewedAt)
                 .build(), GRANT_SLOT_TAKEN_MESSAGE);
         userRepository.setBadgeType(target.getId(), request.verificationType());
-        logDecision(saved.getId(), actor, "grant", null, VerificationStatus.APPROVED);
-        return toAdminResponse(saved);
+        AdminVerificationRequestResponse response = toAdminResponse(saved);
+        recordVerification(actor, AuditAction.VERIFICATION_GRANTED, saved.getId(), response);
+        return response;
     }
 
     /** A user holds one badge, so any PENDING or APPROVED request, of any type, takes the slot. */
@@ -174,10 +204,9 @@ public class VerificationServiceImpl implements VerificationService {
                 && message.toLowerCase(Locale.ROOT).contains(ACTIVE_REQUEST_UNIQUE_INDEX);
     }
 
-    private AdminVerificationRequestResponse decide(String actorEmail, Long requestId,
+    private AdminVerificationRequestResponse decide(User actor, Long requestId,
                                                      VerificationStatus from, VerificationStatus to,
-                                                     String reviewNotes, String action) {
-        User actor = findUser(actorEmail);
+                                                     String reviewNotes, AuditAction auditAction) {
         VerificationRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
         if (actor.getId().equals(request.getUser().getId())) {
@@ -186,16 +215,17 @@ public class VerificationServiceImpl implements VerificationService {
         if (request.getStatus() != from) {
             throw new ConflictException("Verification request is not in the required state");
         }
-        LocalDateTime reviewedAt = LocalDateTime.now();
+        LocalDateTime reviewedAt = LocalDateTime.now(clock);
         int updated = requestRepository.applyDecision(requestId, from, to, actor, reviewNotes, reviewedAt);
         if (updated == 0) {
             throw new ConflictException("Verification request was already decided");
         }
         syncBadge(request, to);
-        logDecision(requestId, actor, action, from, to);
         VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
-        return toAdminResponse(refreshed);
+        AdminVerificationRequestResponse response = toAdminResponse(refreshed);
+        recordVerification(actor, auditAction, requestId, response);
+        return response;
     }
 
     /**
@@ -213,10 +243,13 @@ public class VerificationServiceImpl implements VerificationService {
         }
     }
 
-    private void logDecision(Long requestId, User actor, String action,
-                             VerificationStatus from, VerificationStatus to) {
-        log.info("verification_decision requestId={} action={} transition={} actorId={}",
-                requestId, action, from == null ? "NONE->" + to : from + "->" + to, actor.getId());
+    private void recordVerification(User actor, AuditAction action, long requestId,
+                                    AdminVerificationRequestResponse response) {
+        AuditMetadata metadata = AuditMetadata.of(action)
+                .put("userId", response.userId())
+                .put("verificationType", AuditRoleMapper.verificationType(response.verificationType()))
+                .build();
+        auditRecorder.record(AuditRoleMapper.actor(actor), action, requestId, metadata);
     }
 
     private User findUser(String email) {
@@ -232,6 +265,7 @@ public class VerificationServiceImpl implements VerificationService {
     private AdminVerificationRequestResponse toAdminResponse(VerificationRequest request) {
         return new AdminVerificationRequestResponse(request.getId(), request.getUser().getId(),
                 request.getUser().getDisplayName(), request.getVerificationType(), request.getEvidenceReference(),
-                request.getStatus(), request.getReviewNotes(), request.getCreatedAt(), request.getReviewedAt());
+                request.getStatus(), request.getReviewNotes(), request.getCreatedAt(), request.getReviewedAt(),
+                request.getRevokedAt(), request.getRevocationNotes());
     }
 }
