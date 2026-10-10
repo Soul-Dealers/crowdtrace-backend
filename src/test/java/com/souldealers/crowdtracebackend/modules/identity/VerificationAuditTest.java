@@ -92,11 +92,40 @@ class VerificationAuditTest {
     }
 
     @Test
+    void rejectionCommitsOneEventWithActorTargetAndMetadataWithoutChangingBadge() {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+        VerificationRequest request = saveRequest(applicant, VerificationStatus.PENDING);
+
+        verificationService.reject(superAdmin.getEmail(), request.getId(), null);
+
+        var event = jdbc.queryForMap("""
+                SELECT actor_id, actor_role, action, target_type, target_id,
+                       metadata->>'userId' AS metadata_user_id,
+                       metadata->>'verificationType' AS metadata_verification_type
+                  FROM audit_events
+                 WHERE target_id = ?
+                """, request.getId());
+        assertThat(event).containsEntry("actor_id", superAdmin.getId())
+                .containsEntry("actor_role", "SUPER_ADMIN")
+                .containsEntry("action", "VERIFICATION.REJECTED")
+                .containsEntry("target_type", "VERIFICATION_REQUEST")
+                .containsEntry("target_id", request.getId())
+                .containsEntry("metadata_user_id", applicant.getId().toString())
+                .containsEntry("metadata_verification_type", "POLICE");
+        assertThat(eventCount(request.getId())).isEqualTo(1);
+        assertThat(statusOf(request.getId())).isEqualTo("REJECTED");
+        assertThat(badgeOf(applicant.getId())).isNull();
+    }
+
+    @Test
     void decidingAnAlreadyRejectedRequestWritesNoEvent() {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         User moderator = saveUser(UserRoles.MODERATOR);
         VerificationRequest request = saveRequest(applicant, VerificationStatus.REJECTED);
 
+        assertThatThrownBy(() -> verificationService.reject(moderator.getEmail(), request.getId(), null))
+                .isInstanceOf(ConflictException.class);
         assertThatThrownBy(() -> verificationService.approve(moderator.getEmail(), request.getId(), null))
                 .isInstanceOf(ConflictException.class);
 

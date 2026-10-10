@@ -94,16 +94,17 @@ public class VerificationServiceImpl implements VerificationService {
                                                     VerificationDecisionRequest decision) {
         User actor = findUser(actorEmail);
         return decide(actor, requestId, VerificationStatus.PENDING, VerificationStatus.APPROVED,
-                decision == null ? null : decision.reviewNotes());
+                decision == null ? null : decision.reviewNotes(), AuditAction.VERIFICATION_APPROVED);
     }
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_REJECTED)
     public AdminVerificationRequestResponse reject(String actorEmail, Long requestId,
                                                    VerificationDecisionRequest decision) {
         User actor = findUser(actorEmail);
         return decide(actor, requestId, VerificationStatus.PENDING, VerificationStatus.REJECTED,
-                decision == null ? null : decision.reviewNotes());
+                decision == null ? null : decision.reviewNotes(), AuditAction.VERIFICATION_REJECTED);
     }
 
     @Override
@@ -204,7 +205,7 @@ public class VerificationServiceImpl implements VerificationService {
 
     private AdminVerificationRequestResponse decide(User actor, Long requestId,
                                                      VerificationStatus from, VerificationStatus to,
-                                                     String reviewNotes) {
+                                                     String reviewNotes, AuditAction auditAction) {
         VerificationRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
         if (actor.getId().equals(request.getUser().getId())) {
@@ -222,11 +223,7 @@ public class VerificationServiceImpl implements VerificationService {
         VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
         AdminVerificationRequestResponse response = toAdminResponse(refreshed);
-        if (to == VerificationStatus.APPROVED) {
-            recordVerification(actor, AuditAction.VERIFICATION_APPROVED, requestId, response);
-        } else if (to == VerificationStatus.REJECTED) {
-            logDecision(requestId, actor, "reject", from, to);
-        }
+        recordVerification(actor, auditAction, requestId, response);
         return response;
     }
 
