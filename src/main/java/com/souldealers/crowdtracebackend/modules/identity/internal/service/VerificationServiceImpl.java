@@ -15,6 +15,10 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.repository.Ve
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import com.souldealers.crowdtracebackend.shared.audit.AuditAction;
+import com.souldealers.crowdtracebackend.shared.audit.AuditMetadata;
+import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
+import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -26,6 +30,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +52,8 @@ public class VerificationServiceImpl implements VerificationService {
 
     private final VerificationRequestRepository requestRepository;
     private final UserRepository userRepository;
+    private final AuditRecorder auditRecorder;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -82,18 +89,21 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_APPROVED)
     public AdminVerificationRequestResponse approve(String actorEmail, Long requestId,
                                                     VerificationDecisionRequest decision) {
-        return decide(actorEmail, requestId, VerificationStatus.PENDING, VerificationStatus.APPROVED,
-                decision == null ? null : decision.reviewNotes(), "approve");
+        User actor = findUser(actorEmail);
+        return decide(actor, requestId, VerificationStatus.PENDING, VerificationStatus.APPROVED,
+                decision == null ? null : decision.reviewNotes());
     }
 
     @Override
     @Transactional
     public AdminVerificationRequestResponse reject(String actorEmail, Long requestId,
                                                    VerificationDecisionRequest decision) {
-        return decide(actorEmail, requestId, VerificationStatus.PENDING, VerificationStatus.REJECTED,
-                decision == null ? null : decision.reviewNotes(), "reject");
+        User actor = findUser(actorEmail);
+        return decide(actor, requestId, VerificationStatus.PENDING, VerificationStatus.REJECTED,
+                decision == null ? null : decision.reviewNotes());
     }
 
     @Override
@@ -109,7 +119,7 @@ public class VerificationServiceImpl implements VerificationService {
         if (request.getStatus() != VerificationStatus.APPROVED) {
             throw new ConflictException("Verification request is not in the required state");
         }
-        LocalDateTime revokedAt = LocalDateTime.now();
+        LocalDateTime revokedAt = LocalDateTime.now(clock);
         int updated = requestRepository.applyRevocation(requestId, actor,
                 decision == null ? null : decision.reviewNotes(), revokedAt);
         if (updated == 0) {
@@ -138,7 +148,7 @@ public class VerificationServiceImpl implements VerificationService {
             throw new ConflictException(GRANT_SLOT_TAKEN_MESSAGE);
         }
 
-        LocalDateTime reviewedAt = LocalDateTime.now();
+        LocalDateTime reviewedAt = LocalDateTime.now(clock);
         VerificationRequest saved = saveActiveRequest(VerificationRequest.builder()
                 .user(target)
                 .verificationType(request.verificationType())
@@ -192,10 +202,9 @@ public class VerificationServiceImpl implements VerificationService {
                 && message.toLowerCase(Locale.ROOT).contains(ACTIVE_REQUEST_UNIQUE_INDEX);
     }
 
-    private AdminVerificationRequestResponse decide(String actorEmail, Long requestId,
+    private AdminVerificationRequestResponse decide(User actor, Long requestId,
                                                      VerificationStatus from, VerificationStatus to,
-                                                     String reviewNotes, String action) {
-        User actor = findUser(actorEmail);
+                                                     String reviewNotes) {
         VerificationRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
         if (actor.getId().equals(request.getUser().getId())) {
@@ -204,16 +213,21 @@ public class VerificationServiceImpl implements VerificationService {
         if (request.getStatus() != from) {
             throw new ConflictException("Verification request is not in the required state");
         }
-        LocalDateTime reviewedAt = LocalDateTime.now();
+        LocalDateTime reviewedAt = LocalDateTime.now(clock);
         int updated = requestRepository.applyDecision(requestId, from, to, actor, reviewNotes, reviewedAt);
         if (updated == 0) {
             throw new ConflictException("Verification request was already decided");
         }
         syncBadge(request, to);
-        logDecision(requestId, actor, action, from, to);
         VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
-        return toAdminResponse(refreshed);
+        AdminVerificationRequestResponse response = toAdminResponse(refreshed);
+        if (to == VerificationStatus.APPROVED) {
+            recordVerification(actor, AuditAction.VERIFICATION_APPROVED, requestId, response);
+        } else if (to == VerificationStatus.REJECTED) {
+            logDecision(requestId, actor, "reject", from, to);
+        }
+        return response;
     }
 
     /**
@@ -229,6 +243,15 @@ public class VerificationServiceImpl implements VerificationService {
         } else if (to == VerificationStatus.REVOKED) {
             userRepository.clearBadgeType(userId, request.getVerificationType());
         }
+    }
+
+    private void recordVerification(User actor, AuditAction action, long requestId,
+                                    AdminVerificationRequestResponse response) {
+        AuditMetadata metadata = AuditMetadata.of(action)
+                .put("userId", response.userId())
+                .put("verificationType", AuditRoleMapper.verificationType(response.verificationType()))
+                .build();
+        auditRecorder.record(AuditRoleMapper.actor(actor), action, requestId, metadata);
     }
 
     private void logDecision(Long requestId, User actor, String action,

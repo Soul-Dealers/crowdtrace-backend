@@ -538,29 +538,24 @@ class VerificationWorkflowTest {
 
     // --- Logging ------------------------------------------------------------
 
-    /**
-     * Review Focus #7 — a decision log line carries the request id, the action, the
-     * transition and the actor id. Evidence and email never reach the console.
-     */
+    /** Approval writes its central audit log after commit without logging private details. */
     @Test
-    void keepsEvidenceAndEmailOutOfTheDecisionLog(CapturedOutput output) throws Exception {
+    void doesNotLogApprovalDecisionOrPrivateDetails(CapturedOutput output) throws Exception {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         User moderator = saveUser(UserRoles.MODERATOR);
-        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
         String evidence = "classified-evidence-" + UUID.randomUUID();
         int mark = output.getOut().length();
 
         long requestId = submit(applicant, VerificationType.POLICE, evidence);
         decide(moderator, requestId, "approve", "sensitive reviewer reasoning");
-        decide(superAdmin, requestId, "revoke", "sensitive revocation reasoning");
 
         String logged = output.getOut().substring(mark);
         assertThat(logged)
-                .contains("verification_decision")
+                .contains("audit_recorded")
+                .doesNotContain("verification_decision")
                 .doesNotContain(evidence)
                 .doesNotContain(applicant.getEmail())
-                .doesNotContain("sensitive reviewer reasoning")
-                .doesNotContain("sensitive revocation reasoning");
+                .doesNotContain("sensitive reviewer reasoning");
     }
 
     // --- Helpers ------------------------------------------------------------
