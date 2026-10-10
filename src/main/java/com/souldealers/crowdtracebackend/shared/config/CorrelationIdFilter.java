@@ -1,6 +1,6 @@
 package com.souldealers.crowdtracebackend.shared.config;
 
-
+import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -20,6 +21,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
     public static final String CORRELATION_ID_MDC_KEY = "correlationId";
+    private static final Pattern CORRELATION_ID_PATTERN = Pattern.compile(AuditRecorder.CORRELATION_ID_PATTERN);
 
     @Override
     protected void doFilterInternal(
@@ -29,7 +31,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
         String correlationId = request.getHeader(CORRELATION_ID_HEADER);
 
-        if (correlationId == null || correlationId.isBlank()) {
+        if (correlationId == null || !CORRELATION_ID_PATTERN.matcher(correlationId).matches()) {
             correlationId = UUID.randomUUID().toString();
         }
 
