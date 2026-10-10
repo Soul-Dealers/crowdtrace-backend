@@ -5,6 +5,9 @@
   revoke, and grant are audited; revocation preserves approval attribution and adds `revokedAt` and
   `revocationNotes` to the admin response and OpenAPI contract. Correlation IDs are normalized. Adds
   `spring-boot-starter-aspectj`.
+- CT-020 (PR #51 review): `case_reviews` is append-only and `content_reports` only moves `OPEN → RESOLVED`, never
+  deleted, with `resolved_at >= created_at`. The audit metadata DB check is an 8 KB backstop behind the app's 4 KB limit.
+  `review_source` defaults to `HUMAN`; three unused governance indexes are dropped. Every timestamp default is UTC.
 
 - CT-016: governance schema — human-only case review history with required rejection notes, structured PII-minimized
   audit events with explicit system actors, and attributable comment reports (one open report per user per comment).
