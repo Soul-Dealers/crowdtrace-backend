@@ -17,6 +17,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -116,6 +118,62 @@ class VerificationAuditTest {
         assertThat(eventCount(request.getId())).isEqualTo(1);
         assertThat(statusOf(request.getId())).isEqualTo("REJECTED");
         assertThat(badgeOf(applicant.getId())).isNull();
+    }
+
+    @Test
+    void approvalAttributionSurvivesRevocationAsTwoEventsFromDifferentActors() {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User moderator = saveUser(UserRoles.MODERATOR);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+        VerificationRequest request = saveRequest(applicant, VerificationStatus.PENDING);
+        var approval = verificationService.approve(moderator.getEmail(), request.getId(),
+                new VerificationDecisionRequest("approval review note"));
+
+        var revocation = verificationService.revoke(superAdmin.getEmail(), request.getId(),
+                new VerificationDecisionRequest("revocation review note"));
+
+        var events = jdbc.queryForList("""
+                SELECT actor_id, actor_role, action, target_type, target_id,
+                       metadata->>'userId' AS metadata_user_id,
+                       metadata->>'verificationType' AS metadata_verification_type
+                  FROM audit_events
+                 WHERE target_id = ?
+                 ORDER BY id
+                """, request.getId());
+        assertThat(events).hasSize(2);
+        assertThat(events.get(0)).containsEntry("actor_id", moderator.getId())
+                .containsEntry("actor_role", "MODERATOR")
+                .containsEntry("action", "VERIFICATION.APPROVED")
+                .containsEntry("target_type", "VERIFICATION_REQUEST")
+                .containsEntry("target_id", request.getId())
+                .containsEntry("metadata_user_id", applicant.getId().toString())
+                .containsEntry("metadata_verification_type", "POLICE");
+        assertThat(events.get(1)).containsEntry("actor_id", superAdmin.getId())
+                .containsEntry("actor_role", "SUPER_ADMIN")
+                .containsEntry("action", "VERIFICATION.REVOKED")
+                .containsEntry("target_type", "VERIFICATION_REQUEST")
+                .containsEntry("target_id", request.getId())
+                .containsEntry("metadata_user_id", applicant.getId().toString())
+                .containsEntry("metadata_verification_type", "POLICE");
+
+        var row = jdbc.queryForMap("""
+                SELECT status, reviewer_id, review_notes, reviewed_at,
+                       revoked_by, revocation_notes, revoked_at
+                  FROM verification_requests WHERE id = ?
+                """, request.getId());
+        assertThat(row).containsEntry("status", "REVOKED")
+                .containsEntry("reviewer_id", moderator.getId())
+                .containsEntry("review_notes", "approval review note")
+                .containsEntry("revoked_by", superAdmin.getId())
+                .containsEntry("revocation_notes", "revocation review note");
+        assertThat(((Timestamp) row.get("reviewed_at")).toLocalDateTime()).isEqualTo(approval.reviewedAt());
+        assertThat(((Timestamp) row.get("revoked_at")).toLocalDateTime()).isEqualTo(revocation.revokedAt());
+        assertThat(revocation.reviewedAt()).isEqualTo(approval.reviewedAt());
+        assertThat(badgeOf(applicant.getId())).isNull();
+
+        assertThatThrownBy(() -> verificationService.revoke(superAdmin.getEmail(), request.getId(), null))
+                .isInstanceOf(ConflictException.class);
+        assertThat(eventCount(request.getId())).isEqualTo(2);
     }
 
     @Test

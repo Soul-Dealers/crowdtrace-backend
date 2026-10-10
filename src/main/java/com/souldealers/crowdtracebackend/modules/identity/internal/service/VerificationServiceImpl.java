@@ -109,6 +109,7 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_REVOKED)
     public AdminVerificationRequestResponse revoke(String actorEmail, Long requestId,
                                                    VerificationDecisionRequest decision) {
         User actor = findUser(actorEmail);
@@ -127,10 +128,11 @@ public class VerificationServiceImpl implements VerificationService {
             throw new ConflictException("Verification request was already decided");
         }
         syncBadge(request, VerificationStatus.REVOKED);
-        logDecision(requestId, actor, "revoke", VerificationStatus.APPROVED, VerificationStatus.REVOKED);
         VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
                 .orElseThrow(() -> new NotFoundException("Verification request not found"));
-        return toAdminResponse(refreshed);
+        AdminVerificationRequestResponse response = toAdminResponse(refreshed);
+        recordVerification(actor, AuditAction.VERIFICATION_REVOKED, requestId, response);
+        return response;
     }
 
     @Override

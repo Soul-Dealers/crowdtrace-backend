@@ -538,16 +538,18 @@ class VerificationWorkflowTest {
 
     // --- Logging ------------------------------------------------------------
 
-    /** Approval writes its central audit log after commit without logging private details. */
+    /** Approval and revocation write central audit logs without logging private details. */
     @Test
-    void doesNotLogApprovalDecisionOrPrivateDetails(CapturedOutput output) throws Exception {
+    void logsApprovalAndRevocationAuditEventsWithoutPrivateDetails(CapturedOutput output) throws Exception {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         User moderator = saveUser(UserRoles.MODERATOR);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
         String evidence = "classified-evidence-" + UUID.randomUUID();
         int mark = output.getOut().length();
 
         long requestId = submit(applicant, VerificationType.POLICE, evidence);
         decide(moderator, requestId, "approve", "sensitive reviewer reasoning");
+        decide(superAdmin, requestId, "revoke", "sensitive revocation reasoning");
 
         String logged = output.getOut().substring(mark);
         assertThat(logged)
@@ -555,7 +557,8 @@ class VerificationWorkflowTest {
                 .doesNotContain("verification_decision")
                 .doesNotContain(evidence)
                 .doesNotContain(applicant.getEmail())
-                .doesNotContain("sensitive reviewer reasoning");
+                .doesNotContain("sensitive reviewer reasoning")
+                .doesNotContain("sensitive revocation reasoning");
     }
 
     // --- Helpers ------------------------------------------------------------
