@@ -75,6 +75,21 @@ class VerificationAuditMissingTest {
         assertThat(eventCount(request.getId())).isZero();
     }
 
+    @Test
+    void missingAuditEventRollsBackGrantAndBadge() {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+
+        assertThatThrownBy(() -> verificationService.grant(superAdmin.getEmail(),
+                new GrantVerificationRequest(applicant.getEmail(), VerificationType.NGO,
+                        "private/grant-missing-evidence.pdf", "grant review note")))
+                .isInstanceOf(AuditMissingException.class);
+
+        assertThat(activeRequestCount(applicant.getId())).isZero();
+        assertThat(badgeOf(applicant.getId())).isNull();
+        assertThat(eventCountForApplicant(applicant.getId())).isZero();
+    }
+
     private User saveUser(UserRoles role) {
         String suffix = UUID.randomUUID().toString();
         return userRepository.saveAndFlush(User.builder()
@@ -105,5 +120,15 @@ class VerificationAuditMissingTest {
 
     private int eventCount(long requestId) {
         return jdbc.queryForObject("SELECT count(*) FROM audit_events WHERE target_id = ?", Integer.class, requestId);
+    }
+
+    private int activeRequestCount(long userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM verification_requests WHERE user_id = ? AND status IN ('PENDING', 'APPROVED')",
+                Integer.class, userId);
+    }
+
+    private int eventCountForApplicant(long userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM audit_events WHERE metadata->>'userId' = ?",
+                Integer.class, Long.toString(userId));
     }
 }

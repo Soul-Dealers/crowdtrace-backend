@@ -21,8 +21,6 @@ import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
 import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -41,7 +39,6 @@ import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_F
 @Service
 @RequiredArgsConstructor
 public class VerificationServiceImpl implements VerificationService {
-    private static final Logger log = LoggerFactory.getLogger(VerificationServiceImpl.class);
     private static final String SLOT_TAKEN_MESSAGE =
             "You already hold a verification badge or have a pending request";
     private static final String GRANT_SLOT_TAKEN_MESSAGE =
@@ -137,6 +134,7 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Override
     @Transactional
+    @AuditedOperation(AuditAction.VERIFICATION_GRANTED)
     public AdminVerificationRequestResponse grant(String actorEmail, GrantVerificationRequest request) {
         User actor = findUser(actorEmail);
         User target = userRepository.findByEmail(request.email())
@@ -162,8 +160,9 @@ public class VerificationServiceImpl implements VerificationService {
                 .reviewedAt(reviewedAt)
                 .build(), GRANT_SLOT_TAKEN_MESSAGE);
         userRepository.setBadgeType(target.getId(), request.verificationType());
-        logDecision(saved.getId(), actor, "grant", null, VerificationStatus.APPROVED);
-        return toAdminResponse(saved);
+        AdminVerificationRequestResponse response = toAdminResponse(saved);
+        recordVerification(actor, AuditAction.VERIFICATION_GRANTED, saved.getId(), response);
+        return response;
     }
 
     /** A user holds one badge, so any PENDING or APPROVED request, of any type, takes the slot. */
@@ -251,12 +250,6 @@ public class VerificationServiceImpl implements VerificationService {
                 .put("verificationType", AuditRoleMapper.verificationType(response.verificationType()))
                 .build();
         auditRecorder.record(AuditRoleMapper.actor(actor), action, requestId, metadata);
-    }
-
-    private void logDecision(Long requestId, User actor, String action,
-                             VerificationStatus from, VerificationStatus to) {
-        log.info("verification_decision requestId={} action={} transition={} actorId={}",
-                requestId, action, from == null ? "NONE->" + to : from + "->" + to, actor.getId());
     }
 
     private User findUser(String email) {

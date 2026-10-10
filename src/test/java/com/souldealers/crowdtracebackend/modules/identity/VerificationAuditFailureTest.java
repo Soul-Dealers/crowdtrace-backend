@@ -27,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 
@@ -84,6 +85,24 @@ class VerificationAuditFailureTest {
         assertThat(eventCount(request.getId())).isZero();
     }
 
+    @Test
+    void auditFailureRollsBackGrantAndBadge() {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+        doThrow(new AuditRecordingException("audit storage unavailable"))
+                .when(auditRecorder).record(any(AuditActor.class), eq(AuditAction.VERIFICATION_GRANTED),
+                        anyLong(), any(AuditMetadata.class));
+
+        assertThatThrownBy(() -> verificationService.grant(superAdmin.getEmail(),
+                new GrantVerificationRequest(applicant.getEmail(), VerificationType.NGO,
+                        "private/grant-failure-evidence.pdf", "grant review note")))
+                .isInstanceOf(AuditRecordingException.class);
+
+        assertThat(activeRequestCount(applicant.getId())).isZero();
+        assertThat(badgeOf(applicant.getId())).isNull();
+        assertThat(eventCountForApplicant(applicant.getId())).isZero();
+    }
+
     private User saveUser(UserRoles role) {
         String suffix = UUID.randomUUID().toString();
         return userRepository.saveAndFlush(User.builder()
@@ -114,5 +133,15 @@ class VerificationAuditFailureTest {
 
     private int eventCount(long requestId) {
         return jdbc.queryForObject("SELECT count(*) FROM audit_events WHERE target_id = ?", Integer.class, requestId);
+    }
+
+    private int activeRequestCount(long userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM verification_requests WHERE user_id = ? AND status IN ('PENDING', 'APPROVED')",
+                Integer.class, userId);
+    }
+
+    private int eventCountForApplicant(long userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM audit_events WHERE metadata->>'userId' = ?",
+                Integer.class, Long.toString(userId));
     }
 }

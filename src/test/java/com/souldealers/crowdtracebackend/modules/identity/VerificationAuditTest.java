@@ -121,6 +121,39 @@ class VerificationAuditTest {
     }
 
     @Test
+    void grantCommitsOneEventWithActorTargetAndMetadataAndRejectsDuplicateGrant() {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        User superAdmin = saveUser(UserRoles.SUPER_ADMIN);
+        GrantVerificationRequest grant = new GrantVerificationRequest(applicant.getEmail(),
+                VerificationType.NGO, "private/grant-evidence.pdf", "grant review note");
+
+        var granted = verificationService.grant(superAdmin.getEmail(), grant);
+
+        var event = jdbc.queryForMap("""
+                SELECT actor_id, actor_role, action, target_type, target_id,
+                       metadata->>'userId' AS metadata_user_id,
+                       metadata->>'verificationType' AS metadata_verification_type
+                  FROM audit_events
+                 WHERE target_id = ?
+                """, granted.id());
+        assertThat(event).containsEntry("actor_id", superAdmin.getId())
+                .containsEntry("actor_role", "SUPER_ADMIN")
+                .containsEntry("action", "VERIFICATION.GRANTED")
+                .containsEntry("target_type", "VERIFICATION_REQUEST")
+                .containsEntry("target_id", granted.id())
+                .containsEntry("metadata_user_id", applicant.getId().toString())
+                .containsEntry("metadata_verification_type", "NGO");
+        assertThat(eventCount(granted.id())).isEqualTo(1);
+        assertThat(granted.status()).isEqualTo(VerificationStatus.APPROVED);
+        assertThat(statusOf(granted.id())).isEqualTo("APPROVED");
+        assertThat(badgeOf(applicant.getId())).isEqualTo("NGO");
+
+        assertThatThrownBy(() -> verificationService.grant(superAdmin.getEmail(), grant))
+                .isInstanceOf(ConflictException.class);
+        assertThat(eventCount(granted.id())).isEqualTo(1);
+    }
+
+    @Test
     void approvalAttributionSurvivesRevocationAsTwoEventsFromDifferentActors() {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         User moderator = saveUser(UserRoles.MODERATOR);
