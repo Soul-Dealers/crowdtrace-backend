@@ -1,5 +1,9 @@
 ## Unreleased
 
+- CT-016: governance schema — human-only case review history with required rejection notes, structured PII-minimized
+  audit events with explicit system actors, and attributable comment reports (one open report per user per comment).
+  Schema and query tests only; comment FK lands with CT-025.
+
 - CT-014: deterministic normalized-name and last-seen duplicate detection after submission commits,
   directional match metadata without name snapshots, and a review flag on the new case only.
   Configurable validated thresholds, concurrent/idempotent detection and PII-safe failure logging;
