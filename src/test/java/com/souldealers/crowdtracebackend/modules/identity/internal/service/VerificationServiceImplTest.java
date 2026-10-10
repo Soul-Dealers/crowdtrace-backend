@@ -110,6 +110,9 @@ class VerificationServiceImplTest {
 
         verify(userRepository).clearBadgeType(2L, VerificationType.NGO);
         verify(userRepository, never()).setBadgeType(anyLong(), any());
+        verify(requestRepository).applyRevocation(eq(10L), any(User.class), ArgumentMatchers.isNull(),
+                any(LocalDateTime.class));
+        verify(requestRepository, never()).applyDecision(anyLong(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -129,8 +132,13 @@ class VerificationServiceImplTest {
         request.setStatus(from);
         when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(actor));
         when(requestRepository.findById(10L)).thenReturn(Optional.of(request));
-        when(requestRepository.applyDecision(eq(10L), eq(from), eq(to), eq(actor),
-                ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        if (to == VerificationStatus.REVOKED) {
+            when(requestRepository.applyRevocation(eq(10L), eq(actor),
+                    ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        } else {
+            when(requestRepository.applyDecision(eq(10L), eq(from), eq(to), eq(actor),
+                    ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        }
         when(requestRepository.findWithUserById(10L)).thenReturn(Optional.of(request));
     }
 

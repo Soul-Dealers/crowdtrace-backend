@@ -289,7 +289,9 @@ public class OpenApiConfig {
                 .addProperties("status", new StringSchema())
                 .addProperties("reviewNotes", new StringSchema())
                 .addProperties("createdAt", new StringSchema().format("date-time"))
-                .addProperties("reviewedAt", new StringSchema().format("date-time"));
+                .addProperties("reviewedAt", new StringSchema().format("date-time"))
+                .addProperties("revokedAt", new StringSchema().format("date-time"))
+                .addProperties("revocationNotes", new StringSchema());
     }
 
     private Schema verificationRequestListResponseSchema() {

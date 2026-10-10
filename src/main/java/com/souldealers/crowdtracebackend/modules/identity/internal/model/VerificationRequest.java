@@ -66,10 +66,21 @@ public class VerificationRequest {
     @JsonIgnore
     private String reviewNotes;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "revoked_by")
+    @JsonIgnore
+    private User revokedBy;
+
+    @Column(name = "revocation_notes", length = 2000)
+    @JsonIgnore
+    private String revocationNotes;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime reviewedAt;
+
+    private LocalDateTime revokedAt;
 
     @PrePersist
     protected void onCreate() {

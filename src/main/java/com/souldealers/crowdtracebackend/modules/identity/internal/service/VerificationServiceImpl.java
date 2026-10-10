@@ -100,8 +100,26 @@ public class VerificationServiceImpl implements VerificationService {
     @Transactional
     public AdminVerificationRequestResponse revoke(String actorEmail, Long requestId,
                                                    VerificationDecisionRequest decision) {
-        return decide(actorEmail, requestId, VerificationStatus.APPROVED, VerificationStatus.REVOKED,
-                decision == null ? null : decision.reviewNotes(), "revoke");
+        User actor = findUser(actorEmail);
+        VerificationRequest request = requestRepository.findById(requestId)
+                .orElseThrow(() -> new NotFoundException("Verification request not found"));
+        if (actor.getId().equals(request.getUser().getId())) {
+            throw new AccessDeniedException("Administrators cannot decide their own request");
+        }
+        if (request.getStatus() != VerificationStatus.APPROVED) {
+            throw new ConflictException("Verification request is not in the required state");
+        }
+        LocalDateTime revokedAt = LocalDateTime.now();
+        int updated = requestRepository.applyRevocation(requestId, actor,
+                decision == null ? null : decision.reviewNotes(), revokedAt);
+        if (updated == 0) {
+            throw new ConflictException("Verification request was already decided");
+        }
+        syncBadge(request, VerificationStatus.REVOKED);
+        logDecision(requestId, actor, "revoke", VerificationStatus.APPROVED, VerificationStatus.REVOKED);
+        VerificationRequest refreshed = requestRepository.findWithUserById(requestId)
+                .orElseThrow(() -> new NotFoundException("Verification request not found"));
+        return toAdminResponse(refreshed);
     }
 
     @Override
@@ -232,6 +250,7 @@ public class VerificationServiceImpl implements VerificationService {
     private AdminVerificationRequestResponse toAdminResponse(VerificationRequest request) {
         return new AdminVerificationRequestResponse(request.getId(), request.getUser().getId(),
                 request.getUser().getDisplayName(), request.getVerificationType(), request.getEvidenceReference(),
-                request.getStatus(), request.getReviewNotes(), request.getCreatedAt(), request.getReviewedAt());
+                request.getStatus(), request.getReviewNotes(), request.getCreatedAt(), request.getReviewedAt(),
+                request.getRevokedAt(), request.getRevocationNotes());
     }
 }
