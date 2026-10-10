@@ -1,5 +1,11 @@
 ## Unreleased
 
+- CT-020: added a central transactional audit recorder with a closed action vocabulary, schema-validated metadata,
+  per-operation audit enforcement, and database-enforced append-only audit events. Verification approve, reject,
+  revoke, and grant are audited; revocation preserves approval attribution and adds `revokedAt` and
+  `revocationNotes` to the admin response and OpenAPI contract. Correlation IDs are normalized. Adds
+  `spring-boot-starter-aspectj`.
+
 - CT-016: governance schema — human-only case review history with required rejection notes, structured PII-minimized
   audit events with explicit system actors, and attributable comment reports (one open report per user per comment).
   Schema and query tests only; comment FK lands with CT-025.
