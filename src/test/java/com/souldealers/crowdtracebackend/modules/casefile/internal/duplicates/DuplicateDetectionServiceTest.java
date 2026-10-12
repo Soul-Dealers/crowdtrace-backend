@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal.duplicates;
 
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewDecision;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewMutationService;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
@@ -7,6 +9,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseDup
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CasePostgresTestSupport;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseDuplicateMatchRepository;
+import com.souldealers.crowdtracebackend.shared.ConflictException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class DuplicateDetectionServiceTest extends CasePostgresTestSupport {
@@ -32,6 +36,7 @@ class DuplicateDetectionServiceTest extends CasePostgresTestSupport {
     @Autowired private CaseDuplicateMatchRepository matches;
     @Autowired private DuplicateProperties properties;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private CaseReviewMutationService reviews;
     private long reporter;
 
     @BeforeEach
@@ -139,6 +144,24 @@ class DuplicateDetectionServiceTest extends CasePostgresTestSupport {
 
         assertThat(matches.findByCaseIdOrderByConfidenceDescMatchedCaseIdAsc(submitted.getId())).hasSize(2);
         assertThat(cases.findById(submitted.getId()).orElseThrow().getVersion()).isEqualTo(flagged.getVersion() + 1);
+    }
+
+    @Test
+    void aDecisionUsingTheVersionFromBeforeANewMatchConflicts() {
+        long moderator = user("moderator-" + UUID.randomUUID() + "@example.com");
+        fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);
+        CaseRecord submitted = fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);
+        detector.detect(submitted.getId());
+        long seen = cases.findById(submitted.getId()).orElseThrow().getVersion();
+
+        fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 1);
+        detector.detect(submitted.getId());
+
+        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(tx ->
+                reviews.decide(submitted.getId(), seen, CaseReviewDecision.REJECTED, moderator)))
+                .isInstanceOf(ConflictException.class);
+        assertThat(cases.findById(submitted.getId()).orElseThrow().getReviewStatus()).isEqualTo(ReviewStatus.SUBMITTED);
+        jdbc.update("DELETE FROM users WHERE id=?", moderator);
     }
 
     @Test
