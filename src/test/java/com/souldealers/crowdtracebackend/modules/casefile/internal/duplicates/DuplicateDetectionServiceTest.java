@@ -127,6 +127,21 @@ class DuplicateDetectionServiceTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void anAlreadyFlaggedCaseGainingAnotherMatchBumpsItsVersion() {
+        fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);
+        CaseRecord submitted = fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);
+        detector.detect(submitted.getId());
+        CaseRecord flagged = cases.findById(submitted.getId()).orElseThrow();
+        assertThat(flagged.isDuplicateFlag()).isTrue();
+
+        fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 1);
+        detector.detect(submitted.getId());
+
+        assertThat(matches.findByCaseIdOrderByConfidenceDescMatchedCaseIdAsc(submitted.getId())).hasSize(2);
+        assertThat(cases.findById(submitted.getId()).orElseThrow().getVersion()).isEqualTo(flagged.getVersion() + 1);
+    }
+
+    @Test
     void redeliveryIsANoOp() {
         fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);
         CaseRecord submitted = fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);

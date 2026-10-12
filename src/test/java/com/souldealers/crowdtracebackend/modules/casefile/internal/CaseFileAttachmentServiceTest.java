@@ -66,6 +66,37 @@ class CaseFileAttachmentServiceTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void attachingASubmissionBumpsTheCaseVersion() {
+        long reporter = reporter(), caseId = ownCase(reporter), report = upload(reporter, CaseFilePurpose.REPORT);
+        long before = cases.findById(caseId).orElseThrow().getVersion();
+
+        attach(caseId, reporter, List.of(report), List.of());
+
+        assertThat(cases.findById(caseId).orElseThrow().getVersion()).isEqualTo(before + 1);
+    }
+
+    @Test
+    void attachingPhotosBumpsTheCaseVersion() {
+        long reporter = reporter(), caseId = ownCase(reporter), photo = upload(reporter, CaseFilePurpose.PHOTO);
+        long before = cases.findById(caseId).orElseThrow().getVersion();
+
+        attachPhotos(caseId, reporter, List.of(photo));
+
+        assertThat(cases.findById(caseId).orElseThrow().getVersion()).isEqualTo(before + 1);
+    }
+
+    @Test
+    void aRejectedAttachmentLeavesTheCaseVersionAlone() {
+        long reporter = reporter(), caseId = ownCase(reporter), photo = upload(reporter, CaseFilePurpose.PHOTO);
+        long before = cases.findById(caseId).orElseThrow().getVersion();
+
+        assertThatThrownBy(() -> attach(caseId, reporter, List.of(photo), List.of()))
+                .isInstanceOf(ValidationException.class);
+
+        assertThat(cases.findById(caseId).orElseThrow().getVersion()).isEqualTo(before);
+    }
+
+    @Test
     void rejectsASubmissionWithoutAReport() {
         long reporter = reporter(), caseId = ownCase(reporter);
         List<Long> ids = List.of(upload(reporter, CaseFilePurpose.PHOTO));
