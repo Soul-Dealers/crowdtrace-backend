@@ -82,14 +82,9 @@ class OpenApiContractTest {
                         containsString("not implemented")))
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.description",
                         containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get.description",
-                        containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.description",
-                        containsString("not implemented")))
+                // CT-017 retired the planned review placeholders in favour of the shipped review endpoints.
+                .andExpect(jsonPath("$.paths['/api/admin/cases/review']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision']").doesNotExist())
                 // Registration and login must stay reachable without a token; /me and
                 // /logout inherit the document-level bearerAuth requirement instead.
                 .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post.security").isEmpty())
@@ -123,9 +118,22 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
                 // Admin operations inherit the document-level bearerAuth requirement.
                 .andExpect(jsonPath("$.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get.security").doesNotExist())
-                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.security")
-                        .doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get.parameters[*].name",
+                        hasItems("status", "priorityMinor", "duplicateFlag", "submittedFrom", "submittedTo")))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get.responses.200.content.*.schema.$ref",
+                        hasItem("#/components/schemas/ReviewCaseDetailApiResponse")))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.200.content.*.schema.$ref",
+                        hasItem("#/components/schemas/CaseReviewDecisionApiResponse")))
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.version").exists())
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.files").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.evidence").exists())
                 .andExpect(jsonPath("$.components.schemas.ProblemDetail").exists())
                 .andExpect(jsonPath("$.components.schemas.ApiResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.PagedResponse").exists())

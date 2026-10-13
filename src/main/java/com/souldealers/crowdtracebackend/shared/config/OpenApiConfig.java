@@ -101,7 +101,121 @@ public class OpenApiConfig {
         schemas.put("CaseSubmissionResponse", caseSubmissionResponseSchema());
         schemas.put("CaseSubmissionApiResponse", caseResponseEnvelope("Case submission confirmation",
                 "#/components/schemas/CaseSubmissionResponse"));
+        schemas.put("AdminCaseSummaryResponse", adminCaseSummarySchema());
+        schemas.put("ReviewQueuePageResponse", reviewQueuePageSchema());
+        schemas.put("ReviewQueueListResponse", caseResponseEnvelope("Review queue page",
+                "#/components/schemas/ReviewQueuePageResponse"));
+        schemas.put("ReviewEvidenceResponse", reviewEvidenceSchema());
+        schemas.put("DuplicateMatchResponse", duplicateMatchSchema());
+        schemas.put("CaseReviewHistoryResponse", reviewHistorySchema());
+        schemas.put("ReviewCaseDetailResponse", reviewCaseDetailSchema());
+        schemas.put("ReviewCaseDetailApiResponse", caseResponseEnvelope("Case with evidence, matches and history",
+                "#/components/schemas/ReviewCaseDetailResponse"));
+        schemas.put("CaseReviewDecisionResponse", reviewDecisionSchema());
+        schemas.put("CaseReviewDecisionApiResponse", caseResponseEnvelope("Recorded review decision",
+                "#/components/schemas/CaseReviewDecisionResponse"));
         return schemas;
+    }
+
+    private Schema adminCaseSummarySchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("fullName", new StringSchema())
+                .addProperties("age", new IntegerSchema().format("int32"))
+                .addProperties("region", new StringSchema())
+                .addProperties("reviewStatus", new StringSchema()._enum(List.of("SUBMITTED", "UNDER_REVIEW")))
+                .addProperties("priorityMinor", new BooleanSchema())
+                .addProperties("duplicateFlag", new BooleanSchema())
+                .addProperties("submittedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema reviewQueuePageSchema() {
+        return new ObjectSchema()
+                .addProperties("content", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/AdminCaseSummaryResponse")))
+                .addProperties("page", new IntegerSchema().format("int32"))
+                .addProperties("size", new IntegerSchema().format("int32"))
+                .addProperties("totalElements", new IntegerSchema().format("int64"))
+                .addProperties("totalPages", new IntegerSchema().format("int32"))
+                .addProperties("last", new BooleanSchema());
+    }
+
+    private Schema reviewEvidenceSchema() {
+        return new ObjectSchema()
+                .description("File metadata only; accessAvailable stays false until signed access exists. "
+                        + "No URL or storage key is returned.")
+                .addProperties("file", new Schema<>().$ref("#/components/schemas/CaseFileMetadataResponse"))
+                .addProperties("accessAvailable", new BooleanSchema());
+    }
+
+    private Schema duplicateMatchSchema() {
+        return new ObjectSchema()
+                .addProperties("matchedCaseId", new IntegerSchema().format("int64"))
+                .addProperties("confidence", new IntegerSchema().format("int32"))
+                .addProperties("nameSimilarity", new IntegerSchema().format("int32")
+                        .description("Per mille."))
+                .addProperties("dayDifference", new IntegerSchema().format("int32"))
+                .addProperties("reasons", new ArraySchema().items(new StringSchema()))
+                .addProperties("algorithmVersion", new StringSchema())
+                .addProperties("detectedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema reviewHistorySchema() {
+        return new ObjectSchema()
+                .description("A past decision. Notes are admin-only.")
+                .addProperties("reviewId", new IntegerSchema().format("int64"))
+                .addProperties("decision", new StringSchema()._enum(List.of("APPROVED", "REJECTED")))
+                .addProperties("reviewerId", new IntegerSchema().format("int64"))
+                .addProperties("reviewSource", new StringSchema())
+                .addProperties("reviewNotes", new StringSchema())
+                .addProperties("decidedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema reviewCaseDetailSchema() {
+        Schema caseDetails = new ObjectSchema()
+                .description("Admin projection. Files are listed once, as evidence; there is no files property.")
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("reporterId", new IntegerSchema().format("int64"))
+                .addProperties("reporterAccountEmail", new StringSchema())
+                .addProperties("fullName", new StringSchema())
+                .addProperties("age", new IntegerSchema().format("int32"))
+                .addProperties("gender", new StringSchema())
+                .addProperties("lastSeenDate", new StringSchema().format("date"))
+                .addProperties("region", new StringSchema())
+                .addProperties("lastSeenLocation", new StringSchema())
+                .addProperties("physicalDescription", new StringSchema())
+                .addProperties("clothing", new StringSchema())
+                .addProperties("circumstances", new StringSchema())
+                .addProperties("publicContactNumber", new StringSchema())
+                .addProperties("reviewStatus", new StringSchema())
+                .addProperties("caseStatus", new StringSchema())
+                .addProperties("priorityMinor", new BooleanSchema())
+                .addProperties("duplicateFlag", new BooleanSchema())
+                .addProperties("version", new IntegerSchema().format("int64")
+                        .description("Send as expectedCaseVersion when deciding."))
+                .addProperties("submittedAt", new StringSchema().format("date-time"))
+                .addProperties("approvedAt", new StringSchema().format("date-time"))
+                .addProperties("sensitiveDetails", new ObjectSchema())
+                .addProperties("consents", new ArraySchema().items(new ObjectSchema()));
+        return new ObjectSchema()
+                .addProperties("caseDetails", caseDetails)
+                .addProperties("evidence", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/ReviewEvidenceResponse")))
+                .addProperties("duplicateMatches", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/DuplicateMatchResponse")))
+                .addProperties("reviewHistory", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/CaseReviewHistoryResponse")));
+    }
+
+    private Schema reviewDecisionSchema() {
+        return new ObjectSchema()
+                .addProperties("reviewId", new IntegerSchema().format("int64"))
+                .addProperties("caseId", new IntegerSchema().format("int64"))
+                .addProperties("reviewStatus", new StringSchema()._enum(List.of("APPROVED", "REJECTED")))
+                .addProperties("caseVersion", new IntegerSchema().format("int64"))
+                .addProperties("reviewerId", new IntegerSchema().format("int64"))
+                .addProperties("reviewNotes", new StringSchema())
+                .addProperties("decidedAt", new StringSchema().format("date-time"));
     }
 
     private Schema caseFileUploadRequestSchema() {
@@ -342,11 +456,6 @@ public class OpenApiConfig {
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
                         publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
-                                .parameters(List.of(caseIdParameter()))))
-                .addPathItem("/api/admin/cases/review", new PathItem().get(plannedOperation(
-                        "Administration", "Review cases", "Planned case review queue operation.")))
-                .addPathItem("/api/admin/cases/{caseId}/decision", new PathItem().post(
-                        plannedOperation("Administration", "Decide case", "Planned case decision operation.")
                                 .parameters(List.of(caseIdParameter()))));
     }
 
