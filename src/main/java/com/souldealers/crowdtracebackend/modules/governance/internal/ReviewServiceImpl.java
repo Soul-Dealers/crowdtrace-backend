@@ -1,12 +1,21 @@
 package com.souldealers.crowdtracebackend.modules.governance.internal;
 
+import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewDecision;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewMutationService;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewQueueQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewTransition;
+import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.governance.ApproveCaseRequest;
 import com.souldealers.crowdtracebackend.modules.governance.CaseReviewDecisionResponse;
+import com.souldealers.crowdtracebackend.modules.governance.CaseReviewHistoryResponse;
 import com.souldealers.crowdtracebackend.modules.governance.RejectCaseRequest;
+import com.souldealers.crowdtracebackend.modules.governance.ReviewCaseDetailResponse;
+import com.souldealers.crowdtracebackend.modules.governance.ReviewEvidenceResponse;
+import com.souldealers.crowdtracebackend.modules.governance.ReviewQueueFilter;
 import com.souldealers.crowdtracebackend.modules.governance.ReviewService;
 import com.souldealers.crowdtracebackend.modules.governance.internal.model.CaseReview;
 import com.souldealers.crowdtracebackend.modules.governance.internal.repository.CaseReviewRepository;
@@ -14,6 +23,7 @@ import com.souldealers.crowdtracebackend.modules.identity.ActorLookup;
 import com.souldealers.crowdtracebackend.modules.identity.ActorView;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.notification.CaseReviewDecidedEvent;
+import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import com.souldealers.crowdtracebackend.shared.audit.AuditAction;
 import com.souldealers.crowdtracebackend.shared.audit.AuditActor;
@@ -21,24 +31,68 @@ import com.souldealers.crowdtracebackend.shared.audit.AuditActorRole;
 import com.souldealers.crowdtracebackend.shared.audit.AuditMetadata;
 import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
 import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Session;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Statement;
+import java.util.List;
+
 /**
- * One transaction per decision: transition the locked case, append the review, audit it, publish the reporter
- * event. Any failure rolls all four back. Annotations sit on the concrete methods because the audit aspect matches
- * the target method, not the interface.
+ * Queue and detail are read-only. One transaction per decision: transition the locked case, append the review,
+ * audit it, publish the reporter event. Any failure rolls all four back. Annotations sit on the concrete methods
+ * because the audit aspect matches the target method, not the interface.
  */
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
     private final ActorLookup actorLookup;
     private final CaseReviewMutationService caseReviews;
+    private final CaseQueryService caseQueries;
     private final CaseReviewRepository reviewRepository;
     private final AuditRecorder auditRecorder;
     private final ApplicationEventPublisher events;
+    private final EntityManager entityManager;
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<AdminCaseSummaryResponse> listQueue(ReviewQueueFilter filter, Pageable pageable) {
+        return caseQueries.listReviewQueue(filter == null ? CaseReviewQueueQuery.allPending() : filter.toQuery(),
+                pageable);
+    }
+
+    /**
+     * One read-only REPEATABLE READ snapshot, so the case, its files, matches and history all come from one point
+     * in time; the casefile reads join this transaction. Spring can't set the isolation itself: the connection is
+     * released after each transaction (application.yaml, CT-014 D10a), which HibernateJpaDialect rejects for custom
+     * isolation, and the JDBC read-only hint is skipped too. So both are set in SQL, which Postgres only accepts as
+     * the transaction's first statement; called inside a transaction that already ran a query, this fails rather
+     * than reading a mixed view.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public ReviewCaseDetailResponse getCaseDetail(Long caseId) {
+        entityManager.unwrap(Session.class).doWork(connection -> {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
+            }
+        });
+        AdminCaseResponse caseDetails = caseQueries.getAdminCase(caseId);
+        List<DuplicateMatchResponse> matches = caseQueries.listDuplicateMatches(caseId);
+        List<CaseReviewHistoryResponse> history = reviewRepository.findByCaseIdOrderByCreatedAtAscIdAsc(caseId)
+                .stream().map(ReviewServiceImpl::toHistory).toList();
+        return new ReviewCaseDetailResponse(caseDetails,
+                caseDetails.files().stream().map(ReviewEvidenceResponse::metadataOnly).toList(), matches, history);
+    }
+
+    private static CaseReviewHistoryResponse toHistory(CaseReview review) {
+        return new CaseReviewHistoryResponse(review.id(), review.decision(), review.reviewerId(), review.source(),
+                review.reviewNotes(), review.createdAt());
+    }
 
     @Override
     @Transactional

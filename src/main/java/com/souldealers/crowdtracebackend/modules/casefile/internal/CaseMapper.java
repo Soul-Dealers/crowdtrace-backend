@@ -4,11 +4,13 @@ import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseConsentResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseFileMetadataResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.SensitiveDetailsResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseConsent;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseDuplicateMatch;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseFile;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
@@ -48,8 +50,8 @@ final class CaseMapper {
         return new AdminCaseResponse(c.getId(), c.getReporterId(), reporterEmail, c.getFullName(), c.getAge(),
                 c.getGender(), c.getLastSeenDate(), c.getRegion(), c.getLastSeenLocation(), c.getPhysicalDescription(),
                 c.getClothing(), c.getCircumstances(), c.getPublicContactNumber(), c.getReviewStatus(), c.getCaseStatus(),
-                c.getClosingStatement(), c.isPriorityMinor(), c.isDuplicateFlag(), c.getSubmittedAt(), c.getApprovedAt(),
-                c.getResolvedAt(), c.getClosedAt(), toSensitive(d),
+                c.getClosingStatement(), c.isPriorityMinor(), c.isDuplicateFlag(), c.getVersion(), c.getSubmittedAt(),
+                c.getApprovedAt(), c.getResolvedAt(), c.getClosedAt(), toSensitive(d),
                 liveFiles.stream().map(CaseMapper::toFileMetadata).toList(),
                 consents.stream().map(consent -> new CaseConsentResponse(consent.getConsentType(), consent.getConsentVersion(),
                         consent.getSource(), consent.getAcceptedAt())).toList());
@@ -58,6 +60,11 @@ final class CaseMapper {
     static AdminCaseSummaryResponse toAdminSummary(CaseRecord c) {
         return new AdminCaseSummaryResponse(c.getId(), c.getFullName(), c.getAge(), c.getRegion(),
                 c.getReviewStatus(), c.isPriorityMinor(), c.isDuplicateFlag(), c.getSubmittedAt());
+    }
+
+    static DuplicateMatchResponse toDuplicateMatch(CaseDuplicateMatch m) {
+        return new DuplicateMatchResponse(m.getMatchedCaseId(), m.getConfidence(), m.getNameSimilarity(),
+                m.getDayDifference(), List.of(m.getReasons().split(",")), m.getAlgorithmVersion(), m.getDetectedAt());
     }
 
     static CaseFileMetadataResponse toFileMetadata(CaseFile file) {

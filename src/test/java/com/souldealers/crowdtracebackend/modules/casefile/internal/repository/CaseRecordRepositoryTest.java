@@ -3,6 +3,7 @@ package com.souldealers.crowdtracebackend.modules.casefile.internal.repository;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewQueueQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseSensitiveDetails;
@@ -114,8 +115,8 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
         CaseRecord laterMinor = cases.save(aCase(r).submittedAt(at(11)).priorityMinor(true)
                 .reviewStatus(ReviewStatus.UNDER_REVIEW).build());
         cases.saveAndFlush(aCase(r).submittedAt(at(8)).reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).build());
-        assertThat(cases.findByReviewStatusInOrderByPriorityMinorDescSubmittedAtAscIdAsc(
-                List.of(ReviewStatus.SUBMITTED, ReviewStatus.UNDER_REVIEW), PageRequest.of(0, 20)))
+        assertThat(cases.findAll(CaseReviewQueueSpecification.matching(CaseReviewQueueQuery.allPending()),
+                PageRequest.of(0, 20, CaseReviewQueueSpecification.ORDER)))
                 .extracting(CaseRecord::getId).containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());
     }
 

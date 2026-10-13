@@ -1,9 +1,30 @@
 package com.souldealers.crowdtracebackend.modules.governance;
 
+import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
+import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import org.springframework.data.domain.Pageable;
 
-/** Moderator review decisions. {@code actorEmail} must come from the authenticated principal. */
+/** Moderator review queue, detail and decisions. {@code actorEmail} must come from the authenticated principal. */
 public interface ReviewService {
+
+    /**
+     * Pending cases, minors first, then oldest submission, then id. Client sorting is ignored; size defaults to 20
+     * and is capped at 50. A null filter means no filter.
+     *
+     * @throws com.souldealers.crowdtracebackend.shared.ValidationException a decided status or an empty window
+     */
+    @RequiresModerator
+    PagedResponse<AdminCaseSummaryResponse> listQueue(ReviewQueueFilter filter, Pageable pageable);
+
+    /**
+     * The admin projection, version, evidence metadata, duplicate matches and review history, all read in one
+     * REPEATABLE READ snapshot so a concurrent decision never shows half-applied.
+     *
+     * @throws com.souldealers.crowdtracebackend.shared.NotFoundException unknown case
+     */
+    @RequiresModerator
+    ReviewCaseDetailResponse getCaseDetail(Long caseId);
 
     /**
      * Approves a pending case, appends its review, audits it and notifies the reporter, all in one transaction.
