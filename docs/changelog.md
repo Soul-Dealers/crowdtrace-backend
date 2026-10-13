@@ -1,5 +1,19 @@
 ## Unreleased
 
+- CT-017: moderator review queue and decisions under `/api/v1/admin/review/cases` (filtered queue, detail with
+  duplicate matches and review history, approve, reject). A decision locks the case, checks state, version and
+  report, appends an immutable `case_reviews` row, records `CASE.APPROVED`/`CASE.REJECTED` and publishes
+  `CaseReviewDecidedEvent` in one transaction; no self-review, stale `expectedCaseVersion` or decided case returns 409.
+  Attaching files and adding duplicate matches now bump the case version; case timestamps use the UTC clock.
+  `AdminCaseResponse` gains `version`. Review detail lists evidence as metadata only (`accessAvailable = false`);
+  signed access (CT-023/030) and in-app delivery (CT-027) must land before moderator rollout. Retires the
+  `/api/admin/cases/review` and `/decision` OpenAPI placeholders.
+- CT-017 (implementation rulings): the casefile port `CaseReviewMutationService.decide` takes `Long` case ids and
+  runs the self-review check under the case lock (403, then state, version, report as 409). New cases start at
+  version 1. Review detail uses a first-statement `SET TRANSACTION REPEATABLE READ, READ ONLY` inside
+  `REQUIRES_NEW`, because the DELAYED_ACQUISITION handling mode rejects `@Transactional` isolation. The detail view
+  hides the admin `files` field and shows files as evidence.
+
 - CT-020: added a central transactional audit recorder with a closed action vocabulary, schema-validated metadata,
   per-operation audit enforcement, and database-enforced append-only audit events. Verification approve, reject,
   revoke, and grant are audited; revocation preserves approval attribution and adds `revokedAt` and
