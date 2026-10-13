@@ -297,4 +297,21 @@ class OpenApiContractTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
+
+    @Test
+    void reviewDetailSchemaDocumentsEveryAdminCaseField() throws Exception {
+        String body = mockMvc.perform(get("/v3/api-docs")).andReturn().getResponse().getContentAsString();
+        var props = tools.jackson.databind.json.JsonMapper.builder().build().readTree(body)
+                .at("/components/schemas/ReviewCaseDetailResponse/properties/caseDetails/properties");
+        java.util.Set<String> documented = new java.util.TreeSet<>();
+        props.propertyNames().forEach(documented::add);
+        java.util.Set<String> actual = new java.util.TreeSet<>();
+        for (var c : com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse.class
+                .getRecordComponents()) {
+            if (!c.getName().equals("files")) {
+                actual.add(c.getName());
+            }
+        }
+        org.assertj.core.api.Assertions.assertThat(documented).isEqualTo(actual);
+    }
 }
