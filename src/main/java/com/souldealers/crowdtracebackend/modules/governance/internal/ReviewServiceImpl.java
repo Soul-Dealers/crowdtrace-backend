@@ -37,6 +37,7 @@ import org.hibernate.Session;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Statement;
@@ -67,14 +68,15 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * One read-only REPEATABLE READ snapshot, so the case, its files, matches and history all come from one point
-     * in time; the casefile reads join this transaction. Spring can't set the isolation itself: the connection is
-     * released after each transaction (application.yaml, CT-014 D10a), which HibernateJpaDialect rejects for custom
-     * isolation, and the JDBC read-only hint is skipped too. So both are set in SQL, which Postgres only accepts as
-     * the transaction's first statement; called inside a transaction that already ran a query, this fails rather
-     * than reading a mixed view.
+     * in time; the casefile and history reads join this transaction. Spring can't set the isolation itself: the
+     * connection is released after each transaction (application.yaml, CT-014 D10a), which HibernateJpaDialect
+     * rejects for custom isolation, and the JDBC read-only hint is skipped too. So both are set in SQL, which
+     * Postgres only accepts as a transaction's first statement. REQUIRES_NEW guarantees that: the detail never joins
+     * a caller's transaction, so it can't fail after the caller queried or turn the caller's transaction read-only.
+     * The settings end with this transaction and never reach the pooled connection's next user.
      */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public ReviewCaseDetailResponse getCaseDetail(Long caseId) {
         entityManager.unwrap(Session.class).doWork(connection -> {
             try (Statement statement = connection.createStatement()) {

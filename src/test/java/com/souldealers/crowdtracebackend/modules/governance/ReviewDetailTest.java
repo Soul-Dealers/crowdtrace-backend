@@ -146,6 +146,72 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
                 .satisfies(review -> assertThat(review.decision()).isEqualTo(ReviewStatus.APPROVED));
     }
 
+    /**
+     * The detail runs in its own transaction: a caller that already queried doesn't fail, and the caller's
+     * transaction is neither switched to REPEATABLE READ nor made read-only.
+     */
+    @Test
+    void aCallerTransactionThatAlreadyQueriedStaysWritableAtItsOwnIsolation() {
+        CaseRecord c = pendingCaseWithReport();
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            assertThat(isolation()).isEqualTo("read committed");
+            assertThat(reviewCount(c.getId())).as("a real query takes the caller's snapshot").isZero();
+
+            assertThat(reviewService.getCaseDetail(c.getId()).caseDetails().id()).isEqualTo(c.getId());
+
+            assertThat(isolation()).isEqualTo("read committed");
+            assertThat(readOnly()).isEqualTo("off");
+            actor(email("caller-still-writes"), UserRoles.REGISTERED_USER);
+            status.setRollbackOnly();
+        });
+    }
+
+    @Test
+    void aCallerTransactionThatHasNotQueriedYetIsNotSwitchedToReadOnlyRepeatableRead() {
+        CaseRecord c = pendingCaseWithReport();
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            reviewService.getCaseDetail(c.getId());
+
+            assertThat(isolation()).isEqualTo("read committed");
+            assertThat(readOnly()).isEqualTo("off");
+            actor(email("caller-writes-first"), UserRoles.REGISTERED_USER);
+            status.setRollbackOnly();
+        });
+    }
+
+    @Test
+    void laterTransactionsAreReadCommittedAndWritableAfterASuccessfulOrFailedDetail() {
+        CaseRecord c = pendingCaseWithReport();
+
+        reviewService.getCaseDetail(c.getId());
+        assertFreshTransactionIsDefault();
+
+        assertThatThrownBy(() -> reviewService.getCaseDetail(999_999L)).isInstanceOf(NotFoundException.class);
+        assertFreshTransactionIsDefault();
+    }
+
+    /** Several transactions, so any pooled connection a detail used is likely among them. */
+    private void assertFreshTransactionIsDefault() {
+        for (int i = 0; i < 5; i++) {
+            new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+                assertThat(isolation()).isEqualTo("read committed");
+                assertThat(readOnly()).isEqualTo("off");
+                actor(email("later-writes"), UserRoles.REGISTERED_USER);
+                status.setRollbackOnly();
+            });
+        }
+    }
+
+    private String isolation() {
+        return jdbc.queryForObject("SHOW transaction_isolation", String.class);
+    }
+
+    private String readOnly() {
+        return jdbc.queryForObject("SHOW transaction_read_only", String.class);
+    }
+
     private void match(long caseId, long matchedCaseId, int confidence, String reasons) {
         jdbc.update("""
                 INSERT INTO case_duplicate_matches (case_id, matched_case_id, confidence, name_similarity,
