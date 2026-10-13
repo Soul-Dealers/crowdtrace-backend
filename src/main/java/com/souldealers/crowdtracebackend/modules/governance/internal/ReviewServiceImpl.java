@@ -1,0 +1,97 @@
+package com.souldealers.crowdtracebackend.modules.governance.internal;
+
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewDecision;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewMutationService;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewTransition;
+import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
+import com.souldealers.crowdtracebackend.modules.governance.ApproveCaseRequest;
+import com.souldealers.crowdtracebackend.modules.governance.CaseReviewDecisionResponse;
+import com.souldealers.crowdtracebackend.modules.governance.RejectCaseRequest;
+import com.souldealers.crowdtracebackend.modules.governance.ReviewService;
+import com.souldealers.crowdtracebackend.modules.governance.internal.model.CaseReview;
+import com.souldealers.crowdtracebackend.modules.governance.internal.repository.CaseReviewRepository;
+import com.souldealers.crowdtracebackend.modules.identity.ActorLookup;
+import com.souldealers.crowdtracebackend.modules.identity.ActorView;
+import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
+import com.souldealers.crowdtracebackend.modules.notification.CaseReviewDecidedEvent;
+import com.souldealers.crowdtracebackend.shared.ValidationException;
+import com.souldealers.crowdtracebackend.shared.audit.AuditAction;
+import com.souldealers.crowdtracebackend.shared.audit.AuditActor;
+import com.souldealers.crowdtracebackend.shared.audit.AuditActorRole;
+import com.souldealers.crowdtracebackend.shared.audit.AuditMetadata;
+import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
+import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * One transaction per decision: transition the locked case, append the review, audit it, publish the reporter
+ * event. Any failure rolls all four back. Annotations sit on the concrete methods because the audit aspect matches
+ * the target method, not the interface.
+ */
+@Service
+@RequiredArgsConstructor
+public class ReviewServiceImpl implements ReviewService {
+    private final ActorLookup actorLookup;
+    private final CaseReviewMutationService caseReviews;
+    private final CaseReviewRepository reviewRepository;
+    private final AuditRecorder auditRecorder;
+    private final ApplicationEventPublisher events;
+
+    @Override
+    @Transactional
+    @AuditedOperation(AuditAction.CASE_APPROVED)
+    public CaseReviewDecisionResponse approve(String actorEmail, Long caseId, ApproveCaseRequest request) {
+        if (request == null) {
+            throw missingVersion();
+        }
+        return decide(actorEmail, caseId, request.expectedCaseVersion(), CaseReviewDecision.APPROVED,
+                ReviewNotes.optional(request.reviewNotes()), AuditAction.CASE_APPROVED);
+    }
+
+    @Override
+    @Transactional
+    @AuditedOperation(AuditAction.CASE_REJECTED)
+    public CaseReviewDecisionResponse reject(String actorEmail, Long caseId, RejectCaseRequest request) {
+        if (request == null) {
+            throw missingVersion();
+        }
+        return decide(actorEmail, caseId, request.expectedCaseVersion(), CaseReviewDecision.REJECTED,
+                ReviewNotes.required(request.reviewNotes()), AuditAction.CASE_REJECTED);
+    }
+
+    private CaseReviewDecisionResponse decide(String actorEmail, Long caseId, Long expectedCaseVersion,
+                                              CaseReviewDecision decision, String notes, AuditAction action) {
+        if (expectedCaseVersion == null || expectedCaseVersion < 0) {
+            throw missingVersion();
+        }
+        ActorView actor = actorLookup.byEmail(actorEmail);
+        CaseReviewTransition transition = caseReviews.decide(caseId, expectedCaseVersion, decision, actor.userId());
+        ReviewStatus status = decision == CaseReviewDecision.APPROVED ? ReviewStatus.APPROVED : ReviewStatus.REJECTED;
+        CaseReview review = reviewRepository.saveAndFlush(
+                CaseReview.create(transition.caseId(), actor.userId(), status, notes, transition.decidedAt()));
+
+        auditRecorder.record(AuditActor.user(actor.userId(), auditRole(actor.role())), action, transition.caseId(),
+                AuditMetadata.of(action).put("reviewId", review.id()).build());
+        events.publishEvent(CaseReviewDecidedEvent.of(transition.reporterId(), transition.caseId(), review.id(),
+                CaseReviewDecidedEvent.Decision.valueOf(decision.name()), transition.decidedAt()));
+
+        return new CaseReviewDecisionResponse(review.id(), transition.caseId(), status, transition.caseVersion(),
+                actor.userId(), notes, transition.decidedAt());
+    }
+
+    /** Mirrors identity's AuditRoleMapper, which is internal to identity. */
+    private static AuditActorRole auditRole(UserRoles role) {
+        return switch (role) {
+            case REGISTERED_USER -> AuditActorRole.REGISTERED_USER;
+            case MODERATOR -> AuditActorRole.MODERATOR;
+            case SUPER_ADMIN -> AuditActorRole.SUPER_ADMIN;
+        };
+    }
+
+    private static ValidationException missingVersion() {
+        return new ValidationException("expectedCaseVersion is required and must not be negative");
+    }
+}
