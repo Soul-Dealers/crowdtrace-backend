@@ -115,6 +115,7 @@ public class OpenApiConfig {
         schemas.put("CaseReviewDecisionApiResponse", caseResponseEnvelope("Recorded review decision",
                 "#/components/schemas/CaseReviewDecisionResponse"));
         schemas.put("UpdateCaseStatusRequest", lifecycleStatusRequestSchema());
+        schemas.put("SetClosingStatementRequest", closingStatementRequestSchema());
         schemas.put("CaseLifecycleResponse", caseLifecycleResponseSchema());
         schemas.put("CaseLifecycleApiResponse", caseResponseEnvelope("Case lifecycle mutation result",
                 "#/components/schemas/CaseLifecycleResponse"));
@@ -126,6 +127,13 @@ public class OpenApiConfig {
                 .addProperties("expectedCaseVersion", new IntegerSchema().format("int64").minimum(BigDecimal.ZERO))
                 .addProperties("caseStatus", new StringSchema()
                         ._enum(List.of("MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED")));
+    }
+
+    private Schema closingStatementRequestSchema() {
+        return new ObjectSchema().required(List.of("expectedCaseVersion", "closingStatement"))
+                .addProperties("expectedCaseVersion", new IntegerSchema().format("int64").minimum(BigDecimal.ZERO))
+                .addProperties("closingStatement", new StringSchema().maxLength(2000)
+                        .description("Unicode-stripped, non-blank public statement."));
     }
 
     private Schema caseLifecycleResponseSchema() {
@@ -480,8 +488,13 @@ public class OpenApiConfig {
                 .addPathItem("/api/user/cases", new PathItem().post(caseSubmissionOperation()))
                 .addPathItem("/api/user/cases/{id}/status", new PathItem().patch(caseLifecycleOperation(
                         "Change a case outcome", "UpdateCaseStatusRequest", "Change case outcome")))
+                .addPathItem("/api/user/cases/{id}/closing-statement", new PathItem().put(caseLifecycleOperation(
+                        "Set a closing statement", "SetClosingStatementRequest", "Set closing statement")))
                 .addPathItem("/api/v1/admin/cases/{id}/status", new PathItem().patch(adminCaseLifecycleOperation(
                         "Correct a case outcome", "UpdateCaseStatusRequest", "Correct case outcome")))
+                .addPathItem("/api/v1/admin/cases/{id}/closing-statement", new PathItem().put(
+                        adminCaseLifecycleOperation("Set a closing statement", "SetClosingStatementRequest",
+                                "Set closing statement")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(

@@ -4,6 +4,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
+import com.souldealers.crowdtracebackend.modules.casefile.SetClosingStatementRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.UpdateCaseStatusRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
@@ -105,10 +106,60 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
         return response(record, occurredAt);
     }
 
+    @Override
+    @Transactional
+    @AuditedOperation(AuditAction.CASE_CLOSING_STATEMENT_SET)
+    public CaseLifecycleResponse setClosingStatement(String actorEmail, Long caseId,
+                                                     SetClosingStatementRequest request) {
+        requireStatementRequest(request);
+        ActorView actor = actorLookup.byEmail(actorEmail);
+        CaseRecord record = cases.findOwnedByIdForUpdate(caseId, actor.userId())
+                .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
+        return setStatement(record, actor, request.expectedCaseVersion(), request.closingStatement());
+    }
+
+    @Override
+    @Transactional
+    @RequiresModerator
+    @AuditedOperation(AuditAction.CASE_CLOSING_STATEMENT_SET)
+    public CaseLifecycleResponse setClosingStatementAsAdmin(String actorEmail, Long caseId,
+                                                            SetClosingStatementRequest request) {
+        requireStatementRequest(request);
+        ActorView actor = actorLookup.byEmail(actorEmail);
+        CaseRecord record = cases.findByIdForUpdate(caseId)
+                .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
+        return setStatement(record, actor, request.expectedCaseVersion(), request.closingStatement());
+    }
+
+    private CaseLifecycleResponse setStatement(CaseRecord record, ActorView actor, long expectedVersion,
+                                              String rawStatement) {
+        if (record.getReviewStatus() != ReviewStatus.APPROVED || record.getCaseStatus() == CaseStatus.MISSING) {
+            throw new ConflictException("A closing statement requires an approved resolved case");
+        }
+        requireVersion(record, expectedVersion);
+        String statement = LifecycleText.normalize(rawStatement, "Closing statement");
+        if (statement.equals(record.getClosingStatement())) {
+            throw new ConflictException("Closing statement is unchanged");
+        }
+        LocalDateTime occurredAt = LocalDateTime.now(clock);
+        record.setClosingStatement(statement);
+        cases.flush();
+        auditRecorder.record(auditActor(actor), AuditAction.CASE_CLOSING_STATEMENT_SET, record.getId(),
+                AuditMetadata.none(AuditAction.CASE_CLOSING_STATEMENT_SET));
+        return response(record, occurredAt);
+    }
+
     private static void requireStatusRequest(UpdateCaseStatusRequest request) {
         if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0
                 || request.caseStatus() == null) {
             throw new ValidationException("Expected case version and case status are required");
+        }
+    }
+
+    private static void requireStatementRequest(SetClosingStatementRequest request) {
+        if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0
+                || request.closingStatement() == null) {
+            throw new ValidationException("Expected case version and closing statement are required");
         }
     }
 

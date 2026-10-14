@@ -49,6 +49,7 @@ class CaseStatusUpdateTest extends CasePostgresTestSupport {
     private String reporterEmail;
     private long reporter;
     private String moderatorEmail;
+    private long moderator;
 
     @BeforeEach
     void actors() {
@@ -56,7 +57,7 @@ class CaseStatusUpdateTest extends CasePostgresTestSupport {
         reporterEmail = email("reporter");
         reporter = user(reporterEmail);
         moderatorEmail = email("moderator");
-        actor(moderatorEmail, UserRoles.MODERATOR);
+        moderator = actor(moderatorEmail, UserRoles.MODERATOR);
     }
 
     @Test
@@ -104,6 +105,13 @@ class CaseStatusUpdateTest extends CasePostgresTestSupport {
         assertThat(jdbc.queryForList("SELECT action FROM audit_events WHERE target_type = 'CASE' AND target_id = ? "
                 + "ORDER BY id", before.getId())).extracting(row -> row.get("action"))
                 .containsExactly("CASE.CLOSING_STATEMENT_SET", "CASE.STATUS_CHANGED");
+        assertThat(jdbc.queryForList("SELECT actor_id, actor_role, action FROM audit_events WHERE target_type = 'CASE' "
+                + "AND target_id = ? AND action = 'CASE.STATUS_CHANGED'", before.getId())).singleElement()
+                .satisfies(row -> assertThat(row).containsEntry("actor_id", moderator)
+                        .containsEntry("actor_role", "MODERATOR"));
+        assertThat(events.delivered).singleElement()
+                .extracting(CaseStatusChangedEvent::actorKind)
+                .isEqualTo(CaseStatusChangedEvent.ActorKind.ADMIN);
     }
 
     @Test

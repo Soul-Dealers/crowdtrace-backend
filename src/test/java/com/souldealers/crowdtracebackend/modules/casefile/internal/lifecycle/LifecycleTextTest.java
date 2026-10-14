@@ -1,4 +1,4 @@
-package com.souldealers.crowdtracebackend.modules.casefile;
+package com.souldealers.crowdtracebackend.modules.casefile.internal.lifecycle;
 
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import org.junit.jupiter.api.Test;

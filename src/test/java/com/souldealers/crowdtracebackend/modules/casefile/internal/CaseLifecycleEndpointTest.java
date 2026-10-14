@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -97,6 +98,38 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void reporterCanSetAStatementAndForeignReporterGets404() throws Exception {
+        CaseRecord own = approved(ownerId, CaseStatus.FOUND_SAFE);
+        mvc.perform(as(put(REPORTER_PATH + own.getId() + "/closing-statement"), ownerEmail)
+                .content("{\"expectedCaseVersion\":" + own.getVersion()
+                        + ",\"closingStatement\":\"  They are home.  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.closingStatement").value("They are home."));
+
+        long foreignId = actor(email("foreign-statement"), UserRoles.REGISTERED_USER);
+        CaseRecord foreign = approved(foreignId, CaseStatus.FOUND_SAFE);
+        mvc.perform(as(put(REPORTER_PATH + foreign.getId() + "/closing-statement"), ownerEmail)
+                .content("{\"expectedCaseVersion\":" + foreign.getVersion()
+                        + ",\"closingStatement\":\"Private\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminStatementRouteRequiresModeratorAndRejectsBlankInput() throws Exception {
+        CaseRecord resolved = approved(ownerId, CaseStatus.FOUND_SAFE);
+        mvc.perform(as(put(ADMIN_PATH + resolved.getId() + "/closing-statement"), UserRoles.REGISTERED_USER)
+                .content("{\"expectedCaseVersion\":" + resolved.getVersion()
+                        + ",\"closingStatement\":\"No\"}"))
+                .andExpect(status().isForbidden());
+        String moderatorEmail = email("statement-moderator");
+        actor(moderatorEmail, UserRoles.MODERATOR);
+        mvc.perform(as(put(ADMIN_PATH + resolved.getId() + "/closing-statement"), moderatorEmail)
+                .content("{\"expectedCaseVersion\":" + resolved.getVersion()
+                        + ",\"closingStatement\":\" \u2003 \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, UserRoles role) {
         String email = email(role.name().toLowerCase());
         actor(email, role);
@@ -110,12 +143,18 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
     }
 
     private CaseRecord approved(long reporterId) {
+        return approved(reporterId, CaseStatus.MISSING);
+    }
+
+    private CaseRecord approved(long reporterId, CaseStatus status) {
         LocalDateTime now = LocalDateTime.of(2026, 10, 1, 10, 0);
         return cases.saveAndFlush(CaseRecord.builder().reporterId(reporterId).fullName("Test Person").age(24)
                 .gender(Gender.MALE).lastSeenDate(LocalDate.of(2026, 9, 30)).region(GhanaRegion.GREATER_ACCRA)
                 .lastSeenLocation("Accra").physicalDescription("Description").clothing("Clothes")
                 .circumstances("Circumstances").publicContactNumber("+233200000000")
-                .reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).approvedAt(now)
+                .reviewStatus(ReviewStatus.APPROVED).caseStatus(status).approvedAt(now)
+                .resolvedAt(status == CaseStatus.MISSING ? null : now)
+                .closedAt(status == CaseStatus.CLOSED ? now : null)
                 .submittedAt(now.minusDays(2)).createdAt(now.minusDays(2)).updatedAt(now.minusDays(2)).build());
     }
 

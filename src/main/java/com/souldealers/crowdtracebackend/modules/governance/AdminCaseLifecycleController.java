@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.governance;
 
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleService;
+import com.souldealers.crowdtracebackend.modules.casefile.SetClosingStatementRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.UpdateCaseStatusRequest;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,4 +47,19 @@ public class AdminCaseLifecycleController {
                 "Case status changed successfully");
     }
 
+    @PutMapping("/closing-statement")
+    @RequiresModerator
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Statement saved", content = @Content(schema = @Schema(ref = "#/components/schemas/CaseLifecycleApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Moderator role required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown case", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Invalid state, stale version or unchanged statement", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
+    @Operation(summary = "Set a closing statement", description = "Sets or replaces the stripped public statement for a resolved approved case.")
+    public ApiResponse<CaseLifecycleResponse> setClosingStatement(Authentication authentication,
+            @PathVariable Long id, @Valid @RequestBody SetClosingStatementRequest request) {
+        return ApiResponse.success(lifecycleService.setClosingStatementAsAdmin(authentication.getName(), id, request),
+                "Closing statement saved successfully");
+    }
 }
