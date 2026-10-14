@@ -17,6 +17,7 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.JsonSchema;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -142,10 +144,14 @@ public class OpenApiConfig {
                 .addProperties("caseVersion", new IntegerSchema().format("int64"))
                 .addProperties("reviewStatus", new StringSchema())
                 .addProperties("caseStatus", new StringSchema())
-                .addProperties("closingStatement", new StringSchema())
-                .addProperties("resolvedAt", new StringSchema().format("date-time"))
-                .addProperties("closedAt", new StringSchema().format("date-time"))
+                .addProperties("closingStatement", nullableString())
+                .addProperties("resolvedAt", nullableString().format("date-time"))
+                .addProperties("closedAt", nullableString().format("date-time"))
                 .addProperties("occurredAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema nullableString() {
+        return new JsonSchema().types(new LinkedHashSet<>(List.of("string", "null")));
     }
 
     private Schema adminCaseSummarySchema() {

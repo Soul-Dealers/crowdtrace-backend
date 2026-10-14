@@ -140,8 +140,22 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.components.schemas.SetClosingStatementRequest.properties.closingStatement.maxLength")
                         .value(2000))
                 .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())
-                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt").exists())
-                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closingStatement.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.nullable")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.required", containsInAnyOrder(
+                        "caseId", "caseVersion", "reviewStatus", "caseStatus", "occurredAt")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.occurredAt.type")
+                        .value("string"))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get.responses.200.content.*.schema.$ref",
                         hasItem("#/components/schemas/ReviewCaseDetailApiResponse")))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.200.content.*.schema.$ref",
