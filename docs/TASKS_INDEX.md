@@ -133,11 +133,11 @@ when its acceptance criteria and the relevant tests are verified.
 
 ### Phase 3 — Governance
 
-- [ ] CT-016 — Create review, audit, and comment-report persistence
-- [ ] CT-017 — Implement moderator review queue and decisions
-- [ ] CT-018 — Implement case lifecycle transitions, status updates, and takedown
+- [x] CT-016 — Create review, audit, and comment-report persistence
+- [x] CT-017 — Implement moderator review queue and decisions
+- [x] CT-018 — Implement case lifecycle transitions, status updates, and takedown
 - [ ] CT-019 — Implement comment reporting and moderation resolution
-- [ ] CT-020 — Centralize auditable state-change recording
+- [x] CT-020 — Centralize auditable state-change recording
 
 ### Phase 4 — Discovery
 

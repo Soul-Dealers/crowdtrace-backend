@@ -40,7 +40,7 @@ class ReviewProjectionTest extends ReviewDecisionTestSupport {
         assertThat(mapper.readTree(raw).propertyNames()).containsExactlyInAnyOrder(
                 "id", "fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
                 "physicalDescription", "clothing", "circumstances", "caseStatus", "closingStatement",
-                "publicContactNumber", "approvedAt", "resolvedAt");
+                "publicContactNumber", "approvedAt", "resolvedAt", "presentation");
         assertThat(raw).doesNotContain(NOTES, reporterEmail, moderatorEmail, "reviewStatus", "version");
         assertThat(caseQueries.listPublicCases(PageRequest.of(0, 50)).content())
                 .extracting(PublicCaseResponse::id).contains(c.getId());
