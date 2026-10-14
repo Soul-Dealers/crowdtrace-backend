@@ -137,6 +137,13 @@ class OpenApiContractTest {
                         .value("#/components/schemas/SetClosingStatementRequest"))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/closing-statement'].put").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/closing-statement'].put.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/TakeDownCaseRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post.responses.403").exists())
+                .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.required", containsInAnyOrder(
+                        "expectedCaseVersion", "reason")))
+                .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.properties.reason.maxLength").value(2000))
                 .andExpect(jsonPath("$.components.schemas.SetClosingStatementRequest.properties.closingStatement.maxLength")
                         .value(2000))
                 .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())

@@ -5,6 +5,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.SetClosingStatementRequest;
+import com.souldealers.crowdtracebackend.modules.casefile.TakeDownCaseRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.UpdateCaseStatusRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
@@ -13,6 +14,7 @@ import com.souldealers.crowdtracebackend.modules.identity.ActorView;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.notification.CaseStatusChangedEvent;
+import com.souldealers.crowdtracebackend.modules.notification.CaseTakenDownEvent;
 import com.souldealers.crowdtracebackend.modules.notification.NotifiedCaseStatus;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
@@ -26,6 +28,7 @@ import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
 import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -131,6 +134,34 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
         return setStatement(record, actor, request.expectedCaseVersion(), request.closingStatement());
     }
 
+    @Override
+    @Transactional
+    @RequiresModerator
+    @AuditedOperation(AuditAction.CASE_TAKEN_DOWN)
+    public CaseLifecycleResponse takeDownAsAdmin(String actorEmail, Long caseId, TakeDownCaseRequest request) {
+        requireTakedownRequest(request);
+        ActorView actor = actorLookup.byEmail(actorEmail);
+        CaseRecord record = cases.findByIdForUpdate(caseId)
+                .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
+        if (record.getReporterId().equals(actor.userId())) {
+            throw new AccessDeniedException("Moderators cannot take down their own cases");
+        }
+        CaseLifecyclePolicy.requireTakedown(record.getReviewStatus());
+        requireVersion(record, request.expectedCaseVersion());
+        String reason = LifecycleText.normalize(request.reason(), "Takedown reason");
+        LocalDateTime occurredAt = LocalDateTime.now(clock);
+        record.setReviewStatus(ReviewStatus.TAKEN_DOWN);
+        record.setTakedownReason(reason);
+        record.setTakenDownBy(actor.userId());
+        record.setTakenDownAt(occurredAt);
+        cases.flush();
+
+        long auditId = auditRecorder.record(auditActor(actor), AuditAction.CASE_TAKEN_DOWN, record.getId(),
+                AuditMetadata.none(AuditAction.CASE_TAKEN_DOWN));
+        events.publishEvent(CaseTakenDownEvent.of(auditId, record.getId(), record.getReporterId(), occurredAt));
+        return response(record, occurredAt);
+    }
+
     private CaseLifecycleResponse setStatement(CaseRecord record, ActorView actor, long expectedVersion,
                                               String rawStatement) {
         if (record.getReviewStatus() != ReviewStatus.APPROVED || record.getCaseStatus() == CaseStatus.MISSING) {
@@ -160,6 +191,13 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
         if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0
                 || request.closingStatement() == null) {
             throw new ValidationException("Expected case version and closing statement are required");
+        }
+    }
+
+    private static void requireTakedownRequest(TakeDownCaseRequest request) {
+        if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0
+                || request.reason() == null) {
+            throw new ValidationException("Expected case version and takedown reason are required");
         }
     }
 

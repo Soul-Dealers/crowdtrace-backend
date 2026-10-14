@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +128,31 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
         mvc.perform(as(put(ADMIN_PATH + resolved.getId() + "/closing-statement"), moderatorEmail)
                 .content("{\"expectedCaseVersion\":" + resolved.getVersion()
                         + ",\"closingStatement\":\" \u2003 \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void adminTakedownRouteRequiresModeratorAndReturnsTheUpdatedLifecycle() throws Exception {
+        CaseRecord resolved = approved(ownerId, CaseStatus.FOUND_SAFE);
+        mvc.perform(as(post(ADMIN_PATH + resolved.getId() + "/takedown"), UserRoles.REGISTERED_USER)
+                .content("{\"expectedCaseVersion\":" + resolved.getVersion() + ",\"reason\":\"Hoax\"}"))
+                .andExpect(status().isForbidden());
+        String moderatorEmail = email("takedown-moderator");
+        actor(moderatorEmail, UserRoles.MODERATOR);
+        mvc.perform(as(post(ADMIN_PATH + resolved.getId() + "/takedown"), moderatorEmail)
+                .content("{\"expectedCaseVersion\":" + resolved.getVersion() + ",\"reason\":\" Hoax \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reviewStatus").value("TAKEN_DOWN"))
+                .andExpect(jsonPath("$.data.caseStatus").value("FOUND_SAFE"));
+    }
+
+    @Test
+    void adminTakedownRouteRejectsInvalidReason() throws Exception {
+        CaseRecord own = approved(ownerId);
+        String moderatorEmail = email("invalid-takedown-moderator");
+        actor(moderatorEmail, UserRoles.MODERATOR);
+        mvc.perform(as(post(ADMIN_PATH + own.getId() + "/takedown"), moderatorEmail)
+                .content("{\"expectedCaseVersion\":" + own.getVersion() + ",\"reason\":\" \u2003 \"}"))
                 .andExpect(status().isBadRequest());
     }
 

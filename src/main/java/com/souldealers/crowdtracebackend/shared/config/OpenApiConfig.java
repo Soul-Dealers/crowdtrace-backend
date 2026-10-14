@@ -118,6 +118,7 @@ public class OpenApiConfig {
                 "#/components/schemas/CaseReviewDecisionResponse"));
         schemas.put("UpdateCaseStatusRequest", lifecycleStatusRequestSchema());
         schemas.put("SetClosingStatementRequest", closingStatementRequestSchema());
+        schemas.put("TakeDownCaseRequest", takeDownRequestSchema());
         schemas.put("CaseLifecycleResponse", caseLifecycleResponseSchema());
         schemas.put("CaseLifecycleApiResponse", caseResponseEnvelope("Case lifecycle mutation result",
                 "#/components/schemas/CaseLifecycleResponse"));
@@ -136,6 +137,12 @@ public class OpenApiConfig {
                 .addProperties("expectedCaseVersion", new IntegerSchema().format("int64").minimum(BigDecimal.ZERO))
                 .addProperties("closingStatement", new StringSchema().maxLength(2000)
                         .description("Unicode-stripped, non-blank public statement."));
+    }
+
+    private Schema takeDownRequestSchema() {
+        return new ObjectSchema().required(List.of("expectedCaseVersion", "reason"))
+                .addProperties("expectedCaseVersion", new IntegerSchema().format("int64").minimum(BigDecimal.ZERO))
+                .addProperties("reason", new StringSchema().maxLength(2000));
     }
 
     private Schema caseLifecycleResponseSchema() {
@@ -501,6 +508,9 @@ public class OpenApiConfig {
                 .addPathItem("/api/v1/admin/cases/{id}/closing-statement", new PathItem().put(
                         adminCaseLifecycleOperation("Set a closing statement", "SetClosingStatementRequest",
                                 "Set closing statement")))
+                .addPathItem("/api/v1/admin/cases/{id}/takedown", new PathItem().post(
+                        adminCaseLifecycleOperation("Take down an approved case", "TakeDownCaseRequest",
+                                "Hide an approved case while preserving its outcome and lifecycle data")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
