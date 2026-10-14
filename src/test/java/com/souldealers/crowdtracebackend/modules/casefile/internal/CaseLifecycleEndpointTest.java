@@ -168,6 +168,34 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void superAdminCanTakeDownAndRestoreButNeverTheirOwnCase() throws Exception {
+        String superAdminEmail = email("super-admin");
+        long superAdminId = actor(superAdminEmail, UserRoles.SUPER_ADMIN);
+        CaseRecord others = approved(ownerId);
+        mvc.perform(as(post(ADMIN_PATH + others.getId() + "/takedown"), superAdminEmail)
+                .content("{\"expectedCaseVersion\":" + others.getVersion() + ",\"reason\":\"Hoax\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reviewStatus").value("TAKEN_DOWN"));
+        long takenDownVersion = cases.findById(others.getId()).orElseThrow().getVersion();
+        mvc.perform(as(post(ADMIN_PATH + others.getId() + "/restore"), superAdminEmail)
+                .content("{\"expectedCaseVersion\":" + takenDownVersion + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reviewStatus").value("APPROVED"));
+
+        CaseRecord own = approved(superAdminId);
+        mvc.perform(as(post(ADMIN_PATH + own.getId() + "/takedown"), superAdminEmail)
+                .content("{\"expectedCaseVersion\":" + own.getVersion() + ",\"reason\":\"Hoax\"}"))
+                .andExpect(status().isForbidden());
+        CaseRecord ownHidden = takenDown(superAdminId);
+        mvc.perform(as(post(ADMIN_PATH + ownHidden.getId() + "/restore"), superAdminEmail)
+                .content("{\"expectedCaseVersion\":" + ownHidden.getVersion() + "}"))
+                .andExpect(status().isForbidden());
+        assertThat(cases.findById(own.getId()).orElseThrow().getReviewStatus()).isEqualTo(ReviewStatus.APPROVED);
+        assertThat(cases.findById(ownHidden.getId()).orElseThrow().getReviewStatus())
+                .isEqualTo(ReviewStatus.TAKEN_DOWN);
+    }
+
+    @Test
     void adminTakedownRouteRejectsInvalidReason() throws Exception {
         CaseRecord own = approved(ownerId);
         String moderatorEmail = email("invalid-takedown-moderator");

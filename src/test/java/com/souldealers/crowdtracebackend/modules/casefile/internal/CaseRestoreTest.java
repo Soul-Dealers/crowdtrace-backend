@@ -87,6 +87,11 @@ class CaseRestoreTest extends CasePostgresTestSupport {
         assertThat(restored.getTakedownReason()).isEqualTo("Confirmed hoax");
         assertThat(restored.getTakenDownBy()).isEqualTo(originalTakedownActor);
         assertThat(restored.getTakenDownAt()).isEqualTo(originalTakedownAt);
+        assertThat(restored.getApprovedAt()).isEqualTo(before.getApprovedAt());
+        assertThat(restored.getResolvedAt()).isEqualTo(before.getResolvedAt());
+        assertThat(restored.getClosedAt()).isEqualTo(before.getClosedAt());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM case_reviews WHERE case_id = ?", Integer.class,
+                before.getId())).isZero();
         assertThat(restored.getVersion()).isEqualTo(takenDown.getVersion() + 1);
         assertThat(response.caseVersion()).isEqualTo(restored.getVersion());
         assertThat(queryService.getPublicCase(before.getId()).caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
