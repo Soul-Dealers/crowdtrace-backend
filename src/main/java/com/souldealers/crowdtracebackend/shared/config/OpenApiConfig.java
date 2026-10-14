@@ -120,6 +120,11 @@ public class OpenApiConfig {
         schemas.put("SetClosingStatementRequest", closingStatementRequestSchema());
         schemas.put("TakeDownCaseRequest", takeDownRequestSchema());
         schemas.put("RestoreCaseRequest", restoreRequestSchema());
+        schemas.put("SensitiveDetailsResponse", sensitiveDetailsResponseSchema());
+        schemas.put("PublicCaseResponse", publicCaseResponseSchema());
+        schemas.put("ReporterCaseResponse", reporterCaseResponseSchema());
+        schemas.put("ReporterCaseApiResponse", caseResponseEnvelope("Reporter-owned case detail",
+                "#/components/schemas/ReporterCaseResponse"));
         schemas.put("CaseLifecycleResponse", caseLifecycleResponseSchema());
         schemas.put("CaseLifecycleApiResponse", caseResponseEnvelope("Case lifecycle mutation result",
                 "#/components/schemas/CaseLifecycleResponse"));
@@ -161,6 +166,50 @@ public class OpenApiConfig {
                 .addProperties("resolvedAt", nullableString().format("date-time"))
                 .addProperties("closedAt", nullableString().format("date-time"))
                 .addProperties("occurredAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema publicCaseResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("fullName", new StringSchema())
+                .addProperties("age", new IntegerSchema().format("int32"))
+                .addProperties("gender", new StringSchema())
+                .addProperties("lastSeenDate", new StringSchema().format("date"))
+                .addProperties("region", new StringSchema())
+                .addProperties("lastSeenLocation", nullableString())
+                .addProperties("physicalDescription", nullableString())
+                .addProperties("clothing", nullableString())
+                .addProperties("circumstances", nullableString())
+                .addProperties("caseStatus", new StringSchema())
+                .addProperties("closingStatement", nullableString())
+                .addProperties("publicContactNumber", nullableString())
+                .addProperties("approvedAt", new StringSchema().format("date-time"))
+                .addProperties("resolvedAt", nullableString().format("date-time"))
+                .addProperties("presentation", new StringSchema()._enum(List.of("STANDARD", "DECEASED_NOTICE")));
+    }
+
+    private Schema reporterCaseResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("fullName", new StringSchema())
+                .addProperties("age", new IntegerSchema().format("int32"))
+                .addProperties("gender", new StringSchema())
+                .addProperties("lastSeenDate", new StringSchema().format("date"))
+                .addProperties("region", new StringSchema())
+                .addProperties("lastSeenLocation", nullableString())
+                .addProperties("physicalDescription", nullableString())
+                .addProperties("clothing", nullableString())
+                .addProperties("circumstances", nullableString())
+                .addProperties("publicContactNumber", nullableString())
+                .addProperties("reviewStatus", new StringSchema())
+                .addProperties("caseStatus", nullableString())
+                .addProperties("closingStatement", nullableString())
+                .addProperties("submittedAt", new StringSchema().format("date-time"))
+                .addProperties("approvedAt", nullableString().format("date-time"))
+                .addProperties("sensitiveDetails", new Schema<>().$ref("#/components/schemas/SensitiveDetailsResponse"))
+                .addProperties("version", new IntegerSchema().format("int64"))
+                .addProperties("resolvedAt", nullableString().format("date-time"))
+                .addProperties("closedAt", nullableString().format("date-time"));
     }
 
     private Schema nullableString() {
@@ -238,16 +287,20 @@ public class OpenApiConfig {
                 .addProperties("circumstances", new StringSchema())
                 .addProperties("publicContactNumber", new StringSchema())
                 .addProperties("reviewStatus", new StringSchema())
-                .addProperties("caseStatus", new StringSchema())
-                .addProperties("closingStatement", new StringSchema())
+                .addProperties("caseStatus", nullableString())
+                .addProperties("closingStatement", nullableString())
                 .addProperties("priorityMinor", new BooleanSchema())
                 .addProperties("duplicateFlag", new BooleanSchema())
                 .addProperties("version", new IntegerSchema().format("int64")
                         .description("Send as expectedCaseVersion when deciding."))
                 .addProperties("submittedAt", new StringSchema().format("date-time"))
-                .addProperties("approvedAt", new StringSchema().format("date-time"))
-                .addProperties("resolvedAt", new StringSchema().format("date-time"))
-                .addProperties("closedAt", new StringSchema().format("date-time"))
+                .addProperties("approvedAt", nullableString().format("date-time"))
+                .addProperties("resolvedAt", nullableString().format("date-time"))
+                .addProperties("closedAt", nullableString().format("date-time"))
+                .addProperties("takedownReason", nullableString())
+                .addProperties("takenDownBy", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
+                        .format("int64"))
+                .addProperties("takenDownAt", nullableString().format("date-time"))
                 .addProperties("sensitiveDetails", new ObjectSchema())
                 .addProperties("consents", new ArraySchema().items(new ObjectSchema()));
         return new ObjectSchema()
@@ -505,6 +558,7 @@ public class OpenApiConfig {
                         "Readiness probe", "Returns the current readiness status, including database health."))
                 .addPathItem("/api/user/case-files", new PathItem().post(caseFileUploadOperation()))
                 .addPathItem("/api/user/cases", new PathItem().post(caseSubmissionOperation()))
+                .addPathItem("/api/user/cases/{id}", new PathItem().get(reporterCaseDetailOperation()))
                 .addPathItem("/api/user/cases/{id}/status", new PathItem().patch(caseLifecycleOperation(
                         "Change a case outcome", "UpdateCaseStatusRequest", "Change case outcome")))
                 .addPathItem("/api/user/cases/{id}/closing-statement", new PathItem().put(caseLifecycleOperation(
@@ -524,7 +578,35 @@ public class OpenApiConfig {
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
                         publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
-                                .parameters(List.of(caseIdParameter()))));
+                                .parameters(List.of(caseIdParameter()))
+                                .responses(new ApiResponses().addApiResponse("200", jsonResponse(
+                                        "Contract placeholder only; no runtime response is available.",
+                                        "#/components/schemas/PublicCaseResponse")))));
+    }
+
+    private Operation reporterCaseDetailOperation() {
+        return new Operation().tags(List.of("Case Submission"))
+                .summary("Get a reporter case")
+                .description("Returns the authenticated reporter's case detail and current case version. Foreign and "
+                        + "unknown cases both return 404.")
+                .security(List.of(new SecurityRequirement().addList("bearerAuth")))
+                .parameters(List.of(new Parameter().name("id").in("path").required(true)
+                        .description("Case identifier.").schema(new IntegerSchema().format("int64"))))
+                .responses(new ApiResponses()
+                        .addApiResponse("200", jsonResponse("Reporter case detail",
+                                "#/components/schemas/ReporterCaseApiResponse"))
+                        .addApiResponse("401", caseProblemResponse("Authentication required"))
+                        .addApiResponse("403", caseProblemResponse("Registered-user role required"))
+                        .addApiResponse("404", caseProblemResponse("Unknown or foreign case")));
+    }
+
+    private Schema sensitiveDetailsResponseSchema() {
+        return new ObjectSchema()
+                .addProperties("reporterRelationship", nullableString())
+                .addProperties("medicalConditions", nullableString())
+                .addProperties("knownAssociates", nullableString())
+                .addProperties("vehicleInfo", nullableString())
+                .addProperties("socialMediaHandles", nullableString());
     }
 
     private Operation caseLifecycleOperation(String summary, String requestSchema, String description) {

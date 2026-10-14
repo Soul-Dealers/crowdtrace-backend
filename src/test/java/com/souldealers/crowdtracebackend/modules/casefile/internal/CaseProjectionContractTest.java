@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal;
 
 import org.junit.jupiter.api.Test;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -18,17 +19,37 @@ class CaseProjectionContractTest {
         assertThat(json.propertyNames()).containsExactlyInAnyOrder(
                 "id", "fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
                 "physicalDescription", "clothing", "circumstances", "caseStatus", "closingStatement",
-                "publicContactNumber", "approvedAt", "resolvedAt");
+                "publicContactNumber", "approvedAt", "resolvedAt", "presentation");
         assertThat(json.get("fullName").asText()).isEqualTo("Kofi Mensah");
         assertThat(json.get("lastSeenDate").asText()).isEqualTo("2026-09-30");
         assertThat(json.get("resolvedAt").asText()).isEqualTo("2026-10-01T09:00:00");
+        assertThat(json.get("presentation").asText()).isEqualTo("STANDARD");
+    }
+
+    @Test
+    void deceasedPublicProjectionWithholdsGranularDetailsAndUsesNoticePresentation() {
+        var deceased = fullCase();
+        deceased.setCaseStatus(CaseStatus.FOUND_DECEASED);
+
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(CaseMapper.toPublic(deceased)));
+
+        assertThat(json.get("lastSeenLocation").isNull()).isTrue();
+        assertThat(json.get("physicalDescription").isNull()).isTrue();
+        assertThat(json.get("clothing").isNull()).isTrue();
+        assertThat(json.get("circumstances").isNull()).isTrue();
+        assertThat(json.get("publicContactNumber").isNull()).isTrue();
+        assertThat(json.get("presentation").asText()).isEqualTo("DECEASED_NOTICE");
+        assertThat(json.get("fullName").asText()).isEqualTo("Kofi Mensah");
+        assertThat(json.get("lastSeenDate").asText()).isEqualTo("2026-09-30");
+        assertThat(json.get("closingStatement").asText()).isEqualTo("Statement");
     }
 
     @Test
     void publicJsonCarriesNoAdminOnlyValue() {
         String json = mapper.writeValueAsString(CaseMapper.toPublic(fullCase()));
         assertThat(json).doesNotContain(MEDICAL, ASSOCIATES, VEHICLE, SOCIALS, RELATION, EMAIL, STORAGE_KEY)
-                .doesNotContain("reporterId", "priorityMinor", "duplicateFlag", "reviewStatus", "submittedAt");
+                .doesNotContain("reporterId", "priorityMinor", "duplicateFlag", "reviewStatus", "submittedAt",
+                        "takedownReason", "takenDownBy", "takenDownAt");
     }
 
     @Test
@@ -37,7 +58,8 @@ class CaseProjectionContractTest {
         assertThat(json.propertyNames()).containsExactlyInAnyOrder(
                 "id", "fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
                 "physicalDescription", "clothing", "circumstances", "publicContactNumber", "reviewStatus",
-                "caseStatus", "closingStatement", "submittedAt", "approvedAt", "sensitiveDetails");
+                "caseStatus", "closingStatement", "submittedAt", "approvedAt", "sensitiveDetails", "version",
+                "resolvedAt", "closedAt");
         assertThat(json.get("sensitiveDetails").propertyNames()).containsExactlyInAnyOrder(
                 "reporterRelationship", "medicalConditions", "knownAssociates", "vehicleInfo", "socialMediaHandles");
         assertThat(json.get("sensitiveDetails").get("medicalConditions").asText()).isEqualTo(MEDICAL);
@@ -45,6 +67,10 @@ class CaseProjectionContractTest {
         assertThat(json.get("sensitiveDetails").get("knownAssociates").asText()).isEqualTo(ASSOCIATES);
         assertThat(json.get("sensitiveDetails").get("vehicleInfo").asText()).isEqualTo(VEHICLE);
         assertThat(json.get("sensitiveDetails").get("socialMediaHandles").asText()).isEqualTo(SOCIALS);
+        assertThat(json.get("version").asLong()).isEqualTo(3L);
+        assertThat(json.get("resolvedAt").asText()).isEqualTo("2026-10-01T09:00:00");
+        assertThat(json.get("closedAt").asText()).isEqualTo("2026-10-01T09:00:00");
+        assertThat(json.has("takedownReason")).isFalse();
     }
 
     @Test
@@ -69,6 +95,9 @@ class CaseProjectionContractTest {
         JsonNode json = mapper.readTree(raw);
         assertThat(json.get("reporterId").asLong()).isEqualTo(42L);
         assertThat(json.get("version").asLong()).isEqualTo(3L);
+        assertThat(json.get("takedownReason").asText()).isEqualTo("SENTINEL-TAKEDOWN-REASON");
+        assertThat(json.get("takenDownBy").asLong()).isEqualTo(99L);
+        assertThat(json.get("takenDownAt").asText()).isEqualTo("2026-10-01T09:00:00");
         assertThat(json.get("files").get(0).propertyNames()).containsExactlyInAnyOrder(
                 "id", "purpose", "visibility", "contentType", "sizeBytes", "uploadedAt");
         assertThat(json.get("files").get(0).get("purpose").asText()).isEqualTo("REPORT");

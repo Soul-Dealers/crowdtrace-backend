@@ -33,6 +33,7 @@ import static org.mockito.Mockito.doReturn;
 
 class CaseQueryServiceTest extends CasePostgresTestSupport {
     @Autowired private CaseQueryService service;
+    @Autowired private CaseLifecycleService lifecycleService;
     @Autowired private CaseRecordRepository cases;
     @Autowired private CaseSensitiveDetailsRepository sensitive;
     @Autowired private CaseFileRepository files;
@@ -87,6 +88,40 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     }
 
     @Test
+    @WithMockUser(authorities = "MODERATOR")
+    void deceasedCaseRemainsARespectfulPublicNoticeAfterTakedownAndRestore() {
+        long reporter = user("deceased-public@example.com");
+        jdbc.queryForObject("""
+                INSERT INTO users (email, password_hash, display_name, role, account_status)
+                VALUES ('deceased-moderator@example.com', 'x', 'Moderator', 'MODERATOR', 'ACTIVE') RETURNING id
+                """, Long.class);
+        CaseRecord deceased = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.FOUND_DECEASED).closingStatement("The family has been notified.")
+                .approvedAt(at(9)).resolvedAt(at(9)).build());
+
+        var hidden = lifecycleService.takeDownAsAdmin("deceased-moderator@example.com", deceased.getId(),
+                new TakeDownCaseRequest(deceased.getVersion(), "Verified hoax report"));
+        var restored = lifecycleService.restoreAsAdmin("deceased-moderator@example.com", deceased.getId(),
+                new RestoreCaseRequest(hidden.caseVersion()));
+
+        PublicCaseResponse detail = service.getPublicCase(deceased.getId());
+        PublicCaseResponse listItem = service.listPublicCases(PageRequest.of(0, 50)).content().stream()
+                .filter(item -> item.id().equals(deceased.getId())).findFirst().orElseThrow();
+        assertThat(restored.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
+        for (PublicCaseResponse projection : List.of(detail, listItem)) {
+            assertThat(projection.presentation().name()).isEqualTo("DECEASED_NOTICE");
+            assertThat(projection.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
+            assertThat(projection.closingStatement()).isEqualTo("The family has been notified.");
+            assertThat(projection.fullName()).isEqualTo("Kofi Mensah");
+            assertThat(projection.lastSeenLocation()).isNull();
+            assertThat(projection.physicalDescription()).isNull();
+            assertThat(projection.clothing()).isNull();
+            assertThat(projection.circumstances()).isNull();
+            assertThat(projection.publicContactNumber()).isNull();
+        }
+    }
+
+    @Test
     void publicPagesAreStableWhenApprovalTimesTie() {
         long r = user("public-tie@example.com");
         List<Long> ids = IntStream.range(0, 5).mapToObj(i -> cases.save(aCase(r)
@@ -108,6 +143,9 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         ReporterCaseResponse response = service.getOwnCase(c.getId(), r);
         assertThat(response.id()).isEqualTo(c.getId());
         assertThat(response.reviewStatus()).isEqualTo(ReviewStatus.SUBMITTED);
+        assertThat(response.version()).isEqualTo(c.getVersion());
+        assertThat(response.resolvedAt()).isNull();
+        assertThat(response.closedAt()).isNull();
         assertThat(response.sensitiveDetails().reporterRelationship()).isEqualTo("Sister");
         assertThat(response.sensitiveDetails().medicalConditions()).isEqualTo("Asthma");
     }

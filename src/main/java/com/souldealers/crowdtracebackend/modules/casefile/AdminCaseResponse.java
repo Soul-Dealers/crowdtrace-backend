@@ -16,4 +16,4 @@ public record AdminCaseResponse(
         String closingStatement, boolean priorityMinor, boolean duplicateFlag, Long version,
         LocalDateTime submittedAt, LocalDateTime approvedAt, LocalDateTime resolvedAt, LocalDateTime closedAt,
         SensitiveDetailsResponse sensitiveDetails, List<CaseFileMetadataResponse> files,
-        List<CaseConsentResponse> consents) {}
+        List<CaseConsentResponse> consents, String takedownReason, Long takenDownBy, LocalDateTime takenDownAt) {}

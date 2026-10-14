@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +61,26 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
         mvc.perform(as(patch(REPORTER_PATH + foreign.getId() + "/status"), UserRoles.REGISTERED_USER)
                 .content(body(foreign.getVersion(), "FOUND_SAFE"))).andExpect(status().isNotFound());
         assertThat(cases.findById(foreign.getId()).orElseThrow().getCaseStatus()).isEqualTo(CaseStatus.MISSING);
+    }
+
+    @Test
+    void reporterDetailReturnsVersionAndLifecycleFieldsOnlyForItsOwner() throws Exception {
+        CaseRecord own = approved(ownerId, CaseStatus.FOUND_SAFE);
+        long foreignOwner = actor(email("foreign-detail"), UserRoles.REGISTERED_USER);
+        CaseRecord foreign = approved(foreignOwner);
+
+        mvc.perform(get(REPORTER_PATH + own.getId()))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(as(get(REPORTER_PATH + own.getId()), ownerEmail))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(own.getId()))
+                .andExpect(jsonPath("$.data.version").value(own.getVersion()))
+                .andExpect(jsonPath("$.data.reviewStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.data.resolvedAt").exists())
+                .andExpect(jsonPath("$.data.closedAt").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.takedownReason").doesNotExist());
+        mvc.perform(as(get(REPORTER_PATH + foreign.getId()), ownerEmail))
+                .andExpect(status().isNotFound());
     }
 
     @Test
