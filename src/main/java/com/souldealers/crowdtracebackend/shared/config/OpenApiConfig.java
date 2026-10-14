@@ -133,6 +133,9 @@ public class OpenApiConfig {
         schemas.put("CaseLifecycleResponse", caseLifecycleResponseSchema());
         schemas.put("CaseLifecycleApiResponse", caseResponseEnvelope("Case lifecycle mutation result",
                 "#/components/schemas/CaseLifecycleResponse"));
+        schemas.put("CasePhotosAddedResponse", casePhotosAddedResponseSchema());
+        schemas.put("CasePhotosAddedApiResponse", caseResponseEnvelope("Photos added to a live case",
+                "#/components/schemas/CasePhotosAddedResponse"));
         return schemas;
     }
 
@@ -171,6 +174,15 @@ public class OpenApiConfig {
                 .addProperties("resolvedAt", nullableString().format("date-time"))
                 .addProperties("closedAt", nullableString().format("date-time"))
                 .addProperties("occurredAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema casePhotosAddedResponseSchema() {
+        return new ObjectSchema().required(List.of("caseId", "caseVersion", "photos", "addedAt"))
+                .addProperties("caseId", new IntegerSchema().format("int64"))
+                .addProperties("caseVersion", new IntegerSchema().format("int64"))
+                .addProperties("photos", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/CaseFileMetadataResponse")))
+                .addProperties("addedAt", new StringSchema().format("date-time"));
     }
 
     private Schema publicCaseResponseSchema() {

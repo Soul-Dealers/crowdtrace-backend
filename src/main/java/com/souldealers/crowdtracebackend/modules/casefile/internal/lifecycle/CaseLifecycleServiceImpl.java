@@ -2,6 +2,10 @@ package com.souldealers.crowdtracebackend.modules.casefile.internal.lifecycle;
 
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleService;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseFileAttachmentService;
+import com.souldealers.crowdtracebackend.modules.casefile.CasePhotoAttachmentResult;
+import com.souldealers.crowdtracebackend.modules.casefile.CasePhotosAddedResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.AddCasePhotosRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.RestoreCaseRequest;
@@ -16,6 +20,7 @@ import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.notification.CaseStatusChangedEvent;
 import com.souldealers.crowdtracebackend.modules.notification.CaseRestoredEvent;
+import com.souldealers.crowdtracebackend.modules.notification.CasePhotosAddedEvent;
 import com.souldealers.crowdtracebackend.modules.notification.CaseTakenDownEvent;
 import com.souldealers.crowdtracebackend.modules.notification.NotifiedCaseStatus;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
@@ -48,6 +53,8 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
     private final ClosingStatementClearer statementClearer;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final CaseFileAttachmentService attachmentService;
+    private final LivePhotoAuditor livePhotoAuditor;
 
     @Override
     @Transactional
@@ -186,6 +193,27 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
                 AuditMetadata.none(AuditAction.CASE_RESTORED));
         events.publishEvent(CaseRestoredEvent.of(auditId, record.getId(), record.getReporterId(), occurredAt));
         return response(record, occurredAt);
+    }
+
+    @Override
+    @Transactional
+    public CasePhotosAddedResponse addPhotos(String actorEmail, Long caseId, AddCasePhotosRequest request) {
+        if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0
+                || request.photoFileIds() == null || request.photoFileIds().isEmpty()) {
+            throw new ValidationException("Expected case version and photo file ids are required");
+        }
+        ActorView actor = actorLookup.byEmail(actorEmail);
+        CasePhotoAttachmentResult result = attachmentService.attachLivePhotos(caseId, actor.userId(),
+                request.expectedCaseVersion(), request.photoFileIds());
+        AuditActor auditActor = auditActor(actor);
+        Long firstAuditId = null;
+        for (var photo : result.photos()) {
+            long auditId = livePhotoAuditor.recordPhotoAdded(auditActor, caseId, photo.id());
+            if (firstAuditId == null) firstAuditId = auditId;
+        }
+        events.publishEvent(CasePhotosAddedEvent.of(firstAuditId, caseId,
+                result.photos().stream().map(photo -> photo.id()).toList(), result.attachedAt()));
+        return new CasePhotosAddedResponse(caseId, result.caseVersion(), result.photos(), result.attachedAt());
     }
 
     private CaseLifecycleResponse setStatement(CaseRecord record, ActorView actor, long expectedVersion,

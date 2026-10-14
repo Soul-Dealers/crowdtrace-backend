@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -72,5 +73,20 @@ public class CaseLifecycleController {
             @PathVariable Long id, @Valid @RequestBody SetClosingStatementRequest request) {
         return ApiResponse.success(lifecycleService.setClosingStatement(authentication.getName(), id, request),
                 "Closing statement saved successfully");
+    }
+
+    @PostMapping("/photos")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Photos added", content = @Content(schema = @Schema(ref = "#/components/schemas/CasePhotosAddedApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Registered-user role required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown or foreign case or unavailable upload", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Case state, version or attachment conflict", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
+    @Operation(summary = "Add photos to a case", description = "Adds owned, unattached photo uploads to an approved reporter-owned case. The expected case version is checked under the case lock.")
+    public ApiResponse<CasePhotosAddedResponse> addPhotos(Authentication authentication, @PathVariable Long id,
+            @Valid @RequestBody AddCasePhotosRequest request) {
+        return ApiResponse.success(lifecycleService.addPhotos(authentication.getName(), id, request),
+                "Case photos added successfully");
     }
 }

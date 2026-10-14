@@ -167,6 +167,14 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.components.schemas.RestoreCaseRequest.required", contains("expectedCaseVersion")))
                 .andExpect(jsonPath("$.components.schemas.SetClosingStatementRequest.properties.closingStatement.maxLength")
                         .value(2000))
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/photos'].post.responses.200.content['*/*'].schema.$ref")
+                        .value("#/components/schemas/CasePhotosAddedApiResponse"))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/CasePhotosAddedResponse"))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedResponse.required", containsInAnyOrder(
+                        "caseId", "caseVersion", "photos", "addedAt")))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedResponse.properties.photos.items.$ref")
+                        .value("#/components/schemas/CaseFileMetadataResponse"))
                 .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())
                 .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closingStatement.type",
                         containsInAnyOrder("string", "null")))

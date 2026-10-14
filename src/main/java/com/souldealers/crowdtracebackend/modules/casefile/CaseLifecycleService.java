@@ -8,4 +8,5 @@ public interface CaseLifecycleService {
                                                      SetClosingStatementRequest request);
     CaseLifecycleResponse takeDownAsAdmin(String actorEmail, Long caseId, TakeDownCaseRequest request);
     CaseLifecycleResponse restoreAsAdmin(String actorEmail, Long caseId, RestoreCaseRequest request);
+    CasePhotosAddedResponse addPhotos(String actorEmail, Long caseId, AddCasePhotosRequest request);
 }
