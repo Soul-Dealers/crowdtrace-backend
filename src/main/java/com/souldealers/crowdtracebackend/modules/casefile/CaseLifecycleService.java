@@ -7,4 +7,5 @@ public interface CaseLifecycleService {
     CaseLifecycleResponse setClosingStatementAsAdmin(String actorEmail, Long caseId,
                                                      SetClosingStatementRequest request);
     CaseLifecycleResponse takeDownAsAdmin(String actorEmail, Long caseId, TakeDownCaseRequest request);
+    CaseLifecycleResponse restoreAsAdmin(String actorEmail, Long caseId, RestoreCaseRequest request);
 }

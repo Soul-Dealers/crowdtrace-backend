@@ -156,6 +156,30 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void adminRestoreRouteRequiresModeratorAndReturnsApprovedLifecycle() throws Exception {
+        CaseRecord hidden = takenDown(ownerId);
+        mvc.perform(as(post(ADMIN_PATH + hidden.getId() + "/restore"), UserRoles.REGISTERED_USER)
+                .content("{\"expectedCaseVersion\":" + hidden.getVersion() + "}"))
+                .andExpect(status().isForbidden());
+        String moderatorEmail = email("restore-moderator");
+        actor(moderatorEmail, UserRoles.MODERATOR);
+        mvc.perform(as(post(ADMIN_PATH + hidden.getId() + "/restore"), moderatorEmail)
+                .content("{\"expectedCaseVersion\":" + hidden.getVersion() + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reviewStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.data.caseStatus").value("MISSING"));
+    }
+
+    @Test
+    void adminRestoreRouteRejectsMissingVersion() throws Exception {
+        CaseRecord hidden = takenDown(ownerId);
+        String moderatorEmail = email("invalid-restore-moderator");
+        actor(moderatorEmail, UserRoles.MODERATOR);
+        mvc.perform(as(post(ADMIN_PATH + hidden.getId() + "/restore"), moderatorEmail).content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
     private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, UserRoles role) {
         String email = email(role.name().toLowerCase());
         actor(email, role);
@@ -181,6 +205,17 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
                 .reviewStatus(ReviewStatus.APPROVED).caseStatus(status).approvedAt(now)
                 .resolvedAt(status == CaseStatus.MISSING ? null : now)
                 .closedAt(status == CaseStatus.CLOSED ? now : null)
+                .submittedAt(now.minusDays(2)).createdAt(now.minusDays(2)).updatedAt(now.minusDays(2)).build());
+    }
+
+    private CaseRecord takenDown(long reporterId) {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 1, 10, 0);
+        return cases.saveAndFlush(CaseRecord.builder().reporterId(reporterId).fullName("Test Person").age(24)
+                .gender(Gender.MALE).lastSeenDate(LocalDate.of(2026, 9, 30)).region(GhanaRegion.GREATER_ACCRA)
+                .lastSeenLocation("Accra").physicalDescription("Description").clothing("Clothes")
+                .circumstances("Circumstances").publicContactNumber("+233200000000")
+                .reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).takedownReason("Reason")
+                .takenDownBy(reporterId).takenDownAt(now.minusHours(1)).approvedAt(now.minusDays(1))
                 .submittedAt(now.minusDays(2)).createdAt(now.minusDays(2)).updatedAt(now.minusDays(2)).build());
     }
 

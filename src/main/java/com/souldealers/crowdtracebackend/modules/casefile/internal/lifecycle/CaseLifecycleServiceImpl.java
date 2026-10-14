@@ -4,6 +4,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
+import com.souldealers.crowdtracebackend.modules.casefile.RestoreCaseRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.SetClosingStatementRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.TakeDownCaseRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.UpdateCaseStatusRequest;
@@ -14,6 +15,7 @@ import com.souldealers.crowdtracebackend.modules.identity.ActorView;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.notification.CaseStatusChangedEvent;
+import com.souldealers.crowdtracebackend.modules.notification.CaseRestoredEvent;
 import com.souldealers.crowdtracebackend.modules.notification.CaseTakenDownEvent;
 import com.souldealers.crowdtracebackend.modules.notification.NotifiedCaseStatus;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
@@ -162,6 +164,30 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
         return response(record, occurredAt);
     }
 
+    @Override
+    @Transactional
+    @RequiresModerator
+    @AuditedOperation(AuditAction.CASE_RESTORED)
+    public CaseLifecycleResponse restoreAsAdmin(String actorEmail, Long caseId, RestoreCaseRequest request) {
+        requireRestoreRequest(request);
+        ActorView actor = actorLookup.byEmail(actorEmail);
+        CaseRecord record = cases.findByIdForUpdate(caseId)
+                .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
+        if (record.getReporterId().equals(actor.userId())) {
+            throw new AccessDeniedException("Moderators cannot restore their own cases");
+        }
+        CaseLifecyclePolicy.requireRestore(record.getReviewStatus());
+        requireVersion(record, request.expectedCaseVersion());
+        LocalDateTime occurredAt = LocalDateTime.now(clock);
+        record.setReviewStatus(ReviewStatus.APPROVED);
+        cases.flush();
+
+        long auditId = auditRecorder.record(auditActor(actor), AuditAction.CASE_RESTORED, record.getId(),
+                AuditMetadata.none(AuditAction.CASE_RESTORED));
+        events.publishEvent(CaseRestoredEvent.of(auditId, record.getId(), record.getReporterId(), occurredAt));
+        return response(record, occurredAt);
+    }
+
     private CaseLifecycleResponse setStatement(CaseRecord record, ActorView actor, long expectedVersion,
                                               String rawStatement) {
         if (record.getReviewStatus() != ReviewStatus.APPROVED || record.getCaseStatus() == CaseStatus.MISSING) {
@@ -198,6 +224,12 @@ public class CaseLifecycleServiceImpl implements CaseLifecycleService {
         if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0
                 || request.reason() == null) {
             throw new ValidationException("Expected case version and takedown reason are required");
+        }
+    }
+
+    private static void requireRestoreRequest(RestoreCaseRequest request) {
+        if (request == null || request.expectedCaseVersion() == null || request.expectedCaseVersion() < 0) {
+            throw new ValidationException("Expected case version is required");
         }
     }
 

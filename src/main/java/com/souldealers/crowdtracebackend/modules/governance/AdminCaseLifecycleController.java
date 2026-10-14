@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.governance;
 
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseLifecycleService;
+import com.souldealers.crowdtracebackend.modules.casefile.RestoreCaseRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.SetClosingStatementRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.TakeDownCaseRequest;
 import com.souldealers.crowdtracebackend.modules.casefile.UpdateCaseStatusRequest;
@@ -79,5 +80,21 @@ public class AdminCaseLifecycleController {
                                                         @Valid @RequestBody TakeDownCaseRequest request) {
         return ApiResponse.success(lifecycleService.takeDownAsAdmin(authentication.getName(), id, request),
                 "Case taken down successfully");
+    }
+
+    @PostMapping("/restore")
+    @RequiresModerator
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Case restored", content = @Content(schema = @Schema(ref = "#/components/schemas/CaseLifecycleApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Moderator role required or moderator owns case", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown case", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Case is not taken down or version is stale", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
+    @Operation(summary = "Restore a taken-down case", description = "Restores a taken-down case without changing its outcome or takedown details.")
+    public ApiResponse<CaseLifecycleResponse> restore(Authentication authentication, @PathVariable Long id,
+                                                       @Valid @RequestBody RestoreCaseRequest request) {
+        return ApiResponse.success(lifecycleService.restoreAsAdmin(authentication.getName(), id, request),
+                "Case restored successfully");
     }
 }

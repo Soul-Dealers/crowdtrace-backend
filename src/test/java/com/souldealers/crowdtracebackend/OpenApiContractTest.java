@@ -144,6 +144,11 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.required", containsInAnyOrder(
                         "expectedCaseVersion", "reason")))
                 .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.properties.reason.maxLength").value(2000))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/RestoreCaseRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post.responses.403").exists())
+                .andExpect(jsonPath("$.components.schemas.RestoreCaseRequest.required", contains("expectedCaseVersion")))
                 .andExpect(jsonPath("$.components.schemas.SetClosingStatementRequest.properties.closingStatement.maxLength")
                         .value(2000))
                 .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())
