@@ -122,6 +122,11 @@ public class OpenApiConfig {
         schemas.put("RestoreCaseRequest", restoreRequestSchema());
         schemas.put("SensitiveDetailsResponse", sensitiveDetailsResponseSchema());
         schemas.put("PublicCaseResponse", publicCaseResponseSchema());
+        schemas.put("PublicCasePageResponse", publicCasePageSchema());
+        schemas.put("PublicCaseListResponse", caseResponseEnvelope("Public case page",
+                "#/components/schemas/PublicCasePageResponse"));
+        schemas.put("PublicCaseApiResponse", caseResponseEnvelope("Public case detail",
+                "#/components/schemas/PublicCaseResponse"));
         schemas.put("ReporterCaseResponse", reporterCaseResponseSchema());
         schemas.put("ReporterCaseApiResponse", caseResponseEnvelope("Reporter-owned case detail",
                 "#/components/schemas/ReporterCaseResponse"));
@@ -206,7 +211,7 @@ public class OpenApiConfig {
                 .addProperties("closingStatement", nullableString())
                 .addProperties("submittedAt", new StringSchema().format("date-time"))
                 .addProperties("approvedAt", nullableString().format("date-time"))
-                .addProperties("sensitiveDetails", new Schema<>().$ref("#/components/schemas/SensitiveDetailsResponse"))
+                .addProperties("sensitiveDetails", nullableRef("#/components/schemas/SensitiveDetailsResponse"))
                 .addProperties("version", new IntegerSchema().format("int64"))
                 .addProperties("resolvedAt", nullableString().format("date-time"))
                 .addProperties("closedAt", nullableString().format("date-time"));
@@ -214,6 +219,23 @@ public class OpenApiConfig {
 
     private Schema nullableString() {
         return new JsonSchema().types(new LinkedHashSet<>(List.of("string", "null")));
+    }
+
+    private Schema nullableRef(String reference) {
+        return new JsonSchema().anyOf(List.of(
+                new JsonSchema().$ref(reference),
+                new JsonSchema().types(new LinkedHashSet<>(List.of("null")))));
+    }
+
+    private Schema publicCasePageSchema() {
+        return new ObjectSchema()
+                .addProperties("content", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/PublicCaseResponse")))
+                .addProperties("page", new IntegerSchema().format("int32"))
+                .addProperties("size", new IntegerSchema().format("int32"))
+                .addProperties("totalElements", new IntegerSchema().format("int64"))
+                .addProperties("totalPages", new IntegerSchema().format("int32"))
+                .addProperties("last", new BooleanSchema());
     }
 
     private Schema adminCaseSummarySchema() {
@@ -575,13 +597,16 @@ public class OpenApiConfig {
                         adminCaseLifecycleOperation("Restore a taken-down case", "RestoreCaseRequest",
                                 "Restore a taken-down case without changing its outcome or takedown details")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
-                        "Public Cases", "List public cases", "Planned public case listing operation.")))
+                        "Public Cases", "List public cases", "Planned public case listing operation.")
+                        .responses(new ApiResponses().addApiResponse("200", jsonResponse(
+                                "Contract placeholder only; no runtime response is available.",
+                                "#/components/schemas/PublicCaseListResponse")))))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
                         publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
                                 .parameters(List.of(caseIdParameter()))
                                 .responses(new ApiResponses().addApiResponse("200", jsonResponse(
                                         "Contract placeholder only; no runtime response is available.",
-                                        "#/components/schemas/PublicCaseResponse")))));
+                                        "#/components/schemas/PublicCaseApiResponse")))));
     }
 
     private Operation reporterCaseDetailOperation() {

@@ -36,3 +36,23 @@ This included Testcontainers PostgreSQL coverage for production takedown and res
 - Takedown reasons remain admin-only in the JSON and schema contracts. The public detail OpenAPI entry remains marked as a planned operation; no public controller/read was added.
 - OpenAPI 3.1 nullability assertions check type arrays and date-time formats, not the obsolete `nullable` keyword.
 - No audit storage or lifecycle behavior was changed.
+
+## OpenAPI review remediation
+
+The Task 5 review identified two schema gaps: a purged reporter `sensitiveDetails` value was represented as a required object reference, and the planned public listing success response did not describe its page items. The fix uses `anyOf` with the existing `SensitiveDetailsResponse` reference or JSON Schema `type: null`, adds `PublicCasePageResponse` and its list envelope, and makes the planned public detail use the same success envelope. Both public operations retain their planned descriptions and `x-crowdtrace-status: planned` metadata; no public runtime route was added.
+
+RED command:
+
+```text
+./mvnw -Dtest=OpenApiContractTest test
+```
+
+The new assertions failed because the public list still referenced the generic `ApiResponse` placeholder.
+
+GREEN command:
+
+```text
+./mvnw -Dtest=OpenApiContractTest test
+```
+
+Result: 8 tests passed, 0 failures, 0 errors. Assertions verify the nullable `anyOf`, list envelope → page → `PublicCaseResponse` references, consistent detail envelope, and both planned markers.
