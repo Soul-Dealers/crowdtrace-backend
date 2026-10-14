@@ -68,6 +68,7 @@ class CaseProjectionContractTest {
                 .doesNotContain(STORAGE_KEY, "storageKey", "checksum", "uploadedBy");
         JsonNode json = mapper.readTree(raw);
         assertThat(json.get("reporterId").asLong()).isEqualTo(42L);
+        assertThat(json.get("version").asLong()).isEqualTo(3L);
         assertThat(json.get("files").get(0).propertyNames()).containsExactlyInAnyOrder(
                 "id", "purpose", "visibility", "contentType", "sizeBytes", "uploadedAt");
         assertThat(json.get("files").get(0).get("purpose").asText()).isEqualTo("REPORT");

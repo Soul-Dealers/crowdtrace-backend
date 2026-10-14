@@ -4,6 +4,8 @@ import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface CaseQueryService {
     /** Approved cases only; anything else is not found. */
     PublicCaseResponse getPublicCase(Long caseId);
@@ -20,7 +22,12 @@ public interface CaseQueryService {
     @RequiresModerator
     AdminCaseResponse getAdminCase(Long caseId);
 
+    /** Pending cases matching the query, minors first, then oldest submission, then id; client sorting is ignored. */
     @RequiresModerator
-    PagedResponse<AdminCaseSummaryResponse> listReviewQueue(Pageable pageable);
+    PagedResponse<AdminCaseSummaryResponse> listReviewQueue(CaseReviewQueueQuery query, Pageable pageable);
+
+    /** Duplicates recorded against the case, highest confidence first; empty for an unknown case. */
+    @RequiresModerator
+    List<DuplicateMatchResponse> listDuplicateMatches(Long caseId);
 
 }

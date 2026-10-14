@@ -210,7 +210,7 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).priorityMinor(true).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).priorityMinor(true).build());
         cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).priorityMinor(true).build());
-        var response = service.listReviewQueue(PageRequest.of(0, 10000, Sort.by("reporterId")));
+        var response = service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(0, 10000, Sort.by("reporterId")));
         assertThat(response.content()).extracting(AdminCaseSummaryResponse::id)
                 .containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());
         assertThat(response.size()).isEqualTo(50);
@@ -225,7 +225,7 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         cases.flush();
         List<Long> seen = new ArrayList<>();
         for (int page = 0; page < 3; page++) {
-            service.listReviewQueue(PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
+            service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
         }
         assertThat(seen).containsExactlyElementsOf(ids);
     }
@@ -233,19 +233,20 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     @Test @WithMockUser(authorities = "REGISTERED_USER")
     void adminReadsAreDeniedToRegisteredUsers() {
         assertThatThrownBy(() -> service.getAdminCase(1L)).isInstanceOf(AuthorizationDeniedException.class);
-        assertThatThrownBy(() -> service.listReviewQueue(PageRequest.of(0, 20))).isInstanceOf(AuthorizationDeniedException.class);
+        assertThatThrownBy(() -> service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(0, 20))).isInstanceOf(AuthorizationDeniedException.class);
+        assertThatThrownBy(() -> service.listDuplicateMatches(1L)).isInstanceOf(AuthorizationDeniedException.class);
     }
 
     @Test @WithAnonymousUser
     void reviewQueueIsDeniedToAnonymousUsers() {
-        assertThatThrownBy(() -> service.listReviewQueue(PageRequest.of(0, 20))).isInstanceOf(AuthorizationDeniedException.class);
+        assertThatThrownBy(() -> service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(0, 20))).isInstanceOf(AuthorizationDeniedException.class);
     }
 
     @Test @WithMockUser(authorities = "SUPER_ADMIN")
     void reviewQueueIsAvailableToSuperAdmins() {
         long r = user("super-queue@example.com");
         CaseRecord c = cases.saveAndFlush(aCase(r).build());
-        assertThat(service.listReviewQueue(PageRequest.of(0, 20)).content())
+        assertThat(service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(0, 20)).content())
                 .extracting(AdminCaseSummaryResponse::id).containsExactly(c.getId());
     }
 

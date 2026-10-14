@@ -4,11 +4,14 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseFileAttachmentServ
 import com.souldealers.crowdtracebackend.modules.casefile.CaseFilePurpose;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.files.CaseFileProperties;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseFile;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseFileRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,6 +32,7 @@ public class CaseFileAttachmentServiceImpl implements CaseFileAttachmentService 
     private final CaseRecordRepository caseRepository;
     private final CaseFileRepository fileRepository;
     private final CaseFileProperties properties;
+    private final EntityManager entityManager;
 
     @Override
     public void attachSubmission(Long caseId, Long reporterId, List<Long> reportFileIds, List<Long> photoFileIds) {
@@ -51,7 +55,7 @@ public class CaseFileAttachmentServiceImpl implements CaseFileAttachmentService 
             throw new ValidationException("File ids must be non-empty, non-null, positive and distinct");
         }
 
-        caseRepository.findOwnedByIdForUpdate(caseId, reporterId)
+        CaseRecord record = caseRepository.findOwnedByIdForUpdate(caseId, reporterId)
                 .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
         List<CaseFile> files = fileRepository.findAllByIdInOrderByIdAsc(fileIds);
         if (files.size() != fileIds.size() || files.stream().anyMatch(file ->
@@ -74,5 +78,7 @@ public class CaseFileAttachmentServiceImpl implements CaseFileAttachmentService 
 
         LocalDateTime attachedAt = LocalDateTime.now();
         files.forEach(file -> file.attachTo(caseId, attachedAt));
+        // Evidence changed but the case row did not; bump its version so stale review decisions get a 409.
+        entityManager.lock(record, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     }
 }

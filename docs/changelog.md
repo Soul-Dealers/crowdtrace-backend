@@ -1,5 +1,20 @@
 ## Unreleased
 
+- CT-017: moderator review queue and decisions under `/api/v1/admin/review/cases` (filtered queue, detail with
+  duplicate matches and review history, approve, reject). A decision locks the case, checks state, version and
+  report, appends an immutable `case_reviews` row, records `CASE.APPROVED`/`CASE.REJECTED` and publishes
+  `CaseReviewDecidedEvent` in one transaction; self-review returns 403; a stale `expectedCaseVersion` or an already-decided case returns 409.
+  Attaching files and adding duplicate matches now bump the case version; case timestamps use the UTC clock.
+  `AdminCaseResponse` gains `version`. Review detail lists evidence as metadata only (`accessAvailable = false`);
+  signed access (CT-023/030) and in-app delivery (CT-027) must land before moderator rollout. Retires the
+  `/api/admin/cases/review` and `/decision` OpenAPI placeholders.
+- CT-017 (implementation rulings): the casefile port `CaseReviewMutationService.decide` takes `Long` case ids and
+  runs the self-review check under the case lock (403, then state, version, report as 409). Submission commits at version 1 (the attach bump); duplicate detection may raise it. Clients must send caseDetails.version. Review detail uses a first-statement `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY` inside
+  `REQUIRES_NEW`, because the DELAYED_ACQUISITION handling mode rejects `@Transactional` isolation. The detail view
+  hides the admin `files` field and shows files as evidence.
+  Handoff (CT-018/CT-023): any future path that removes or replaces case evidence must lock the case and
+  force-increment its version, otherwise the approval report check and the stale-version check stop holding.
+
 - CT-020: added a central transactional audit recorder with a closed action vocabulary, schema-validated metadata,
   per-operation audit enforcement, and database-enforced append-only audit events. Verification approve, reject,
   revoke, and grant are audited; revocation preserves approval attribution and adds `revokedAt` and

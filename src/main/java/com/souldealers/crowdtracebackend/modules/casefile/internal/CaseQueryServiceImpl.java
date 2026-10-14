@@ -3,20 +3,25 @@ package com.souldealers.crowdtracebackend.modules.casefile.internal;
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewQueueQuery;
+import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseConsentRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseDuplicateMatchRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseFileRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseReviewQueueSpecification;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +38,7 @@ public class CaseQueryServiceImpl implements CaseQueryService {
     private final CaseSensitiveDetailsRepository sensitiveRepository;
     private final CaseFileRepository fileRepository;
     private final CaseConsentRepository consentRepository;
+    private final CaseDuplicateMatchRepository matchRepository;
     private final UserService userService;
 
     @Override
@@ -73,10 +79,19 @@ public class CaseQueryServiceImpl implements CaseQueryService {
 
     @Override
     @RequiresModerator
-    public PagedResponse<AdminCaseSummaryResponse> listReviewQueue(Pageable pageable) {
-        return PagedResponse.from(caseRepository.findByReviewStatusInOrderByPriorityMinorDescSubmittedAtAscIdAsc(
-                List.of(ReviewStatus.SUBMITTED, ReviewStatus.UNDER_REVIEW), CasePageRequests.fixed(pageable))
+    public PagedResponse<AdminCaseSummaryResponse> listReviewQueue(CaseReviewQueueQuery query, Pageable pageable) {
+        Pageable page = CasePageRequests.fixed(pageable);
+        return PagedResponse.from(caseRepository.findAll(CaseReviewQueueSpecification.matching(
+                        query == null ? CaseReviewQueueQuery.allPending() : query),
+                PageRequest.of(page.getPageNumber(), page.getPageSize(), CaseReviewQueueSpecification.ORDER))
                 .map(CaseMapper::toAdminSummary));
+    }
+
+    @Override
+    @RequiresModerator
+    public List<DuplicateMatchResponse> listDuplicateMatches(Long caseId) {
+        return matchRepository.findByCaseIdOrderByConfidenceDescMatchedCaseIdAsc(caseId).stream()
+                .map(CaseMapper::toDuplicateMatch).toList();
     }
 
 }

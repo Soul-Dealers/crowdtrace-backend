@@ -5,6 +5,8 @@ import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRec
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseDuplicateCandidate;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseDuplicateMatchRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,6 +24,7 @@ public class DuplicateDetectionServiceImpl implements DuplicateDetectionService 
     private final CaseDuplicateMatchRepository matchRepository;
     private final DuplicateMatcher matcher;
     private final DuplicateProperties properties;
+    private final EntityManager entityManager;
 
     @Override
     public void detect(Long caseId) {
@@ -43,6 +46,13 @@ public class DuplicateDetectionServiceImpl implements DuplicateDetectionService 
                     .reasons(match.reasons().stream().map(Enum::name).collect(Collectors.joining(","))).build());
             found = true;
         }
-        if (found) submitted.setDuplicateFlag(true);
+        if (!found) return;
+        // New matches must bump the version so stale review decisions get a 409. Setting the flag
+        // dirties the row and bumps it; an already-flagged case needs an explicit increment.
+        if (submitted.isDuplicateFlag()) {
+            entityManager.lock(submitted, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+        } else {
+            submitted.setDuplicateFlag(true);
+        }
     }
 }
