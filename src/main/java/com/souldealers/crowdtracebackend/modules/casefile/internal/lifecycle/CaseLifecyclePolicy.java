@@ -1,5 +1,7 @@
-package com.souldealers.crowdtracebackend.modules.casefile;
+package com.souldealers.crowdtracebackend.modules.casefile.internal.lifecycle;
 
+import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
+import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 
 /** Rules for changing an approved case's public outcome and review visibility. */

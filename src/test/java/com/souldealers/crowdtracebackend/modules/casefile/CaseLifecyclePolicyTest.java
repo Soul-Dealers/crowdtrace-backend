@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.casefile;
 
 import com.souldealers.crowdtracebackend.shared.ConflictException;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.lifecycle.CaseLifecyclePolicy;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 

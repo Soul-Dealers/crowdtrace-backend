@@ -127,6 +127,14 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.409").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/status'].patch.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/UpdateCaseStatusRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/status'].patch.responses.409").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get.responses.200.content.*.schema.$ref",
                         hasItem("#/components/schemas/ReviewCaseDetailApiResponse")))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.200.content.*.schema.$ref",

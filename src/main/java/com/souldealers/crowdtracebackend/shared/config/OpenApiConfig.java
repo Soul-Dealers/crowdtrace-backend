@@ -114,7 +114,30 @@ public class OpenApiConfig {
         schemas.put("CaseReviewDecisionResponse", reviewDecisionSchema());
         schemas.put("CaseReviewDecisionApiResponse", caseResponseEnvelope("Recorded review decision",
                 "#/components/schemas/CaseReviewDecisionResponse"));
+        schemas.put("UpdateCaseStatusRequest", lifecycleStatusRequestSchema());
+        schemas.put("CaseLifecycleResponse", caseLifecycleResponseSchema());
+        schemas.put("CaseLifecycleApiResponse", caseResponseEnvelope("Case lifecycle mutation result",
+                "#/components/schemas/CaseLifecycleResponse"));
         return schemas;
+    }
+
+    private Schema lifecycleStatusRequestSchema() {
+        return new ObjectSchema().required(List.of("expectedCaseVersion", "caseStatus"))
+                .addProperties("expectedCaseVersion", new IntegerSchema().format("int64").minimum(BigDecimal.ZERO))
+                .addProperties("caseStatus", new StringSchema()
+                        ._enum(List.of("MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED")));
+    }
+
+    private Schema caseLifecycleResponseSchema() {
+        return new ObjectSchema().required(List.of("caseId", "caseVersion", "reviewStatus", "caseStatus", "occurredAt"))
+                .addProperties("caseId", new IntegerSchema().format("int64"))
+                .addProperties("caseVersion", new IntegerSchema().format("int64"))
+                .addProperties("reviewStatus", new StringSchema())
+                .addProperties("caseStatus", new StringSchema())
+                .addProperties("closingStatement", new StringSchema())
+                .addProperties("resolvedAt", new StringSchema().format("date-time"))
+                .addProperties("closedAt", new StringSchema().format("date-time"))
+                .addProperties("occurredAt", new StringSchema().format("date-time"));
     }
 
     private Schema adminCaseSummarySchema() {
@@ -455,11 +478,49 @@ public class OpenApiConfig {
                         "Readiness probe", "Returns the current readiness status, including database health."))
                 .addPathItem("/api/user/case-files", new PathItem().post(caseFileUploadOperation()))
                 .addPathItem("/api/user/cases", new PathItem().post(caseSubmissionOperation()))
+                .addPathItem("/api/user/cases/{id}/status", new PathItem().patch(caseLifecycleOperation(
+                        "Change a case outcome", "UpdateCaseStatusRequest", "Change case outcome")))
+                .addPathItem("/api/v1/admin/cases/{id}/status", new PathItem().patch(adminCaseLifecycleOperation(
+                        "Correct a case outcome", "UpdateCaseStatusRequest", "Correct case outcome")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
                         "Public Cases", "List public cases", "Planned public case listing operation.")))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
                         publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
                                 .parameters(List.of(caseIdParameter()))));
+    }
+
+    private Operation caseLifecycleOperation(String summary, String requestSchema, String description) {
+        return lifecycleOperation("Case Submission", summary, requestSchema, description, false);
+    }
+
+    private Operation adminCaseLifecycleOperation(String summary, String requestSchema, String description) {
+        return lifecycleOperation("Administration", summary, requestSchema, description, true);
+    }
+
+    private Operation lifecycleOperation(String tag, String summary, String requestSchema, String description,
+                                         boolean admin) {
+        return new Operation().tags(List.of(tag)).summary(summary)
+                .description(description + ". Requires " + (admin ? "moderator or Super Admin" : "registered user")
+                        + " authentication. State and expected version are checked under the case lock. Errors use "
+                        + "ProblemDetail: 400 invalid body, 401 unauthenticated, 403 role required, 404 unknown or "
+                        + "foreign case, 409 invalid state, stale version or transition.")
+                .security(List.of(new SecurityRequirement().addList("bearerAuth")))
+                .parameters(List.of(new Parameter().name("id").in("path").required(true)
+                        .description("Case identifier.").schema(new IntegerSchema().format("int64"))))
+                .requestBody(new RequestBody().required(true).content(new Content()
+                        .addMediaType("application/json", new MediaType()
+                                .schema(new Schema<>().$ref("#/components/schemas/" + requestSchema)))))
+                .responses(new ApiResponses()
+                        .addApiResponse("200", jsonResponse("Case lifecycle result",
+                                "#/components/schemas/CaseLifecycleApiResponse"))
+                        .addApiResponse("400", caseProblemResponse("Invalid request"))
+                        .addApiResponse("401", caseProblemResponse("Authentication required"))
+                        .addApiResponse("403", caseProblemResponse(admin ? "Moderator role required"
+                                : "Registered-user role required"))
+                        .addApiResponse("404", caseProblemResponse(admin ? "Unknown case"
+                                : "Unknown or foreign case"))
+                        .addApiResponse("409", caseProblemResponse("Invalid state, stale version or transition"))
+                        .addApiResponse("500", caseProblemResponse("Audit failure")));
     }
 
     private Operation caseFileUploadOperation() {
