@@ -63,7 +63,8 @@ class ReviewQueueFilterTest extends CasePostgresTestSupport {
                 .submittedAt(at(9)).priorityMinor(true));
         save(aCase(reporter).reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).priorityMinor(true));
         save(aCase(reporter).reviewStatus(ReviewStatus.REJECTED).priorityMinor(true));
-        save(aCase(reporter).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).priorityMinor(true));
+        save(aCase(reporter).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
+                .takedownReason("Verified hoax report").takenDownBy(reporter).takenDownAt(at(9)).priorityMinor(true));
 
         assertThat(ids(NONE)).containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());
         assertThat(ids((ReviewQueueFilter) null)).containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());

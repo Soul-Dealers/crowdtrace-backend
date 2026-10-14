@@ -109,8 +109,12 @@ class DuplicateDetectionServiceTest extends CasePostgresTestSupport {
         List<Long> ids = new ArrayList<>();
         for (CaseStatus status : CaseStatus.values()) {
             CaseRecord existing = fixture("Kofi Mensah", ReviewStatus.APPROVED, 0);
-            new TransactionTemplate(transactionManager).executeWithoutResult(tx ->
-                    cases.findById(existing.getId()).orElseThrow().setCaseStatus(status));
+            new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+                CaseRecord record = cases.findById(existing.getId()).orElseThrow();
+                record.setCaseStatus(status);
+                record.setResolvedAt(status == CaseStatus.MISSING ? null : at(9));
+                record.setClosedAt(status == CaseStatus.CLOSED ? at(10) : null);
+            });
             ids.add(existing.getId());
         }
         CaseRecord submitted = fixture("Kofi Mensah", ReviewStatus.SUBMITTED, 0);
@@ -216,10 +220,13 @@ class DuplicateDetectionServiceTest extends CasePostgresTestSupport {
     }
 
     private CaseRecord fixture(String name, ReviewStatus status, int dayOffset) {
-        CaseRecord saved = new TransactionTemplate(transactionManager).execute(tx -> cases.saveAndFlush(
-                aCase(reporter).fullName(name).reviewStatus(status)
-                        .caseStatus(status == ReviewStatus.APPROVED || status == ReviewStatus.TAKEN_DOWN ? CaseStatus.MISSING : null)
-                        .lastSeenDate(java.time.LocalDate.of(2026, 9, 30).plusDays(dayOffset)).build()));
+        var fixture = aCase(reporter).fullName(name).reviewStatus(status)
+                .caseStatus(status == ReviewStatus.APPROVED || status == ReviewStatus.TAKEN_DOWN ? CaseStatus.MISSING : null)
+                .lastSeenDate(java.time.LocalDate.of(2026, 9, 30).plusDays(dayOffset));
+        if (status == ReviewStatus.TAKEN_DOWN) {
+            fixture.takedownReason("Verified hoax report").takenDownBy(reporter).takenDownAt(at(9));
+        }
+        CaseRecord saved = new TransactionTemplate(transactionManager).execute(tx -> cases.saveAndFlush(fixture.build()));
         return cases.findById(saved.getId()).orElseThrow();
     }
 }

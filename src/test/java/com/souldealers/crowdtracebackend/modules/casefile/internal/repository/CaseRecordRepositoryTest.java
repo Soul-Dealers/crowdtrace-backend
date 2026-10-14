@@ -54,16 +54,22 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
 
     @ParameterizedTest @EnumSource(ReviewStatus.class)
     void everyReviewStatusIsAcceptedByTheDatabase(ReviewStatus status) {
+        long reporter = user("review@example.com");
         CaseStatus outcome = status == ReviewStatus.APPROVED || status == ReviewStatus.TAKEN_DOWN
                 ? CaseStatus.MISSING : null;
-        assertThat(cases.saveAndFlush(aCase(user("review@example.com"))
-                .reviewStatus(status).caseStatus(outcome).build()).getId()).isNotNull();
+        var fixture = aCase(reporter).reviewStatus(status).caseStatus(outcome);
+        if (status == ReviewStatus.TAKEN_DOWN) {
+            fixture.takedownReason("Verified hoax report").takenDownBy(reporter).takenDownAt(at(9));
+        }
+        assertThat(cases.saveAndFlush(fixture.build()).getId()).isNotNull();
     }
 
     @ParameterizedTest @EnumSource(CaseStatus.class)
     void everyCaseStatusIsAcceptedByTheDatabase(CaseStatus status) {
-        assertThat(cases.saveAndFlush(aCase(user("outcome@example.com"))
-                .reviewStatus(ReviewStatus.APPROVED).caseStatus(status).build()).getId()).isNotNull();
+        var fixture = aCase(user("outcome@example.com")).reviewStatus(ReviewStatus.APPROVED).caseStatus(status);
+        if (status != CaseStatus.MISSING) fixture.resolvedAt(at(9));
+        if (status == CaseStatus.CLOSED) fixture.closedAt(at(10));
+        assertThat(cases.saveAndFlush(fixture.build()).getId()).isNotNull();
     }
 
     @Test
@@ -127,7 +133,9 @@ class CaseRecordRepositoryTest extends CasePostgresTestSupport {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         Long caseId = null;
         try {
-            CaseRecord created = tx.execute(status -> cases.saveAndFlush(aCase(r).version(0L).build()));
+            CaseRecord created = tx.execute(status -> cases.saveAndFlush(aCase(r).version(0L)
+                    .reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.FOUND_SAFE)
+                    .resolvedAt(at(8)).build()));
             caseId = created.getId();
             Long id = caseId;
             CaseRecord first = tx.execute(status -> cases.findById(id).orElseThrow());

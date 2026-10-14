@@ -55,8 +55,12 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     @EnumSource(value = ReviewStatus.class, names = {"SUBMITTED", "UNDER_REVIEW", "REJECTED", "TAKEN_DOWN"})
     void publicReadHidesUnapprovedCases(ReviewStatus status) {
         long r = user("hidden@example.com");
-        CaseRecord c = cases.saveAndFlush(aCase(r).reviewStatus(status)
-                .caseStatus(status == ReviewStatus.TAKEN_DOWN ? CaseStatus.MISSING : null).build());
+        var fixture = aCase(r).reviewStatus(status)
+                .caseStatus(status == ReviewStatus.TAKEN_DOWN ? CaseStatus.MISSING : null);
+        if (status == ReviewStatus.TAKEN_DOWN) {
+            fixture.takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9));
+        }
+        CaseRecord c = cases.saveAndFlush(fixture.build());
         assertThatThrownBy(() -> service.getPublicCase(c.getId())).isInstanceOf(NotFoundException.class);
     }
 
@@ -69,12 +73,13 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     void publicListContainsOnlyApprovedCasesNewestApprovalFirst() {
         long r = user("public-list@example.com");
         CaseRecord older = cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED)
-                .caseStatus(CaseStatus.FOUND_SAFE).approvedAt(at(9)).build());
+                .caseStatus(CaseStatus.FOUND_SAFE).approvedAt(at(9)).resolvedAt(at(9)).build());
         CaseRecord newer = cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED)
                 .caseStatus(CaseStatus.MISSING).approvedAt(at(10)).build());
         cases.save(aCase(r).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).build());
-        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).build());
+        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
+                .takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9)).build());
         var response = service.listPublicCases(PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
         assertThat(response.content()).extracting(PublicCaseResponse::id).containsExactly(newer.getId(), older.getId());
         assertThat(response.size()).isEqualTo(50);
@@ -127,7 +132,8 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         long r = user("own-list@example.com"), other = user("other-list@example.com");
         CaseRecord rejected = cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).createdAt(at(9)).build());
         CaseRecord takenDown = cases.save(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN)
-                .caseStatus(CaseStatus.MISSING).createdAt(at(10)).build());
+                .caseStatus(CaseStatus.MISSING).takedownReason("Verified hoax report").takenDownBy(r)
+                .takenDownAt(at(9)).createdAt(at(10)).build());
         cases.saveAndFlush(aCase(other).createdAt(at(11)).build());
         var response = service.listOwnCases(r, PageRequest.of(0, 20));
         assertThat(response.content()).extracting(ReporterCaseSummaryResponse::id)
@@ -209,7 +215,8 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
                 .submittedAt(at(9)).priorityMinor(true).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).priorityMinor(true).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).priorityMinor(true).build());
-        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).priorityMinor(true).build());
+        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
+                .takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9)).priorityMinor(true).build());
         var response = service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(0, 10000, Sort.by("reporterId")));
         assertThat(response.content()).extracting(AdminCaseSummaryResponse::id)
                 .containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());
