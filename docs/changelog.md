@@ -1,5 +1,21 @@
 ## Unreleased
 
+- CT-021: added public `GET /api/public/cases` search for approved cases, ordered by approval time and id
+  descending. Filters cover literal, case-insensitive names (3–100 characters after trimming), region, gender,
+  inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates;
+  all four date bounds accept years 0001–9999. Omitted statuses include all four outcomes; an explicitly
+  empty status filter is invalid. Pagination defaults to page 0 and size 20, caps size at 50, fixes ordering,
+  and rejects offsets at or beyond 10,000. Results expose 11 public summary fields: id, full name, age,
+  gender, region, last-seen date, status, presentation, approval time, resolution time, and thumbnail photo id.
+  Deceased summaries carry `DECEASED_NOTICE`, omit withheld fields, and can retain an eligible thumbnail.
+  A thumbnail is the earliest live PUBLIC PHOTO by upload time then id; cases without one have a null value.
+  V20 adds `pg_trgm` and a `lower(full_name)` GIN index, plus review-status-leading B-tree indexes. These
+  are non-partial because Hibernate's generic enum binding cannot prove a partial-index predicate. Query-plan
+  proof uses 60 representative fixtures and a varied 10,000-row background population with strict allowed-
+  index checks; performance targets remain CT-024. Handoffs: CT-022 reuses `toPublic` and returns 404 for
+  non-approved cases; CT-023 serves `thumbnailPhotoId` only for PUBLIC photos of APPROVED cases; CT-024 owns
+  pilot-sized performance verification.
+
 - CT-018: case lifecycle on approved cases. Reporters (`/api/user/cases/{id}`) read their case with `version`,
   move it from `MISSING` to `FOUND_SAFE`/`FOUND_DECEASED`/`CLOSED`, set a closing statement on a resolved case and
   add photos while it is `APPROVED`. Admins (`/api/v1/admin/cases/{id}`) correct any outcome (including reopening to
