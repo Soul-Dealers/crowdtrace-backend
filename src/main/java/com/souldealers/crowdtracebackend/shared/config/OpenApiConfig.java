@@ -63,7 +63,7 @@ public class OpenApiConfig {
                                 .description("Planned authentication endpoints"),
                         new io.swagger.v3.oas.models.tags.Tag()
                                 .name("Public Cases")
-                                .description("Planned public case registry endpoints"),
+                                .description("Public approved case listing and detail endpoints"),
                         new io.swagger.v3.oas.models.tags.Tag()
                                 .name("Administration")
                                 .description("Planned moderator and admin endpoints")))
@@ -122,6 +122,7 @@ public class OpenApiConfig {
         schemas.put("RestoreCaseRequest", restoreRequestSchema());
         schemas.put("SensitiveDetailsResponse", sensitiveDetailsResponseSchema());
         schemas.put("PublicCaseResponse", publicCaseResponseSchema());
+        schemas.put("PublicCaseSummaryResponse", publicCaseSummarySchema());
         schemas.put("PublicCasePageResponse", publicCasePageSchema());
         schemas.put("PublicCaseListResponse", caseResponseEnvelope("Public case page",
                 "#/components/schemas/PublicCasePageResponse"));
@@ -242,12 +243,31 @@ public class OpenApiConfig {
     private Schema publicCasePageSchema() {
         return new ObjectSchema()
                 .addProperties("content", new ArraySchema().items(
-                        new Schema<>().$ref("#/components/schemas/PublicCaseResponse")))
+                        new Schema<>().$ref("#/components/schemas/PublicCaseSummaryResponse")))
                 .addProperties("page", new IntegerSchema().format("int32"))
                 .addProperties("size", new IntegerSchema().format("int32"))
                 .addProperties("totalElements", new IntegerSchema().format("int64"))
                 .addProperties("totalPages", new IntegerSchema().format("int32"))
                 .addProperties("last", new BooleanSchema());
+    }
+
+    private Schema publicCaseSummarySchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("fullName", new StringSchema())
+                .addProperties("age", new IntegerSchema().format("int32"))
+                .addProperties("gender", new StringSchema()._enum(List.of("MALE", "FEMALE", "UNKNOWN")))
+                .addProperties("region", new StringSchema()._enum(List.of("AHAFO", "ASHANTI", "BONO", "BONO_EAST",
+                        "CENTRAL", "EASTERN", "GREATER_ACCRA", "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH",
+                        "UPPER_EAST", "UPPER_WEST", "VOLTA", "WESTERN", "WESTERN_NORTH")))
+                .addProperties("lastSeenDate", new StringSchema().format("date"))
+                .addProperties("caseStatus", new StringSchema()._enum(List.of("MISSING", "FOUND_SAFE",
+                        "FOUND_DECEASED", "CLOSED")))
+                .addProperties("presentation", new StringSchema()._enum(List.of("STANDARD", "DECEASED_NOTICE")))
+                .addProperties("approvedAt", new StringSchema().format("date-time"))
+                .addProperties("resolvedAt", nullableString().format("date-time"))
+                .addProperties("thumbnailPhotoId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
+                        .format("int64"));
     }
 
     private Schema adminCaseSummarySchema() {
@@ -608,11 +628,7 @@ public class OpenApiConfig {
                 .addPathItem("/api/v1/admin/cases/{id}/restore", new PathItem().post(
                         adminCaseLifecycleOperation("Restore a taken-down case", "RestoreCaseRequest",
                                 "Restore a taken-down case without changing its outcome or takedown details")))
-                .addPathItem("/api/public/cases", new PathItem().get(publicPlannedOperation(
-                        "Public Cases", "List public cases", "Planned public case listing operation.")
-                        .responses(new ApiResponses().addApiResponse("200", jsonResponse(
-                                "Contract placeholder only; no runtime response is available.",
-                                "#/components/schemas/PublicCaseListResponse")))))
+                .addPathItem("/api/public/cases", new PathItem().get(publicCaseListOperation()))
                 .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
                         publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
                                 .parameters(List.of(caseIdParameter()))
@@ -635,6 +651,60 @@ public class OpenApiConfig {
                         .addApiResponse("401", caseProblemResponse("Authentication required"))
                         .addApiResponse("403", caseProblemResponse("Registered-user role required"))
                         .addApiResponse("404", caseProblemResponse("Unknown or foreign case")));
+    }
+
+    private Operation publicCaseListOperation() {
+        return new Operation().tags(List.of("Public Cases"))
+                .summary("List public cases")
+                .description("Returns approved public case summaries ordered by approval time descending, then case "
+                        + "id descending; client sort parameters are ignored. Name searches trim surrounding "
+                        + "whitespace and perform a case-insensitive literal substring match; names must contain "
+                        + "3–100 characters after trimming. Status values may be repeated to form a union; an "
+                        + "explicitly empty status value is invalid, while an omitted status filter includes all "
+                        + "outcomes. Date filters are inclusive calendar dates in UTC, and all dates must be between "
+                        + "0001-01-01 and 9999-12-31. The maximum page size is 50 and offsets at or beyond 10,000 "
+                        + "rows are rejected. Offset pages can shift when cases are published or taken down.")
+                .security(List.of())
+                .parameters(List.of(
+                        new Parameter().name("name").in("query").required(false)
+                                .description("Literal case-name substring; 3–100 characters after trimming.")
+                                .schema(new StringSchema().minLength(3).maxLength(100)),
+                        new Parameter().name("region").in("query").required(false).description("Ghana region.")
+                                .schema(new StringSchema()._enum(List.of("AHAFO", "ASHANTI", "BONO", "BONO_EAST",
+                                        "CENTRAL", "EASTERN", "GREATER_ACCRA", "NORTH_EAST", "NORTHERN", "OTI",
+                                        "SAVANNAH", "UPPER_EAST", "UPPER_WEST", "VOLTA", "WESTERN", "WESTERN_NORTH"))),
+                        new Parameter().name("gender").in("query").required(false).description("Gender.")
+                                .schema(new StringSchema()._enum(List.of("MALE", "FEMALE", "UNKNOWN"))),
+                        new Parameter().name("status").in("query").required(false)
+                                .description("One or more case outcomes. Repeat the parameter to form a union; an empty value is invalid.")
+                                .style(Parameter.StyleEnum.FORM).explode(true)
+                                .schema(new ArraySchema().minItems(1).items(new StringSchema()
+                                        ._enum(List.of("MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED")))),
+                        new Parameter().name("ageMin").in("query").required(false).description("Minimum age, inclusive.")
+                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ZERO).maximum(BigDecimal.valueOf(130))),
+                        new Parameter().name("ageMax").in("query").required(false).description("Maximum age, inclusive.")
+                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ZERO).maximum(BigDecimal.valueOf(130))),
+                        publicDateParameter("lastSeenFrom", "Earliest last-seen date, inclusive (UTC)."),
+                        publicDateParameter("lastSeenTo", "Latest last-seen date, inclusive (UTC)."),
+                        publicDateParameter("approvedFrom", "Earliest approval date, inclusive (UTC)."),
+                        publicDateParameter("approvedTo", "Latest approval date, inclusive (UTC)."),
+                        new Parameter().name("page").in("query").required(false).description("Zero-based page number.")
+                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ZERO)
+                                        .maximum(BigDecimal.valueOf(9999))._default(0)),
+                        new Parameter().name("size").in("query").required(false).description("Page size (1–50).")
+                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ONE)
+                                        .maximum(BigDecimal.valueOf(50))._default(20))))
+                .responses(new ApiResponses()
+                        .addApiResponse("200", jsonResponse("Public case summary page",
+                                "#/components/schemas/PublicCaseListResponse"))
+                        .addApiResponse("400", caseProblemResponse("Invalid filters, parameters or page depth"))
+                        .addApiResponse("500", caseProblemResponse("Unexpected failure")));
+    }
+
+    private Parameter publicDateParameter(String name, String description) {
+        return new Parameter().name(name).in("query").required(false)
+                .description(description + " Date must be between 0001-01-01 and 9999-12-31.")
+                .schema(new StringSchema().format("date"));
     }
 
     private Schema sensitiveDetailsResponseSchema() {
