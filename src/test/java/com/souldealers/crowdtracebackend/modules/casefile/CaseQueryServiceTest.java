@@ -81,8 +81,8 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).build());
         cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
                 .takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9)).build());
-        var response = service.listPublicCases(PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
-        assertThat(response.content()).extracting(PublicCaseResponse::id).containsExactly(newer.getId(), older.getId());
+        var response = service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
+        assertThat(response.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(newer.getId(), older.getId());
         assertThat(response.size()).isEqualTo(50);
         assertThat(response.totalElements()).isEqualTo(2);
     }
@@ -105,10 +105,12 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
                 new RestoreCaseRequest(hidden.caseVersion()));
 
         PublicCaseResponse detail = service.getPublicCase(deceased.getId());
-        PublicCaseResponse listItem = service.listPublicCases(PageRequest.of(0, 50)).content().stream()
+        PublicCaseSummaryResponse listItem = service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 50)).content().stream()
                 .filter(item -> item.id().equals(deceased.getId())).findFirst().orElseThrow();
         assertThat(restored.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
-        for (PublicCaseResponse projection : List.of(detail, listItem)) {
+        assertThat(listItem.presentation().name()).isEqualTo("DECEASED_NOTICE");
+        assertThat(listItem.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
+        for (PublicCaseResponse projection : List.of(detail)) {
             assertThat(projection.presentation().name()).isEqualTo("DECEASED_NOTICE");
             assertThat(projection.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
             assertThat(projection.closingStatement()).isEqualTo("The family has been notified.");
@@ -129,7 +131,7 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         cases.flush();
         List<Long> seen = new ArrayList<>();
         for (int page = 0; page < 3; page++) {
-            service.listPublicCases(PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
+            service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
         }
         assertThat(seen).containsExactlyElementsOf(ids.reversed());
     }

@@ -2,6 +2,8 @@ package com.souldealers.crowdtracebackend.modules.governance;
 
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
@@ -42,8 +44,8 @@ class ReviewProjectionTest extends ReviewDecisionTestSupport {
                 "physicalDescription", "clothing", "circumstances", "caseStatus", "closingStatement",
                 "publicContactNumber", "approvedAt", "resolvedAt", "presentation");
         assertThat(raw).doesNotContain(NOTES, reporterEmail, moderatorEmail, "reviewStatus", "version");
-        assertThat(caseQueries.listPublicCases(PageRequest.of(0, 50)).content())
-                .extracting(PublicCaseResponse::id).contains(c.getId());
+        assertThat(caseQueries.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 50)).content())
+                .extracting(PublicCaseSummaryResponse::id).contains(c.getId());
     }
 
     @Test
@@ -52,7 +54,7 @@ class ReviewProjectionTest extends ReviewDecisionTestSupport {
         reviewService.reject(moderatorEmail, c.getId(), new RejectCaseRequest(c.getVersion(), NOTES));
 
         assertThatThrownBy(() -> caseQueries.getPublicCase(c.getId())).isInstanceOf(NotFoundException.class);
-        assertThat(caseQueries.listPublicCases(PageRequest.of(0, 50)).content())
-                .extracting(PublicCaseResponse::id).doesNotContain(c.getId());
+        assertThat(caseQueries.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 50)).content())
+                .extracting(PublicCaseSummaryResponse::id).doesNotContain(c.getId());
     }
 }

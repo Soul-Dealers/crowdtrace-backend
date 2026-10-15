@@ -6,6 +6,8 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewQueueQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
@@ -16,10 +18,12 @@ import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.Ca
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseRecordRepository;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseReviewQueueSpecification;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseSensitiveDetailsRepository;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.PublicCaseSpecification;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import com.souldealers.crowdtracebackend.shared.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.CASE_NOT_FOUND;
 
@@ -49,9 +55,17 @@ public class CaseQueryServiceImpl implements CaseQueryService {
     }
 
     @Override
-    public PagedResponse<PublicCaseResponse> listPublicCases(Pageable pageable) {
-        return PagedResponse.from(caseRepository.findByReviewStatusOrderByApprovedAtDescIdDesc(
-                ReviewStatus.APPROVED, CasePageRequests.fixed(pageable)).map(CaseMapper::toPublic));
+    public PagedResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, Pageable pageable) {
+        Pageable fixed = CasePageRequests.fixed(pageable);
+        if ((long) fixed.getPageNumber() * fixed.getPageSize() >= 10_000) {
+            throw new ValidationException("page offset must be less than 10000");
+        }
+        var result = caseRepository.findAll(PublicCaseSpecification.matching(query),
+                PageRequest.of(fixed.getPageNumber(), fixed.getPageSize(), PublicCaseSpecification.ORDER));
+        List<Long> ids = result.getContent().stream().map(CaseRecord::getId).toList();
+        Map<Long, Long> thumbnails = ids.isEmpty() ? Map.of() : fileRepository.findThumbnails(ids).stream()
+                .collect(Collectors.toMap(row -> row.getCaseId(), row -> row.getPhotoId()));
+        return PagedResponse.from(result.map(c -> CaseMapper.toPublicSummary(c, thumbnails.get(c.getId()))));
     }
 
     @Override

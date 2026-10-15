@@ -10,8 +10,8 @@ public interface CaseQueryService {
     /** Approved cases only; anything else is not found. */
     PublicCaseResponse getPublicCase(Long caseId);
 
-    /** Approved cases, newest approval first; client sorting is ignored. */
-    PagedResponse<PublicCaseResponse> listPublicCases(Pageable pageable);
+    /** Approved cases matching the query, newest approval first, then id; client sorting is ignored. */
+    PagedResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, Pageable pageable);
 
     /** reporterId must come from the authenticated principal, never the request. */
     ReporterCaseResponse getOwnCase(Long caseId, Long reporterId);
