@@ -4,6 +4,8 @@ import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseConsentResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseFileMetadataResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.CasePresentation;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
@@ -22,17 +24,21 @@ final class CaseMapper {
     CaseMapper() {}
 
     static PublicCaseResponse toPublic(CaseRecord c) {
+        boolean deceased = c.getCaseStatus() == CaseStatus.FOUND_DECEASED;
         return new PublicCaseResponse(c.getId(), c.getFullName(), c.getAge(), c.getGender(), c.getLastSeenDate(),
-                c.getRegion(), c.getLastSeenLocation(), c.getPhysicalDescription(), c.getClothing(),
-                c.getCircumstances(), c.getCaseStatus(), c.getClosingStatement(), c.getPublicContactNumber(),
-                c.getApprovedAt(), c.getResolvedAt());
+                c.getRegion(), deceased ? null : c.getLastSeenLocation(),
+                deceased ? null : c.getPhysicalDescription(), deceased ? null : c.getClothing(),
+                deceased ? null : c.getCircumstances(), c.getCaseStatus(), c.getClosingStatement(),
+                deceased ? null : c.getPublicContactNumber(), c.getApprovedAt(), c.getResolvedAt(),
+                deceased ? CasePresentation.DECEASED_NOTICE : CasePresentation.STANDARD);
     }
 
     static ReporterCaseResponse toReporter(CaseRecord c, @Nullable CaseSensitiveDetails d) {
         return new ReporterCaseResponse(c.getId(), c.getFullName(), c.getAge(), c.getGender(), c.getLastSeenDate(),
                 c.getRegion(), c.getLastSeenLocation(), c.getPhysicalDescription(), c.getClothing(),
                 c.getCircumstances(), c.getPublicContactNumber(), c.getReviewStatus(), c.getCaseStatus(),
-                c.getClosingStatement(), c.getSubmittedAt(), c.getApprovedAt(), toSensitive(d));
+                c.getClosingStatement(), c.getSubmittedAt(), c.getApprovedAt(), toSensitive(d), c.getVersion(),
+                c.getResolvedAt(), c.getClosedAt());
     }
 
     private static @Nullable SensitiveDetailsResponse toSensitive(@Nullable CaseSensitiveDetails d) {
@@ -54,7 +60,8 @@ final class CaseMapper {
                 c.getApprovedAt(), c.getResolvedAt(), c.getClosedAt(), toSensitive(d),
                 liveFiles.stream().map(CaseMapper::toFileMetadata).toList(),
                 consents.stream().map(consent -> new CaseConsentResponse(consent.getConsentType(), consent.getConsentVersion(),
-                        consent.getSource(), consent.getAcceptedAt())).toList());
+                        consent.getSource(), consent.getAcceptedAt())).toList(), c.getTakedownReason(), c.getTakenDownBy(),
+                c.getTakenDownAt());
     }
 
     static AdminCaseSummaryResponse toAdminSummary(CaseRecord c) {

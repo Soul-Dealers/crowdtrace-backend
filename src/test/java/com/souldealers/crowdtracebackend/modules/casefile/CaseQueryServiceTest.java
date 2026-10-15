@@ -33,6 +33,7 @@ import static org.mockito.Mockito.doReturn;
 
 class CaseQueryServiceTest extends CasePostgresTestSupport {
     @Autowired private CaseQueryService service;
+    @Autowired private CaseLifecycleService lifecycleService;
     @Autowired private CaseRecordRepository cases;
     @Autowired private CaseSensitiveDetailsRepository sensitive;
     @Autowired private CaseFileRepository files;
@@ -55,8 +56,12 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     @EnumSource(value = ReviewStatus.class, names = {"SUBMITTED", "UNDER_REVIEW", "REJECTED", "TAKEN_DOWN"})
     void publicReadHidesUnapprovedCases(ReviewStatus status) {
         long r = user("hidden@example.com");
-        CaseRecord c = cases.saveAndFlush(aCase(r).reviewStatus(status)
-                .caseStatus(status == ReviewStatus.TAKEN_DOWN ? CaseStatus.MISSING : null).build());
+        var fixture = aCase(r).reviewStatus(status)
+                .caseStatus(status == ReviewStatus.TAKEN_DOWN ? CaseStatus.MISSING : null);
+        if (status == ReviewStatus.TAKEN_DOWN) {
+            fixture.takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9));
+        }
+        CaseRecord c = cases.saveAndFlush(fixture.build());
         assertThatThrownBy(() -> service.getPublicCase(c.getId())).isInstanceOf(NotFoundException.class);
     }
 
@@ -69,16 +74,51 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     void publicListContainsOnlyApprovedCasesNewestApprovalFirst() {
         long r = user("public-list@example.com");
         CaseRecord older = cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED)
-                .caseStatus(CaseStatus.FOUND_SAFE).approvedAt(at(9)).build());
+                .caseStatus(CaseStatus.FOUND_SAFE).approvedAt(at(9)).resolvedAt(at(9)).build());
         CaseRecord newer = cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED)
                 .caseStatus(CaseStatus.MISSING).approvedAt(at(10)).build());
         cases.save(aCase(r).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).build());
-        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).build());
+        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
+                .takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9)).build());
         var response = service.listPublicCases(PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
         assertThat(response.content()).extracting(PublicCaseResponse::id).containsExactly(newer.getId(), older.getId());
         assertThat(response.size()).isEqualTo(50);
         assertThat(response.totalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @WithMockUser(authorities = "MODERATOR")
+    void deceasedCaseRemainsARespectfulPublicNoticeAfterTakedownAndRestore() {
+        long reporter = user("deceased-public@example.com");
+        jdbc.queryForObject("""
+                INSERT INTO users (email, password_hash, display_name, role, account_status)
+                VALUES ('deceased-moderator@example.com', 'x', 'Moderator', 'MODERATOR', 'ACTIVE') RETURNING id
+                """, Long.class);
+        CaseRecord deceased = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.FOUND_DECEASED).closingStatement("The family has been notified.")
+                .approvedAt(at(9)).resolvedAt(at(9)).build());
+
+        var hidden = lifecycleService.takeDownAsAdmin("deceased-moderator@example.com", deceased.getId(),
+                new TakeDownCaseRequest(deceased.getVersion(), "Verified hoax report"));
+        var restored = lifecycleService.restoreAsAdmin("deceased-moderator@example.com", deceased.getId(),
+                new RestoreCaseRequest(hidden.caseVersion()));
+
+        PublicCaseResponse detail = service.getPublicCase(deceased.getId());
+        PublicCaseResponse listItem = service.listPublicCases(PageRequest.of(0, 50)).content().stream()
+                .filter(item -> item.id().equals(deceased.getId())).findFirst().orElseThrow();
+        assertThat(restored.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
+        for (PublicCaseResponse projection : List.of(detail, listItem)) {
+            assertThat(projection.presentation().name()).isEqualTo("DECEASED_NOTICE");
+            assertThat(projection.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
+            assertThat(projection.closingStatement()).isEqualTo("The family has been notified.");
+            assertThat(projection.fullName()).isEqualTo("Kofi Mensah");
+            assertThat(projection.lastSeenLocation()).isNull();
+            assertThat(projection.physicalDescription()).isNull();
+            assertThat(projection.clothing()).isNull();
+            assertThat(projection.circumstances()).isNull();
+            assertThat(projection.publicContactNumber()).isNull();
+        }
     }
 
     @Test
@@ -103,6 +143,9 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         ReporterCaseResponse response = service.getOwnCase(c.getId(), r);
         assertThat(response.id()).isEqualTo(c.getId());
         assertThat(response.reviewStatus()).isEqualTo(ReviewStatus.SUBMITTED);
+        assertThat(response.version()).isEqualTo(c.getVersion());
+        assertThat(response.resolvedAt()).isNull();
+        assertThat(response.closedAt()).isNull();
         assertThat(response.sensitiveDetails().reporterRelationship()).isEqualTo("Sister");
         assertThat(response.sensitiveDetails().medicalConditions()).isEqualTo("Asthma");
     }
@@ -127,7 +170,8 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         long r = user("own-list@example.com"), other = user("other-list@example.com");
         CaseRecord rejected = cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).createdAt(at(9)).build());
         CaseRecord takenDown = cases.save(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN)
-                .caseStatus(CaseStatus.MISSING).createdAt(at(10)).build());
+                .caseStatus(CaseStatus.MISSING).takedownReason("Verified hoax report").takenDownBy(r)
+                .takenDownAt(at(9)).createdAt(at(10)).build());
         cases.saveAndFlush(aCase(other).createdAt(at(11)).build());
         var response = service.listOwnCases(r, PageRequest.of(0, 20));
         assertThat(response.content()).extracting(ReporterCaseSummaryResponse::id)
@@ -209,7 +253,8 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
                 .submittedAt(at(9)).priorityMinor(true).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).priorityMinor(true).build());
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).priorityMinor(true).build());
-        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING).priorityMinor(true).build());
+        cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
+                .takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9)).priorityMinor(true).build());
         var response = service.listReviewQueue(CaseReviewQueueQuery.allPending(), PageRequest.of(0, 10000, Sort.by("reporterId")));
         assertThat(response.content()).extracting(AdminCaseSummaryResponse::id)
                 .containsExactly(earlyMinor.getId(), laterMinor.getId(), adult.getId());

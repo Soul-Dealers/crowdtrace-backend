@@ -8,4 +8,4 @@ public record PublicCaseResponse(
         Long id, String fullName, int age, Gender gender, LocalDate lastSeenDate, GhanaRegion region,
         String lastSeenLocation, String physicalDescription, String clothing, String circumstances,
         CaseStatus caseStatus, String closingStatement, String publicContactNumber,
-        LocalDateTime approvedAt, LocalDateTime resolvedAt) {}
+        LocalDateTime approvedAt, LocalDateTime resolvedAt, CasePresentation presentation) {}

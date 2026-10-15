@@ -209,8 +209,12 @@ class CaseReviewMutationServiceTest extends CasePostgresTestSupport {
 
     private CaseRecord pendingCase(ReviewStatus status) {
         boolean published = status == ReviewStatus.APPROVED || status == ReviewStatus.TAKEN_DOWN;
-        Long id = cases.saveAndFlush(aCase(reporter).reviewStatus(status)
-                .caseStatus(published ? CaseStatus.MISSING : null).build()).getId();
+        var fixture = aCase(reporter).reviewStatus(status)
+                .caseStatus(published ? CaseStatus.MISSING : null);
+        if (status == ReviewStatus.TAKEN_DOWN) {
+            fixture.takedownReason("Verified hoax report").takenDownBy(reviewer).takenDownAt(DECIDED_AT);
+        }
+        Long id = cases.saveAndFlush(fixture.build()).getId();
         return cases.findById(id).orElseThrow();
     }
 

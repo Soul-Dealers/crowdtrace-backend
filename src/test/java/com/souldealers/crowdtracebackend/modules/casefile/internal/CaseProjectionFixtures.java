@@ -29,7 +29,8 @@ final class CaseProjectionFixtures {
                 .circumstances("Did not return").publicContactNumber("+233200000000")
                 .reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).closingStatement("Statement")
                 .priorityMinor(true).duplicateFlag(true).version(3L).submittedAt(at).approvedAt(at)
-                .resolvedAt(at).closedAt(at).createdAt(at).updatedAt(at).build();
+                .resolvedAt(at).closedAt(at).takedownReason("SENTINEL-TAKEDOWN-REASON")
+                .takenDownBy(99L).takenDownAt(at).createdAt(at).updatedAt(at).build();
     }
 
     static CaseSensitiveDetails fullDetails() {

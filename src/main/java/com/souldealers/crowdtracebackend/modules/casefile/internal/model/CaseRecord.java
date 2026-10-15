@@ -86,6 +86,15 @@ public class CaseRecord {
     @Column(name = "closing_statement", columnDefinition = "text")
     private String closingStatement;
 
+    @Column(name = "takedown_reason", length = 2000)
+    private String takedownReason;
+
+    @Column(name = "taken_down_by")
+    private Long takenDownBy;
+
+    @Column(name = "taken_down_at")
+    private LocalDateTime takenDownAt;
+
     @Column(name = "priority_minor", nullable = false)
     private boolean priorityMinor;
 

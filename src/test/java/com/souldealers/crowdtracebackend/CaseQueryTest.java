@@ -73,11 +73,18 @@ class CaseQueryTest {
                 INSERT INTO cases (reporter_id, full_name, age, gender, last_seen_date, region,
                     last_seen_location, physical_description, clothing, circumstances,
                     public_contact_number, review_status, case_status, priority_minor,
+                    resolved_at, closed_at, takedown_reason, taken_down_by, taken_down_at,
                     submitted_at, created_at)
                 VALUES (?, 'Ama Owusu', ?, 'FEMALE', DATE '2026-09-30', 'ASHANTI', 'Kejetia',
-                    'Short', 'Red dress', 'Left home', '+233200000001', ?, ?, ?, ?, ?)
+                    'Short', 'Red dress', 'Left home', '+233200000001', ?, ?, ?,
+                    CASE WHEN ? IN ('FOUND_SAFE', 'FOUND_DECEASED', 'CLOSED') THEN ? ELSE NULL END,
+                    CASE WHEN ? = 'CLOSED' THEN ? ELSE NULL END,
+                    CASE WHEN ? = 'TAKEN_DOWN' THEN 'Verified hoax' ELSE NULL END,
+                    CASE WHEN ? = 'TAKEN_DOWN' THEN ? ELSE NULL END,
+                    CASE WHEN ? = 'TAKEN_DOWN' THEN ? ELSE NULL END, ?, ?)
                 RETURNING id""", Long.class,
-                reporterId, age, reviewStatus, caseStatus, minor, submittedAt, submittedAt);
+                reporterId, age, reviewStatus, caseStatus, minor, caseStatus, submittedAt, caseStatus, submittedAt,
+                reviewStatus, reviewStatus, reporterId, reviewStatus, submittedAt, submittedAt, submittedAt);
     }
 
     private static LocalDateTime at(int hour) {

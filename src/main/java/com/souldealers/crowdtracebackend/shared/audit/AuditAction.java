@@ -26,6 +26,7 @@ public enum AuditAction {
                     "toStatus", AuditValueType.code(AuditCaseStatus.class))),
     CASE_CLOSING_STATEMENT_SET("CASE.CLOSING_STATEMENT_SET", AuditTargetType.CASE, empty()),
     CASE_TAKEN_DOWN("CASE.TAKEN_DOWN", AuditTargetType.CASE, empty()),
+    CASE_RESTORED("CASE.RESTORED", AuditTargetType.CASE, empty()),
     CASE_PHOTO_ADDED("CASE.PHOTO_ADDED", AuditTargetType.CASE,
             required("fileId", AuditValueType.ID)),
     CASE_FILE_PRIVATE_ACCESS_GRANTED("CASE_FILE.PRIVATE_ACCESS_GRANTED", AuditTargetType.CASE_FILE,

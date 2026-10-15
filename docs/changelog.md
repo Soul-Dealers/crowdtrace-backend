@@ -1,5 +1,24 @@
 ## Unreleased
 
+- CT-018: case lifecycle on approved cases. Reporters (`/api/user/cases/{id}`) read their case with `version`,
+  move it from `MISSING` to `FOUND_SAFE`/`FOUND_DECEASED`/`CLOSED`, set a closing statement on a resolved case and
+  add photos while it is `APPROVED`. Admins (`/api/v1/admin/cases/{id}`) correct any outcome (including reopening to
+  `MISSING`, which clears `resolved_at`, `closed_at` and the statement), set statements, take a case down with a
+  private reason and restore it. Admins cannot take down or restore a case they reported (403). Every mutation locks
+  the case, checks `expectedCaseVersion`, records its `CASE.*` audit event (new `CASE.RESTORED`) and publishes an
+  ids-only `notification` event (`CaseStatusChangedEvent`, `CasePhotosAddedEvent`, `CaseTakenDownEvent`,
+  `CaseRestoredEvent`) in one transaction. Photo audits are enforced per file through `LivePhotoAuditor`; a reopen
+  that clears a statement is enforced through `ClosingStatementClearer`. `FOUND_DECEASED` public projections carry
+  `presentation = DECEASED_NOTICE` and null the last-seen location, physical description, clothing, circumstances
+  and contact number. V19 adds `takedown_reason`/`taken_down_by`/`taken_down_at` and checks that each case's
+  columns match its review state and outcome. Restore keeps the latest takedown columns; a second takedown overwrites
+  them. Nullable OpenAPI 3.1 fields use `type` unions.
+  Handoffs: CT-021/022 must use the public mapper (deceased withholding) and keep the `APPROVED` filter; CT-023
+  must refuse files of a taken-down case; CT-026 blocks new follows on non-approved cases and keeps follow rows
+  across restore; CT-027 consumes the four events (reporter-only for takedown/restore, never the reason); CT-028
+  emails the reporter on `CaseStatusChangedEvent`; CT-032 keys retention off `resolved_at`/`closed_at`. Live-case
+  field edits and police closing statements remain out of scope.
+
 - CT-017: moderator review queue and decisions under `/api/v1/admin/review/cases` (filtered queue, detail with
   duplicate matches and review history, approve, reject). A decision locks the case, checks state, version and
   report, appends an immutable `case_reviews` row, records `CASE.APPROVED`/`CASE.REJECTED` and publishes

@@ -97,7 +97,9 @@ class CaseMigrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
         // approval sets both; takedown may keep the outcome
         jdbc.update("UPDATE cases SET review_status = 'APPROVED', case_status = 'MISSING' WHERE id = ?", id);
-        jdbc.update("UPDATE cases SET review_status = 'TAKEN_DOWN' WHERE id = ?", id);
+        long moderator = user("takedown@x.com");
+        jdbc.update("UPDATE cases SET review_status = 'TAKEN_DOWN', takedown_reason = 'Verified hoax', " +
+                "taken_down_by = ?, taken_down_at = CURRENT_TIMESTAMP WHERE id = ?", moderator, id);
     }
 
     @Test

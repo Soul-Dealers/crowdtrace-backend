@@ -116,6 +116,19 @@ class OpenApiContractTest {
                         containsString("badge holder can read")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']").value("planned"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.responses.200.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/PublicCaseListResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseListResponse.properties.data.$ref")
+                        .value("#/components/schemas/PublicCasePageResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCasePageResponse.properties.content.items.$ref")
+                        .value("#/components/schemas/PublicCaseResponse"))
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
+                        .value("planned"))
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.responses.200.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/PublicCaseApiResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/PublicCaseResponse"))
                 // Admin operations inherit the document-level bearerAuth requirement.
                 .andExpect(jsonPath("$.security[0].bearerAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get").exists())
@@ -127,6 +140,82 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.409").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}'].get.responses.200.content.*.schema.$ref",
+                        hasItem("#/components/schemas/ReporterCaseApiResponse")))
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/status'].patch.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/UpdateCaseStatusRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/status'].patch.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/closing-statement'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/closing-statement'].put.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/SetClosingStatementRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/closing-statement'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/closing-statement'].put.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/TakeDownCaseRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post.responses.403").exists())
+                .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.required", containsInAnyOrder(
+                        "expectedCaseVersion", "reason")))
+                .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.properties.reason.maxLength").value(2000))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/RestoreCaseRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post.responses.403").exists())
+                .andExpect(jsonPath("$.components.schemas.RestoreCaseRequest.required", contains("expectedCaseVersion")))
+                .andExpect(jsonPath("$.components.schemas.SetClosingStatementRequest.properties.closingStatement.maxLength")
+                        .value(2000))
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/photos'].post.responses.200.content['*/*'].schema.$ref")
+                        .value("#/components/schemas/CasePhotosAddedApiResponse"))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/CasePhotosAddedResponse"))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedResponse.required", containsInAnyOrder(
+                        "caseId", "caseVersion", "photos", "addedAt")))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedResponse.properties.photos.items.$ref")
+                        .value("#/components/schemas/CaseFileMetadataResponse"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closingStatement.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.nullable")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.required", containsInAnyOrder(
+                        "caseId", "caseVersion", "reviewStatus", "caseStatus", "occurredAt")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.occurredAt.type")
+                        .value("string"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.presentation.enum",
+                        containsInAnyOrder("STANDARD", "DECEASED_NOTICE")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.lastSeenLocation.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.closingStatement.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.version.type")
+                        .value("integer"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.sensitiveDetails.anyOf[0].$ref")
+                        .value("#/components/schemas/SensitiveDetailsResponse"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.sensitiveDetails.anyOf[1].type")
+                        .value("null"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.closedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.closedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.takedownReason.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.takenDownAt.type",
+                        containsInAnyOrder("string", "null")))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get.responses.200.content.*.schema.$ref",
                         hasItem("#/components/schemas/ReviewCaseDetailApiResponse")))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.200.content.*.schema.$ref",

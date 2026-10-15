@@ -9,4 +9,4 @@ public record ReporterCaseResponse(
         String lastSeenLocation, String physicalDescription, String clothing, String circumstances,
         String publicContactNumber, ReviewStatus reviewStatus, CaseStatus caseStatus,
         String closingStatement, LocalDateTime submittedAt, LocalDateTime approvedAt,
-        SensitiveDetailsResponse sensitiveDetails) {}
+        SensitiveDetailsResponse sensitiveDetails, Long version, LocalDateTime resolvedAt, LocalDateTime closedAt) {}
