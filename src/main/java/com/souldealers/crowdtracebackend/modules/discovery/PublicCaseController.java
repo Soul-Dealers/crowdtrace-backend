@@ -34,9 +34,10 @@ public class PublicCaseController {
     private static final int MAX_PAGE_SIZE = 50;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final String LISTING_DESCRIPTION = "Returns approved public case summaries ordered by approval "
-            + "time descending, then case id descending; client sort parameters are ignored. Name searches trim "
-            + "surrounding whitespace and perform a case-insensitive literal substring match; names must contain "
-            + "3–100 characters after trimming. Status values may be repeated to form a union; an explicitly "
+            + "time descending, then case id descending; client sort parameters are ignored. Name searches call Java "
+            + "String.trim() (removing leading and trailing characters at or below U+0020) and perform a "
+            + "case-insensitive literal substring match; names must contain 3–100 UTF-16 code units after trimming. "
+            + "Status values may be repeated to form a union; an explicitly "
             + "empty status value is invalid, while an omitted status filter includes all outcomes. Date filters "
             + "are inclusive calendar dates in UTC, and all dates must be between 0001-01-01 and 9999-12-31. "
             + "The maximum page size is 50 and offsets at or beyond 10,000 rows are rejected. Offset pages can "

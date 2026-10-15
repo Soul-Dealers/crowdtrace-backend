@@ -112,6 +112,21 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void nameLengthUsesTrimmedUtf16Input() throws Exception {
+        String fullName = "A".repeat(100);
+        createCase(fullName, ReviewStatus.APPROVED, CaseStatus.MISSING, 12);
+
+        mvc.perform(get(PATH).param("name", " \t" + fullName + "\t "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].fullName").value(fullName));
+        mvc.perform(get(PATH).param("name", "😀😀"))
+                .andExpect(status().isOk());
+        mvc.perform(get(PATH).param("name", " " + "A".repeat(101) + " "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     void repeatedStatusParamsAreUnionedAndSortParamIsIgnored() throws Exception {
         String marker = marker();
         createCase(marker + " Missing", ReviewStatus.APPROVED, CaseStatus.MISSING, 10);

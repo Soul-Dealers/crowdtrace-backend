@@ -118,8 +118,12 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[*].name", containsInAnyOrder(
                         "name", "region", "gender", "status", "ageMin", "ageMax", "lastSeenFrom", "lastSeenTo",
                         "approvedFrom", "approvedTo", "page", "size")))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.minLength").value(3))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.maxLength").value(100))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.minLength").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.maxLength").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
+                        containsString("Java String.trim")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
+                        containsString("3–100 UTF-16 code units")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[1].schema.enum", containsInAnyOrder(
                         "AHAFO", "ASHANTI", "BONO", "BONO_EAST", "CENTRAL", "EASTERN", "GREATER_ACCRA",
                         "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH", "UPPER_EAST", "UPPER_WEST", "VOLTA",

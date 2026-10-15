@@ -657,9 +657,10 @@ public class OpenApiConfig {
         return new Operation().tags(List.of("Public Cases"))
                 .summary("List public cases")
                 .description("Returns approved public case summaries ordered by approval time descending, then case "
-                        + "id descending; client sort parameters are ignored. Name searches trim surrounding "
-                        + "whitespace and perform a case-insensitive literal substring match; names must contain "
-                        + "3–100 characters after trimming. Status values may be repeated to form a union; an "
+                        + "id descending; client sort parameters are ignored. Name searches call Java String.trim "
+                        + "(removing leading and trailing characters at or below U+0020) and perform a case-insensitive "
+                        + "literal substring match; names must contain 3–100 UTF-16 code units after trimming. "
+                        + "Status values may be repeated to form a union; an "
                         + "explicitly empty status value is invalid, while an omitted status filter includes all "
                         + "outcomes. Date filters are inclusive calendar dates in UTC, and all dates must be between "
                         + "0001-01-01 and 9999-12-31. The maximum page size is 50 and offsets at or beyond 10,000 "
@@ -667,8 +668,10 @@ public class OpenApiConfig {
                 .security(List.of())
                 .parameters(List.of(
                         new Parameter().name("name").in("query").required(false)
-                                .description("Literal case-name substring; 3–100 characters after trimming.")
-                                .schema(new StringSchema().minLength(3).maxLength(100)),
+                                .description("Literal case-name substring. Java String.trim() removes leading and "
+                                        + "trailing characters at or below U+0020; the resulting value must be 3–100 "
+                                        + "UTF-16 code units.")
+                                .schema(new StringSchema()),
                         new Parameter().name("region").in("query").required(false).description("Ghana region.")
                                 .schema(new StringSchema()._enum(List.of("AHAFO", "ASHANTI", "BONO", "BONO_EAST",
                                         "CENTRAL", "EASTERN", "GREATER_ACCRA", "NORTH_EAST", "NORTHERN", "OTI",
