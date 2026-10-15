@@ -28,10 +28,10 @@
 | D2 | Filters (all optional, combined with AND): `name`, `region`, `gender`, `status` (repeatable, any of the four `CaseStatus` values; omitted = all four), `ageMin`/`ageMax` (0–130 inclusive, min ≤ max), `lastSeenFrom`/`lastSeenTo` (ISO dates, inclusive, from ≤ to), `approvedFrom`/`approvedTo` (ISO dates, inclusive, filtering `approved_at` in UTC over `[from 00:00, to+1 00:00)`, from ≤ to). |
 | D3 | The product owner chose the approval date as the "reported" filter. It is named `approvedFrom`/`approvedTo` so the field it filters is unambiguous. |
 | D4 | The product owner chose literal name search. After trimming, `name` must be 3–100 characters. The match is a case-insensitive substring: `lower(full_name) LIKE '%' + escaped(lower(name)) + '%' ESCAPE '\'`. `%`, `_` and `\` are matched literally. Accents and word order matter. |
-| D5 | Ordering is fixed: `approved_at DESC, id DESC`, and client `sort` is ignored. Offset pages use the existing size rules (default 20, clamped 1–50). an offset `page × size ≥ 10,000` is rejected with 400 (VALIDATION_FAILED), so deep offset scans are bounded. Pages past the end return 200 with empty `content` and real totals. |
+| D5 | Ordering is fixed: `approved_at DESC, id DESC`, and client `sort` is ignored. `page` and `size` are bound as typed `Integer` request params, never through Spring's `Pageable` resolver, which silently maps `page=abc`, overflow and `size=0` to defaults. `page` defaults to 0 and must be ≥ 0; `size` defaults to 20 and must be 1–50. Anything else is 400 (non-numeric or overflowing is `INVALID_REQUEST`, out of range is `VALIDATION_FAILED`). An offset `page × size ≥ 10,000` is rejected with 400 (VALIDATION_FAILED), so deep offset scans are bounded. Pages past the end return 200 with empty `content` and real totals. |
 | D6 | Items are `PublicCaseSummaryResponse(id, fullName, age, gender, region, lastSeenDate, caseStatus, presentation, approvedAt, resolvedAt, thumbnailPhotoId)`. Long text, contact number and closing statement stay in the detail view (CT-022). |
 | D7 | The product owner chose to expose `thumbnailPhotoId` now. It is the case's earliest attached, undeleted, `PURPOSE=PHOTO`, `VISIBILITY=PUBLIC` file, ordered by `uploaded_at`, then `id`, and null if there is none. It is batch-loaded in one query per page, never per row. It is an id only; CT-023 serves the bytes. Deceased cases keep their thumbnail. |
-| D8 | Errors: bad enums, dates or numbers return 400 `INVALID_REQUEST` (existing `MethodArgumentTypeMismatchException` handler). Bounds, ranges, length and page depth return 400 `VALIDATION_FAILED` (`ValidationException`). The endpoint has no 401/403/404. |
+| D8 | Errors: bad enums, dates or numbers return 400 `INVALID_REQUEST` (existing `MethodArgumentTypeMismatchException` handler). A blank repeated `status=` (bound as a null element) returns 400 `VALIDATION_FAILED`, never a 500. Bounds, ranges, length, page/size and page depth return 400 `VALIDATION_FAILED` (`ValidationException`). The endpoint has no 401/403/404. |
 | D9 | V20 enables `pg_trgm` and indexes. Btree indexes lead with `review_status` and are not partial. Hibernate binds the enum as a parameter, and a generic plan cannot prove a partial predicate `review_status = 'APPROVED'`. Indexes: `(review_status, approved_at DESC, id DESC)`, `(review_status, region, approved_at DESC, id DESC)`, `(review_status, case_status, approved_at DESC, id DESC)`, `(review_status, age)`, plus GIN `lower(full_name) gin_trgm_ops`. Drop the superseded `idx_cases_public_status`. Last-seen ranges reuse `idx_cases_last_seen (last_seen_date, id)`. Gender stays a residual filter because it has low cardinality. |
 | D10 | Query-plan proof follows `ReviewQueueFilterTest`: seed, `ANALYZE`, `SET LOCAL enable_seqscan = off`, `EXPLAIN` the same SQL shape for page and count, and assert no `Seq Scan` and the expected index. This proves the indexes are eligible, not that they perform. Pilot performance sign-off belongs to CT-024. |
 
@@ -127,11 +127,11 @@ public record PublicCaseSearchQuery(String name, GhanaRegion region, Gender gend
   - `"ab"` throws; `" abc "` is stored as `"abc"`; a 100-character name passes; 101 throws.
   - `ageMin = -1` throws; `131` throws; `ageMin = 40, ageMax = 39` throws; `ageMin = ageMax = 40` passes.
   - `lastSeenFrom` after `lastSeenTo` throws, and equal dates pass. The same holds for the approval dates.
-  - `statuses` null or empty gives all four values; `{MISSING}` gives `{MISSING}`.
+  - `statuses` null or empty gives all four values; `{MISSING}` gives `{MISSING}`; a collection containing `null` (e.g. `[MISSING, null]`) throws `ValidationException("status must be one of MISSING, FOUND_SAFE, FOUND_DECEASED, CLOSED")` before any `EnumSet` copy.
   - `nameLikePattern()` for `"50%_\\x"` is `"%50\\%\\_\\\\x%"`, and for `"Kofi"` is `"%kofi%"` (lowercased with `Locale.ROOT`).
   - `approvedToExclusive()` for `2026-02-28` is `2026-03-01T00:00`; for leap day `2028-02-29` it is `2028-03-01T00:00`.
 - [ ] **Step 2: Run them.** They should fail to compile.
-- [ ] **Step 3: Implement.** Use a compact constructor like `CaseReviewQueueQuery`. Messages: `"name must be 3-100 characters"`, `"ageMin must be between 0 and 130"`, `"ageMin must not exceed ageMax"`, `"lastSeenFrom must not be after lastSeenTo"`, `"approvedFrom must not be after approvedTo"`. Copy `statuses` into an `EnumSet`. Escape `\` first, then `%` and `_`.
+- [ ] **Step 3: Implement.** Use a compact constructor like `CaseReviewQueueQuery`. Messages: `"name must be 3-100 characters"`, `"ageMin must be between 0 and 130"`, `"ageMin must not exceed ageMax"`, `"lastSeenFrom must not be after lastSeenTo"`, `"approvedFrom must not be after approvedTo"`. Reject null elements first (`statuses.contains(null)` cannot be called on every Set type, so iterate), then copy `statuses` into an `EnumSet`. Escape `\` first, then `%` and `_`.
 - [ ] **Step 4: Run them.** They should pass.
 - [ ] **Step 5: Commit.** `feat(casefile): validate public case search filters [CT-021]`
 
@@ -223,14 +223,15 @@ public record PublicCaseFilter(String name, GhanaRegion region, Gender gender, L
 }
 ```
 
-The controller uses `@RestController`, `@RequestMapping("/api/public/cases")` and `@Tag(name = "Public Cases")`, with no `@SecurityRequirement`. It takes `@RequestParam(required = false)` per field (dates use `@DateTimeFormat(iso = DATE)`) plus `@ParameterObject Pageable`, following `ReviewController.queue`.
+The controller uses `@RestController`, `@RequestMapping("/api/public/cases")` and `@Tag(name = "Public Cases")`, with no `@SecurityRequirement`. It takes `@RequestParam(required = false)` per field (dates use `@DateTimeFormat(iso = DATE)`) plus `@RequestParam(required = false) Integer page` and `Integer size` (no `Pageable` parameter: its resolver swallows bad input; see D5). The controller validates page ≥ 0 and 1 ≤ size ≤ 50, throwing `ValidationException`, then passes `PageRequest.of(page, size)` to the service. Otherwise it follows `ReviewController.queue`.
 
 - [ ] **Step 1: Failing tests.**
   - `guestCanSearchWithoutAToken`: 200, `$.data.content[0].fullName`.
   - `responseFieldsAreExactlyTheAllowlist`: the key set of `content[0]` equals the 11 D6 names. No `reporterId`, `storageKey`, `lastSeenLocation`, `publicContactNumber`, `reviewStatus` or `version`.
   - `authenticatedModeratorSeesTheSamePublicProjection`: the same key set with a moderator token, and no pending case.
   - Each of these returns 400 with `$.code == "INVALID_REQUEST"`: `status=BOGUS`, `region=MARS`, `ageMin=abc`, `lastSeenFrom=2026-13-01`.
-  - Each of these returns 400 with `$.code == "VALIDATION_FAILED"`: `name=ab`, `ageMin=50&ageMax=40`, `page=201&size=50`. Check the code value against `GlobalExceptionHandler` and use the real one.
+  - Each of these returns 400 with `$.code == "INVALID_REQUEST"`: `page=abc`, `page=2147483648`, `size=x`.
+  - Each of these returns 400 with `$.code == "VALIDATION_FAILED"`: `name=ab`, `ageMin=50&ageMax=40`, `page=200&size=50`, `page=-1`, `size=0`, `size=51`, `status=MISSING&status=`. Check the code value against `GlobalExceptionHandler` and use the real one.
   - `repeatedStatusParamsAreUnioned`: `status=MISSING&status=CLOSED` returns both.
   - `sortParamIsIgnored`: `sort=fullName,asc` gives the same order as without it.
 - [ ] **Step 2: Run them.** They should fail with 404 (no route) or a compile error.
@@ -251,22 +252,23 @@ The controller uses `@RestController`, `@RequestMapping("/api/public/cases")` an
 
 **Files:** Test `modules/casefile/internal/repository/PublicCaseQueryPlanTest.java` (extends `CasePostgresTestSupport`).
 
-- [ ] **Step 1: Write the test** (it should pass on first run, since the indexes exist from Task 1; if it doesn't, fix the index or the SQL, never the assertion).
-  - Seed 60 cases across review states, regions and outcomes.
+- [ ] **Step 1: Write the test.** It proves index *eligibility*, not one fixed plan: `enable_seqscan = off` does not force a named index, and the planner may legitimately pick a different covering index. If a shape fails, check the plan before touching indexes; adjust an expectation only with a written reason in the test.
+  - Seed 60 cases across review states, regions and outcomes with **varied names** (use a list of ~20 distinct Ghanaian names, not the fixture default `Kofi Mensah`), so the trigram search is selective.
   - Run `ANALYZE cases`, then `SET LOCAL enable_seqscan = off`.
-  - Parameterize over `(whereFragment, expectedIndex)`:
+  - Parameterize over `(whereFragment, acceptable page indexes, acceptable count indexes)`; page and count are asserted separately, each against a set:
 
 | Filter shape | Expected index |
 |---|---|
-| none | `idx_cases_public_recent` |
-| `region = 'ASHANTI'` | `idx_cases_public_region` |
-| `case_status IN ('MISSING')` | `idx_cases_public_outcome` |
+| none | page: `idx_cases_public_recent`; count: any `idx_cases_public_*` |
+| `region = 'ASHANTI'` | `idx_cases_public_region` (page and count) |
+| `case_status IN ('MISSING')` | `idx_cases_public_outcome` (page and count) |
 | `age BETWEEN 10 AND 17` | `idx_cases_public_age` or `idx_cases_public_recent` (assert one of these) |
-| `lower(full_name) LIKE '%mensah%' ESCAPE '\'` | `idx_cases_public_name_trgm` |
+| `lower(full_name) LIKE '%mensah%' ESCAPE '\'` | `idx_cases_public_name_trgm` (page and count) |
 | `last_seen_date BETWEEN ...` | `idx_cases_last_seen` or a `public` index |
 
   - Each shape is prefixed with `review_status = 'APPROVED' AND case_status IN (all four)`.
-  - For the page query `... ORDER BY approved_at DESC, id DESC LIMIT 20` and the count query, assert the plan has no `Seq Scan` and contains the expected index.
+  - For the page query `... ORDER BY approved_at DESC, id DESC LIMIT 20` and the count query, assert the plan has no `Seq Scan`, contains one of its acceptable indexes, and shows `review_status` in an `Index Cond` (or `Recheck Cond`) for B-tree shapes.
+  - Generic-plan check: `PREPARE q(text, text) AS SELECT id FROM cases WHERE review_status = $1 AND region = $2 ORDER BY approved_at DESC, id DESC LIMIT 20`, `SET LOCAL plan_cache_mode = force_generic_plan`, `EXPLAIN EXECUTE q('APPROVED', 'ASHANTI')`: it must still use `idx_cases_public_region`. This is the reason D9 avoids partial indexes. Repeat for the name shape with a `$` pattern parameter, expecting `idx_cases_public_name_trgm`.
   - Also capture the SQL Hibernate actually emits for one shape (`spring.jpa.show-sql` is not needed: build it from a `StatementInspector` test bean or a `pg_stat_statements`-free approach of logging via `org.hibernate.SQL` at DEBUG into a ListAppender). Assert that it uses `lower(` and `like ... escape`, so the hand-written EXPLAIN shapes match production. If capturing the statement is impractical, assert through `PublicCaseSearchTest` that a `%`-literal search works, and note the gap.
 - [ ] **Step 2: Run it.** It should pass.
 - [ ] **Step 3: Commit.** `test(casefile): prove public search filters use indexes [CT-021]`
