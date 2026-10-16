@@ -6,8 +6,9 @@ import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
-import com.souldealers.crowdtracebackend.shared.PagedResponse;
+import com.souldealers.crowdtracebackend.shared.CursorResponse;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
+import jakarta.servlet.http.HttpServletRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -15,7 +16,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,8 +40,8 @@ public class PublicCaseController {
             + "Status values may be repeated to form a union; an explicitly "
             + "empty status value is invalid, while an omitted status filter includes all outcomes. Date filters "
             + "are inclusive calendar dates in UTC, and all dates must be between 0001-01-01 and 9999-12-31. "
-            + "The maximum page size is 50 and offsets at or beyond 10,000 rows are rejected. Offset pages can "
-            + "shift when cases are published or taken down.";
+            + "Results use a forward-only opaque cursor; repeat the same filters with nextCursor to continue. "
+            + "New approvals ahead of the cursor do not shift later results, while filter changes start a different search.";
 
     private final CaseQueryService caseQueryService;
 
@@ -50,12 +50,12 @@ public class PublicCaseController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK",
                     content = @Content(schema = @Schema(ref = "#/components/schemas/PublicCaseListResponse"))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid filters, "
-                    + "parameters or page depth", content = @Content(mediaType = "application/problem+json",
+                    + "parameters or cursor", content = @Content(mediaType = "application/problem+json",
                     schema = @Schema(ref = PROBLEM))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Unexpected failure",
                     content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
     @Operation(summary = "List public cases", description = LISTING_DESCRIPTION)
-    public ApiResponse<PagedResponse<PublicCaseSummaryResponse>> list(
+    public ApiResponse<CursorResponse<PublicCaseSummaryResponse>> list(
             @Parameter(description = "Literal case-name substring, 3–100 trimmed characters")
             @RequestParam(required = false) String name,
             @Parameter(description = "Ghana region") @RequestParam(required = false) GhanaRegion region,
@@ -72,20 +72,20 @@ public class PublicCaseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate approvedFrom,
             @Parameter(description = "Latest approval date, inclusive (UTC)")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate approvedTo,
-            @Parameter(description = "Zero-based page number") @RequestParam(required = false) Integer page,
-            @Parameter(description = "Page size (1–50)") @RequestParam(required = false) Integer size) {
-        int requestedPage = page == null ? 0 : page;
-        int requestedSize = size == null ? DEFAULT_PAGE_SIZE : size;
-        if (requestedPage < 0) {
-            throw new ValidationException("page must be greater than or equal to 0");
+            @Parameter(description = "Opaque cursor returned as nextCursor") @RequestParam(required = false) String cursor,
+            @Parameter(description = "Page size (1–50)") @RequestParam(defaultValue = "20") Integer size,
+            HttpServletRequest request) {
+        if (request.getParameterMap().containsKey("page")) {
+            throw new ValidationException("page is no longer supported; use cursor");
         }
+        int requestedSize = size == null ? DEFAULT_PAGE_SIZE : size;
         if (requestedSize < 1 || requestedSize > MAX_PAGE_SIZE) {
             throw new ValidationException("size must be between 1 and 50");
         }
 
         PublicCaseFilter filter = new PublicCaseFilter(name, region, gender, status, ageMin, ageMax,
                 lastSeenFrom, lastSeenTo, approvedFrom, approvedTo);
-        var result = caseQueryService.searchPublicCases(filter.toQuery(), PageRequest.of(requestedPage, requestedSize));
+        var result = caseQueryService.searchPublicCases(filter.toQuery(), cursor, requestedSize);
         return ApiResponse.success(result, "Public cases retrieved successfully");
     }
 }

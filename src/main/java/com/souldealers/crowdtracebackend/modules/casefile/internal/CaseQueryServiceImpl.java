@@ -5,6 +5,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryRespon
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewQueueQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseCursor;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
@@ -21,6 +22,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.Ca
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.PublicCaseSpecification;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserService;
+import com.souldealers.crowdtracebackend.shared.CursorResponse;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
@@ -55,17 +57,23 @@ public class CaseQueryServiceImpl implements CaseQueryService {
     }
 
     @Override
-    public PagedResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, Pageable pageable) {
-        Pageable fixed = CasePageRequests.fixed(pageable);
-        if ((long) fixed.getPageNumber() * fixed.getPageSize() >= 10_000) {
-            throw new ValidationException("page offset must be less than 10000");
+    public CursorResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, String token, int size) {
+        if (size < 1 || size > 50) {
+            throw new ValidationException("size must be between 1 and 50");
         }
-        var result = caseRepository.findAll(PublicCaseSpecification.matching(query),
-                PageRequest.of(fixed.getPageNumber(), fixed.getPageSize(), PublicCaseSpecification.ORDER));
-        List<Long> ids = result.getContent().stream().map(CaseRecord::getId).toList();
+        PublicCaseCursor cursor = token == null ? null : PublicCaseCursor.decode(token);
+        List<CaseRecord> fetched = caseRepository.findBy(PublicCaseSpecification.matching(query, cursor),
+                fluent -> fluent.sortBy(PublicCaseSpecification.ORDER).limit(size + 1).all());
+        boolean hasNext = fetched.size() > size;
+        List<CaseRecord> returned = hasNext ? fetched.subList(0, size) : fetched;
+        List<Long> ids = returned.stream().map(CaseRecord::getId).toList();
         Map<Long, Long> thumbnails = ids.isEmpty() ? Map.of() : fileRepository.findThumbnails(ids).stream()
                 .collect(Collectors.toMap(row -> row.getCaseId(), row -> row.getPhotoId()));
-        return PagedResponse.from(result.map(c -> CaseMapper.toPublicSummary(c, thumbnails.get(c.getId()))));
+        List<PublicCaseSummaryResponse> content = returned.stream()
+                .map(c -> CaseMapper.toPublicSummary(c, thumbnails.get(c.getId()))).toList();
+        String nextCursor = hasNext && !returned.isEmpty()
+                ? new PublicCaseCursor(returned.getLast().getApprovedAt(), returned.getLast().getId()).encode() : null;
+        return new CursorResponse<>(content, size, hasNext, nextCursor);
     }
 
     @Override

@@ -1,12 +1,17 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal.repository;
 
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseCursor;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +22,10 @@ public final class PublicCaseSpecification {
     private PublicCaseSpecification() {}
 
     public static Specification<CaseRecord> matching(PublicCaseSearchQuery query) {
+        return matching(query, null);
+    }
+
+    public static Specification<CaseRecord> matching(PublicCaseSearchQuery query, PublicCaseCursor cursor) {
         PublicCaseSearchQuery q = query == null ? PublicCaseSearchQuery.all() : query;
         return (root, criteria, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -49,7 +58,21 @@ public final class PublicCaseSpecification {
             if (q.approvedToExclusive() != null) {
                 predicates.add(cb.lessThan(root.get("approvedAt"), q.approvedToExclusive()));
             }
+            if (cursor != null) {
+                predicates.add(seekAfter(root.get("approvedAt"), root.get("id"), cb, cursor));
+            }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    private static Predicate seekAfter(Expression<LocalDateTime> approvedAt, Expression<Long> id,
+                                       CriteriaBuilder criteriaBuilder, PublicCaseCursor cursor) {
+        if (cursor.approvedAt() == null) {
+            return criteriaBuilder.or(criteriaBuilder.isNotNull(approvedAt), criteriaBuilder.and(
+                    criteriaBuilder.isNull(approvedAt), criteriaBuilder.lessThan(id, cursor.id())));
+        }
+        HibernateCriteriaBuilder hcb = (HibernateCriteriaBuilder) criteriaBuilder;
+        return hcb.isTrue(hcb.sql("(?, ?) < (?, ?)", Boolean.class,
+                approvedAt, id, hcb.value(cursor.approvedAt()), hcb.value(cursor.id())));
     }
 }

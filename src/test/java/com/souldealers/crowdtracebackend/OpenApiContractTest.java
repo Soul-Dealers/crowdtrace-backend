@@ -117,7 +117,7 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters", hasSize(12)))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[*].name", containsInAnyOrder(
                         "name", "region", "gender", "status", "ageMin", "ageMax", "lastSeenFrom", "lastSeenTo",
-                        "approvedFrom", "approvedTo", "page", "size")))
+                        "approvedFrom", "approvedTo", "cursor", "size")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.minLength").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.maxLength").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
@@ -141,9 +141,7 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[7].schema.format").value("date"))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[8].schema.format").value("date"))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[9].schema.format").value("date"))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[10].schema.minimum").value(0))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[10].schema.maximum").value(9999))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[10].schema.default").value(0))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[10].schema.maxLength").value(128))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.minimum").value(1))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.maximum").value(50))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.default").value(20))
@@ -154,9 +152,17 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.responses.200.content['application/json'].schema.$ref")
                         .value("#/components/schemas/PublicCaseListResponse"))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseListResponse.properties.data.$ref")
-                        .value("#/components/schemas/PublicCasePageResponse"))
-                .andExpect(jsonPath("$.components.schemas.PublicCasePageResponse.properties.content.items.$ref")
+                        .value("#/components/schemas/PublicCaseCursorResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.content.items.$ref")
                         .value("#/components/schemas/PublicCaseSummaryResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.nextCursor.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.page").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.totalElements").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.totalPages").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.last").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.approvedAt.type",
+                        containsInAnyOrder("string", "null")))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.resolvedAt.type",
                         containsInAnyOrder("string", "null")))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.thumbnailPhotoId.type",

@@ -81,10 +81,10 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
         cases.save(aCase(r).reviewStatus(ReviewStatus.REJECTED).build());
         cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN).caseStatus(CaseStatus.MISSING)
                 .takedownReason("Verified hoax report").takenDownBy(r).takenDownAt(at(9)).build());
-        var response = service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 10000, Sort.by("duplicateFlag")));
+        var response = service.searchPublicCases(PublicCaseSearchQuery.all(), null, 50);
         assertThat(response.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(newer.getId(), older.getId());
         assertThat(response.size()).isEqualTo(50);
-        assertThat(response.totalElements()).isEqualTo(2);
+        assertThat(response.hasNext()).isFalse();
     }
 
     @Test
@@ -105,7 +105,7 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
                 new RestoreCaseRequest(hidden.caseVersion()));
 
         PublicCaseResponse detail = service.getPublicCase(deceased.getId());
-        PublicCaseSummaryResponse listItem = service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 50)).content().stream()
+        PublicCaseSummaryResponse listItem = service.searchPublicCases(PublicCaseSearchQuery.all(), null, 50).content().stream()
                 .filter(item -> item.id().equals(deceased.getId())).findFirst().orElseThrow();
         assertThat(restored.caseStatus()).isEqualTo(CaseStatus.FOUND_DECEASED);
         assertThat(listItem.presentation().name()).isEqualTo("DECEASED_NOTICE");
@@ -124,15 +124,18 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
     }
 
     @Test
-    void publicPagesAreStableWhenApprovalTimesTie() {
+    void publicCursorsAreStableWhenApprovalTimesTie() {
         long r = user("public-tie@example.com");
         List<Long> ids = IntStream.range(0, 5).mapToObj(i -> cases.save(aCase(r)
                 .reviewStatus(ReviewStatus.APPROVED).caseStatus(CaseStatus.MISSING).approvedAt(at(9)).build()).getId()).toList();
         cases.flush();
         List<Long> seen = new ArrayList<>();
-        for (int page = 0; page < 3; page++) {
-            service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(page, 2)).content().forEach(c -> seen.add(c.id()));
-        }
+        String cursor = null;
+        do {
+            var response = service.searchPublicCases(PublicCaseSearchQuery.all(), cursor, 2);
+            response.content().forEach(c -> seen.add(c.id()));
+            cursor = response.nextCursor();
+        } while (cursor != null);
         assertThat(seen).containsExactlyElementsOf(ids.reversed());
     }
 

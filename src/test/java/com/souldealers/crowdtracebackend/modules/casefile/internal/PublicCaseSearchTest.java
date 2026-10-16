@@ -8,6 +8,8 @@ import com.souldealers.crowdtracebackend.modules.casefile.FileVisibility;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseCursor;
+import com.souldealers.crowdtracebackend.shared.CursorResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseFile;
@@ -18,7 +20,6 @@ import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.Ca
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalDate;
@@ -41,7 +42,7 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
     @MockitoSpyBean private CaseFileRepository fileSpy;
 
     @Test
-    void onlyApprovedCasesAppearInContentAndTotals() {
+    void onlyApprovedCasesAppearInContent() {
         long reporter = user("search-visibility@example.com");
         for (ReviewStatus status : ReviewStatus.values()) {
             CaseRecord.CaseRecordBuilder builder = aCase(reporter).reviewStatus(status);
@@ -51,9 +52,10 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
             if (status == ReviewStatus.APPROVED) builder.caseStatus(CaseStatus.MISSING).approvedAt(at(9));
             cases.save(builder.build());
         }
-        var result = service.searchPublicCases(PublicCaseSearchQuery.all(), PageRequest.of(0, 20));
+        var result = service.searchPublicCases(PublicCaseSearchQuery.all(), null, 20);
         assertThat(result.content()).hasSize(1);
-        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.hasNext()).isFalse();
+        assertThat(result.nextCursor()).isNull();
     }
 
     @Test
@@ -132,7 +134,7 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
     }
 
     @Test
-    void orderIsNewestApprovalThenIdAndPagesNeverRepeat() {
+    void orderIsNewestApprovalThenIdAndCursorPagesNeverRepeat() {
         long reporter = user("search-order@example.com");
         List<Long> expected = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
@@ -148,10 +150,86 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
             return time == 0 ? b.compareTo(a) : time;
         });
         List<Long> seen = new ArrayList<>();
-        for (int page = 0; page <= 3; page++) {
-            search(PublicCaseSearchQuery.all(), page, 2).content().forEach(c -> seen.add(c.id()));
-        }
+        String cursor = null;
+        do {
+            var result = search(PublicCaseSearchQuery.all(), cursor, 2);
+            result.content().forEach(c -> seen.add(c.id()));
+            cursor = result.nextCursor();
+        } while (cursor != null);
         assertThat(seen).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    void cursorPreservesMicrosecondTimestampBoundaries() {
+        long reporter = user("search-microseconds@example.com");
+        LocalDateTime firstTime = LocalDateTime.of(2026, 10, 1, 9, 0, 0, 123_457_000);
+        LocalDateTime secondTime = LocalDateTime.of(2026, 10, 1, 9, 0, 0, 123_456_000);
+        CaseRecord first = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(firstTime).build());
+        CaseRecord second = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(secondTime).build());
+
+        var page = search(PublicCaseSearchQuery.all(), null, 1);
+        assertThat(page.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(first.getId());
+        assertThat(PublicCaseCursor.decode(page.nextCursor()).approvedAt()).isEqualTo(firstTime);
+        var next = search(PublicCaseSearchQuery.all(), page.nextCursor(), 1);
+        assertThat(next.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(second.getId());
+    }
+
+    @Test
+    void nullApprovalTimestampsRemainFirstAndCursorMovesFromLastNullToNonNull() {
+        long reporter = user("search-null-approval@example.com");
+        CaseRecord nullOlderId = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(null).build());
+        CaseRecord nullNewerId = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(null).build());
+        CaseRecord dated = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(9)).build());
+
+        var first = search(PublicCaseSearchQuery.all(), null, 1);
+        assertThat(first.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(nullNewerId.getId());
+        assertThat(PublicCaseCursor.decode(first.nextCursor()).approvedAt()).isNull();
+        var second = search(PublicCaseSearchQuery.all(), first.nextCursor(), 1);
+        assertThat(second.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(nullOlderId.getId());
+        var third = search(PublicCaseSearchQuery.all(), second.nextCursor(), 1);
+        assertThat(third.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(dated.getId());
+        assertThat(third.hasNext()).isFalse();
+    }
+
+    @Test
+    void approvalAddedAheadOfCursorDoesNotShiftOrRepeatLaterResults() {
+        long reporter = user("search-moving-head@example.com");
+        CaseRecord newest = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(11)).build());
+        CaseRecord older = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(10)).build());
+
+        var first = search(PublicCaseSearchQuery.all(), null, 1);
+        cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(12)).build());
+
+        var next = search(PublicCaseSearchQuery.all(), first.nextCursor(), 1);
+        assertThat(first.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(newest.getId());
+        assertThat(next.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(older.getId());
+    }
+
+    @Test
+    void takenDownAnchorDoesNotBreakCursorNavigation() {
+        long reporter = user("search-taken-down-anchor@example.com");
+        CaseRecord newest = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(11)).build());
+        CaseRecord older = cases.saveAndFlush(aCase(reporter).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(10)).build());
+
+        var first = search(PublicCaseSearchQuery.all(), null, 1);
+        newest.setReviewStatus(ReviewStatus.TAKEN_DOWN);
+        newest.setTakedownReason("Taken down for test");
+        newest.setTakenDownBy(reporter);
+        newest.setTakenDownAt(at(12));
+        cases.saveAndFlush(newest);
+
+        var next = search(PublicCaseSearchQuery.all(), first.nextCursor(), 1);
+        assertThat(next.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(older.getId());
     }
 
     @Test
@@ -159,15 +237,14 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
         clearInvocations(fileSpy);
         var empty = search(query("Nobody", null, null, null, null, null, null, null, null, null));
         assertThat(empty.content()).isEmpty();
-        assertThat(empty.totalElements()).isZero();
-        assertThat(empty.totalPages()).isZero();
-        assertThat(empty.last()).isTrue();
+        assertThat(empty.hasNext()).isFalse();
+        assertThat(empty.nextCursor()).isNull();
         verify(fileSpy, times(0)).findThumbnails(org.mockito.ArgumentMatchers.anyCollection());
         seedApproved("search-beyond@example.com", CaseStatus.MISSING);
-        var beyond = search(PublicCaseSearchQuery.all(), 5, 2);
-        assertThat(beyond.content()).isEmpty();
-        assertThat(beyond.totalElements()).isEqualTo(1);
-        assertThat(beyond.last()).isTrue();
+        var first = search(PublicCaseSearchQuery.all(), null, 1);
+        assertThat(first.content()).hasSize(1);
+        assertThat(first.hasNext()).isFalse();
+        assertThat(first.nextCursor()).isNull();
     }
 
     @Test
@@ -233,9 +310,53 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
     }
 
     @Test
-    void deepPagesAreRejectedAfterSizeClamp() {
-        assertThatThrownBy(() -> search(PublicCaseSearchQuery.all(), 200, 50)).isInstanceOf(ValidationException.class);
-        assertThat(search(PublicCaseSearchQuery.all(), 199, 50).content()).isEmpty();
+    void lookaheadCaseIsNotIncludedInThumbnailBatch() {
+        long reporter = user("search-thumbnail-lookahead@example.com");
+        CaseRecord returned = save(reporter, "Returned", 30, Gender.MALE, GhanaRegion.GREATER_ACCRA,
+                LocalDate.of(2026, 9, 1), at(10), CaseStatus.MISSING);
+        CaseRecord lookahead = save(reporter, "Lookahead", 30, Gender.MALE, GhanaRegion.GREATER_ACCRA,
+                LocalDate.of(2026, 9, 1), at(9), CaseStatus.MISSING);
+        file(returned, reporter, CaseFilePurpose.PHOTO, FileVisibility.PUBLIC, at(3), null);
+        file(lookahead, reporter, CaseFilePurpose.PHOTO, FileVisibility.PUBLIC, at(2), null);
+        clearInvocations(fileSpy);
+
+        var response = search(PublicCaseSearchQuery.all(), null, 1);
+
+        assertThat(response.content()).extracting(PublicCaseSummaryResponse::id).containsExactly(returned.getId());
+        verify(fileSpy, times(1)).findThumbnails(List.of(returned.getId()));
+    }
+
+    @Test
+    void serviceEnforcesPageSizeAndRejectsInvalidCursor() {
+        assertThatThrownBy(() -> search(PublicCaseSearchQuery.all(), null, 0)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> search(PublicCaseSearchQuery.all(), null, 51)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> search(PublicCaseSearchQuery.all(), "garbage", 20)).isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void cursorTraversalContinuesPastTenThousandRows() {
+        long reporter = user("search-deep-cursor@example.com");
+        jdbc.update("""
+                INSERT INTO cases (reporter_id, full_name, age, gender, last_seen_date, region,
+                    last_seen_location, physical_description, clothing, circumstances, public_contact_number,
+                    review_status, case_status, submitted_at, approved_at)
+                SELECT ?, 'Deep Case ' || g, 30, 'MALE', DATE '2026-09-30', 'GREATER_ACCRA',
+                    'Accra', 'Description', 'Clothes', 'Circumstances', '+233200000000',
+                    'APPROVED', 'MISSING',
+                    TIMESTAMP '2026-10-01 00:00:00' - g * INTERVAL '1 second',
+                    TIMESTAMP '2026-10-01 00:00:00' - g * INTERVAL '1 second'
+                FROM generate_series(1, 10025) AS generated(g)
+                """, reporter);
+
+        List<Long> seen = new ArrayList<>();
+        String cursor = null;
+        do {
+            var page = search(PublicCaseSearchQuery.all(), cursor, 50);
+            seen.addAll(page.content().stream().map(PublicCaseSummaryResponse::id).toList());
+            cursor = page.nextCursor();
+        } while (cursor != null);
+
+        assertThat(seen).hasSize(10_025).doesNotHaveDuplicates();
     }
 
     private void seedApproved(String email, CaseStatus... statuses) {
@@ -287,13 +408,12 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
         return saved;
     }
 
-    private com.souldealers.crowdtracebackend.shared.PagedResponse<PublicCaseSummaryResponse> search(PublicCaseSearchQuery q) {
-        return search(q, 0, 20);
+    private CursorResponse<PublicCaseSummaryResponse> search(PublicCaseSearchQuery q) {
+        return search(q, null, 20);
     }
 
-    private com.souldealers.crowdtracebackend.shared.PagedResponse<PublicCaseSummaryResponse> search(
-            PublicCaseSearchQuery q, int page, int size) {
-        return service.searchPublicCases(q, PageRequest.of(page, size));
+    private CursorResponse<PublicCaseSummaryResponse> search(PublicCaseSearchQuery q, String cursor, int size) {
+        return service.searchPublicCases(q, cursor, size);
     }
 
     private static PublicCaseSearchQuery query(String name, GhanaRegion region, Gender gender, Set<CaseStatus> statuses,

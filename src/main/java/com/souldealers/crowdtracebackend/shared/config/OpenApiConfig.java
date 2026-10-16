@@ -123,9 +123,9 @@ public class OpenApiConfig {
         schemas.put("SensitiveDetailsResponse", sensitiveDetailsResponseSchema());
         schemas.put("PublicCaseResponse", publicCaseResponseSchema());
         schemas.put("PublicCaseSummaryResponse", publicCaseSummarySchema());
-        schemas.put("PublicCasePageResponse", publicCasePageSchema());
-        schemas.put("PublicCaseListResponse", caseResponseEnvelope("Public case page",
-                "#/components/schemas/PublicCasePageResponse"));
+        schemas.put("PublicCaseCursorResponse", publicCaseCursorSchema());
+        schemas.put("PublicCaseListResponse", caseResponseEnvelope("Public case cursor page",
+                "#/components/schemas/PublicCaseCursorResponse"));
         schemas.put("PublicCaseApiResponse", caseResponseEnvelope("Public case detail",
                 "#/components/schemas/PublicCaseResponse"));
         schemas.put("ReporterCaseResponse", reporterCaseResponseSchema());
@@ -240,15 +240,13 @@ public class OpenApiConfig {
                 new JsonSchema().types(new LinkedHashSet<>(List.of("null")))));
     }
 
-    private Schema publicCasePageSchema() {
+    private Schema publicCaseCursorSchema() {
         return new ObjectSchema()
                 .addProperties("content", new ArraySchema().items(
                         new Schema<>().$ref("#/components/schemas/PublicCaseSummaryResponse")))
-                .addProperties("page", new IntegerSchema().format("int32"))
                 .addProperties("size", new IntegerSchema().format("int32"))
-                .addProperties("totalElements", new IntegerSchema().format("int64"))
-                .addProperties("totalPages", new IntegerSchema().format("int32"))
-                .addProperties("last", new BooleanSchema());
+                .addProperties("hasNext", new BooleanSchema())
+                .addProperties("nextCursor", nullableString());
     }
 
     private Schema publicCaseSummarySchema() {
@@ -264,7 +262,7 @@ public class OpenApiConfig {
                 .addProperties("caseStatus", new StringSchema()._enum(List.of("MISSING", "FOUND_SAFE",
                         "FOUND_DECEASED", "CLOSED")))
                 .addProperties("presentation", new StringSchema()._enum(List.of("STANDARD", "DECEASED_NOTICE")))
-                .addProperties("approvedAt", new StringSchema().format("date-time"))
+                .addProperties("approvedAt", nullableString().format("date-time"))
                 .addProperties("resolvedAt", nullableString().format("date-time"))
                 .addProperties("thumbnailPhotoId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
                         .format("int64"));
@@ -663,8 +661,8 @@ public class OpenApiConfig {
                         + "Status values may be repeated to form a union; an "
                         + "explicitly empty status value is invalid, while an omitted status filter includes all "
                         + "outcomes. Date filters are inclusive calendar dates in UTC, and all dates must be between "
-                        + "0001-01-01 and 9999-12-31. The maximum page size is 50 and offsets at or beyond 10,000 "
-                        + "rows are rejected. Offset pages can shift when cases are published or taken down.")
+                        + "0001-01-01 and 9999-12-31. Results use a forward-only opaque cursor. Repeat the same "
+                        + "filters with nextCursor to continue; new approvals ahead of the cursor do not shift later results.")
                 .security(List.of())
                 .parameters(List.of(
                         new Parameter().name("name").in("query").required(false)
@@ -691,16 +689,16 @@ public class OpenApiConfig {
                         publicDateParameter("lastSeenTo", "Latest last-seen date, inclusive (UTC)."),
                         publicDateParameter("approvedFrom", "Earliest approval date, inclusive (UTC)."),
                         publicDateParameter("approvedTo", "Latest approval date, inclusive (UTC)."),
-                        new Parameter().name("page").in("query").required(false).description("Zero-based page number.")
-                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ZERO)
-                                        .maximum(BigDecimal.valueOf(9999))._default(0)),
+                        new Parameter().name("cursor").in("query").required(false)
+                                .description("Opaque forward cursor returned as nextCursor; repeat the same filters.")
+                                .schema(new StringSchema().maxLength(128)),
                         new Parameter().name("size").in("query").required(false).description("Page size (1–50).")
                                 .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ONE)
                                         .maximum(BigDecimal.valueOf(50))._default(20))))
                 .responses(new ApiResponses()
-                        .addApiResponse("200", jsonResponse("Public case summary page",
+                        .addApiResponse("200", jsonResponse("Public case summary cursor page",
                                 "#/components/schemas/PublicCaseListResponse"))
-                        .addApiResponse("400", caseProblemResponse("Invalid filters, parameters or page depth"))
+                        .addApiResponse("400", caseProblemResponse("Invalid filters, parameters or cursor"))
                         .addApiResponse("500", caseProblemResponse("Unexpected failure")));
     }
 

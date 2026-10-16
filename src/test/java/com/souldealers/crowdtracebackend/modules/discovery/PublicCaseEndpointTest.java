@@ -57,12 +57,17 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
         CaseRecord visible = createCase("Kofi Mensah", ReviewStatus.APPROVED, CaseStatus.MISSING, 12);
         createCase("Private Person", ReviewStatus.SUBMITTED, null, 13);
 
-        mvc.perform(get(PATH))
+        String body = mvc.perform(get(PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Public cases retrieved successfully"))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.nextCursor").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.data.content[0].fullName").value("Kofi Mensah"))
-                .andExpect(jsonPath("$.data.content[0].id").value(visible.getId()));
-        assertProjection(mvc.perform(get(PATH)).andReturn().getResponse().getContentAsString());
+                .andExpect(jsonPath("$.data.content[0].id").value(visible.getId()))
+                .andReturn().getResponse().getContentAsString();
+        assertPaginationContract(body);
+        assertProjection(body);
     }
 
     @Test
@@ -87,8 +92,6 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
         invalid("?region=MARS");
         invalid("?ageMin=abc");
         invalid("?lastSeenFrom=2026-13-01");
-        invalid("?page=abc");
-        invalid("?page=2147483648");
         invalid("?size=x");
     }
 
@@ -96,10 +99,13 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
     void invalidFiltersAndOutOfRangePagesReturnValidationFailed() throws Exception {
         validationFailed("?name=ab");
         validationFailed("?ageMin=50&ageMax=40");
-        validationFailed("?page=200&size=50");
-        validationFailed("?page=-1");
+        validationFailed("?page=0");
+        validationFailed("?page=abc");
         validationFailed("?size=0");
         validationFailed("?size=51");
+        validationFailed("?cursor=");
+        validationFailed("?cursor=broken");
+        validationFailed("?cursor=" + "A".repeat(129));
         validationFailed("?status=MISSING&status=");
         validationFailed("?status=");
         validationFailed("?lastSeenFrom=0000-12-31");
@@ -109,6 +115,28 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
 
         mvc.perform(get(PATH).param("lastSeenFrom", "9999-12-31"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void cursorContinuesForwardAndLegacyPageIsRejected() throws Exception {
+        String marker = marker();
+        createCase(marker + " Older", ReviewStatus.APPROVED, CaseStatus.MISSING, 10);
+        createCase(marker + " Newer", ReviewStatus.APPROVED, CaseStatus.FOUND_SAFE, 11);
+
+        String first = mvc.perform(get(PATH).param("name", marker).param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.hasNext").value(true))
+                .andExpect(jsonPath("$.data.nextCursor").isString())
+                .andReturn().getResponse().getContentAsString();
+        String cursor = new com.fasterxml.jackson.databind.ObjectMapper().readTree(first)
+                .path("data").path("nextCursor").asText();
+        mvc.perform(get(PATH).param("name", marker).param("size", "1").param("cursor", cursor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.nextCursor").value(org.hamcrest.Matchers.nullValue()));
+        validationFailed("?page=1");
     }
 
     @Test
@@ -166,6 +194,14 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
         assertThat(item.has("publicContactNumber")).isFalse();
         assertThat(item.has("reviewStatus")).isFalse();
         assertThat(item.has("version")).isFalse();
+    }
+
+    private void assertPaginationContract(String body) throws Exception {
+        com.fasterxml.jackson.databind.JsonNode metadata = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(body).path("data");
+        Set<String> fields = new HashSet<>();
+        metadata.fieldNames().forEachRemaining(fields::add);
+        assertThat(fields).containsExactlyInAnyOrder("content", "size", "hasNext", "nextCursor");
     }
 
     private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, String email) {

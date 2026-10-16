@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseCursor;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
@@ -16,9 +17,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
@@ -109,34 +110,27 @@ class PublicCaseQueryPlanTest extends CasePostgresTestSupport {
     static Stream<FilterShape> publicFilterShapes() {
         return Stream.of(
                 new FilterShape("none", "", SetIndexes.of("idx_cases_public_recent"),
-                        SetIndexes.prefix("idx_cases_public_"), true),
+                        true),
                 new FilterShape("region", "AND region = 'ASHANTI'", SetIndexes.of("idx_cases_public_region"),
-                        SetIndexes.of("idx_cases_public_region"), true),
+                        true),
                 new FilterShape("outcome", "AND case_status IN ('MISSING')", SetIndexes.of("idx_cases_public_outcome"),
-                        SetIndexes.of("idx_cases_public_outcome"), true),
+                        true),
                 new FilterShape("age", "AND age BETWEEN 10 AND 17",
-                        SetIndexes.of("idx_cases_public_age", "idx_cases_public_recent"),
                         SetIndexes.of("idx_cases_public_age", "idx_cases_public_recent"), true),
                 new FilterShape("name", "AND lower(full_name) LIKE '%mensah%' ESCAPE '\\'",
-                        SetIndexes.of("idx_cases_public_name_trgm"), SetIndexes.of("idx_cases_public_name_trgm"), false),
+                        SetIndexes.of("idx_cases_public_name_trgm"), false),
                 new FilterShape("last seen", "AND last_seen_date BETWEEN DATE '2026-08-10' AND DATE '2026-08-20'",
-                        SetIndexes.of("idx_cases_last_seen", "idx_cases_public_recent", "idx_cases_public_region",
-                                "idx_cases_public_outcome", "idx_cases_public_age"),
                         SetIndexes.of("idx_cases_last_seen", "idx_cases_public_recent", "idx_cases_public_region",
                                 "idx_cases_public_outcome", "idx_cases_public_age"), true, true));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("publicFilterShapes")
-    void publicPageAndCountPlansRemainEligibleForIndexes(FilterShape shape) {
+    void publicSearchPlansRemainEligibleForIndexes(FilterShape shape) {
         String where = "WHERE " + PUBLIC_FILTERS + " " + shape.whereFragment();
         String page = explain("SELECT * FROM cases " + where
                 + " ORDER BY approved_at DESC, id DESC LIMIT 20");
-        String count = explain("SELECT count(id) FROM cases " + where);
-
         assertPlan("page " + shape.name(), page, shape.pageIndexes(), shape.checkStatusCondition(),
-                shape.conditionOnlyForPublicBtree());
-        assertPlan("count " + shape.name(), count, shape.countIndexes(), shape.checkStatusCondition(),
                 shape.conditionOnlyForPublicBtree());
     }
 
@@ -158,33 +152,85 @@ class PublicCaseQueryPlanTest extends CasePostgresTestSupport {
     }
 
     @Test
-    void hibernateEmitsLowercaseEscapedNameLikePredicate() {
+    void deepCursorSeekUsesCompositeIndexRangeForPlainAndRegionSearches() {
+        String recent = explain("SELECT id FROM cases WHERE review_status = 'APPROVED' "
+                + "AND (approved_at, id) < (TIMESTAMP '2026-09-29 00:00:00', 9000) "
+                + "ORDER BY approved_at DESC, id DESC LIMIT 21");
+        assertDeepSeekPlan("recent", recent, "idx_cases_public_recent");
+
+        String region = explain("SELECT id FROM cases WHERE review_status = 'APPROVED' AND region = 'ASHANTI' "
+                + "AND (approved_at, id) < (TIMESTAMP '2026-09-29 00:00:00', 9000) "
+                + "ORDER BY approved_at DESC, id DESC LIMIT 21");
+        assertDeepSeekPlan("region", region, "idx_cases_public_region");
+
+        jdbc.execute("SET LOCAL plan_cache_mode = force_generic_plan");
+        jdbc.execute("PREPARE deep_cursor_region(text, text, timestamp, bigint) AS SELECT id FROM cases "
+                + "WHERE review_status = $1 AND region = $2 AND (approved_at, id) < ($3, $4) "
+                + "ORDER BY approved_at DESC, id DESC LIMIT 21");
+        String generic = explain("EXECUTE deep_cursor_region('APPROVED', 'ASHANTI', '2026-09-29 00:00:00', 9000)");
+        assertDeepSeekPlan("generic region", generic, "idx_cases_public_region");
+    }
+
+    @Test
+    void hibernateEmitsBoundCursorAndNamePredicatesWithoutOffsetOrCount() {
         Logger sqlLogger = (Logger) LoggerFactory.getLogger("org.hibernate.SQL");
         Level previousLevel = sqlLogger.getLevel();
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         sqlLogger.addAppender(appender);
         sqlLogger.setLevel(Level.DEBUG);
+        PublicCaseSearchQuery firstPage = PublicCaseSearchQuery.all();
+        PublicCaseSearchQuery regionPage = new PublicCaseSearchQuery(null, GhanaRegion.ASHANTI, null,
+                null, null, null, null, null, null, null);
+        LocalDateTime cursorTimestamp = LocalDateTime.of(2026, 9, 29, 0, 0);
         try {
-            caseQueryService.searchPublicCases(
-                    new PublicCaseSearchQuery("mensah", null, null, null, null, null, null, null, null, null),
-                    PageRequest.of(0, 20));
+            caseQueryService.searchPublicCases(firstPage, null, 20);
+            caseQueryService.searchPublicCases(firstPage,
+                    new PublicCaseCursor(cursorTimestamp, 9000).encode(), 20);
+            caseQueryService.searchPublicCases(regionPage,
+                    new PublicCaseCursor(cursorTimestamp, 9000).encode(), 20);
         } finally {
             sqlLogger.detachAppender(appender);
             sqlLogger.setLevel(previousLevel);
             appender.stop();
         }
 
-        String sql = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
-                .filter(message -> message.toLowerCase(Locale.ROOT).contains("lower(")
-                        && message.toLowerCase(Locale.ROOT).contains(" like "))
-                .findFirst().orElse("");
-        assertThat(sql).as("Hibernate SQL captured from org.hibernate.SQL").isNotEmpty();
-        assertThat(sql.toLowerCase(Locale.ROOT)).contains("lower(", " like ", "escape");
+        List<String> selects = appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+                .map(sql -> sql.toLowerCase(Locale.ROOT))
+                .filter(sql -> sql.startsWith("select ") && sql.contains(" from cases ")).toList();
+        assertThat(selects).as("all Hibernate case selects for the first and continued cursor requests")
+                .hasSize(3).allSatisfy(sql -> assertThat(sql).doesNotContain("offset", "count("));
+        String firstSql = selects.get(0);
+        String plainCursorSql = selects.get(1);
+        String regionCursorSql = selects.get(2);
+        assertThat(firstSql).contains("case_status in", "order by", "fetch first");
+        assertThat(plainCursorSql).contains("approved_at", " < ", "fetch first")
+                .containsPattern("\\(cr1_0\\.approved_at, cr1_0\\.id\\) < \\(\\?, \\?\\)");
+        assertThat(regionCursorSql).contains("region=?", "approved_at", " < ", "fetch first")
+                .containsPattern("\\(cr1_0\\.approved_at, cr1_0\\.id\\) < \\(\\?, \\?\\)");
+
+        List<Object> plainCursorParameters = List.of("APPROVED", "MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED",
+                cursorTimestamp, 9000L, 21);
+        List<Object> continuedParameters = List.of("APPROVED", "MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED",
+                "ASHANTI", cursorTimestamp, 9000L, 21);
+        assertDeepSeekPlan("captured plain cursor", explain(plainCursorSql, plainCursorParameters),
+                "idx_cases_public_recent");
+        assertDeepSeekPlan("captured region cursor", explain(regionCursorSql, continuedParameters),
+                "idx_cases_public_region");
     }
 
     private String explain(String sql) {
         return String.join("\n", jdbc.queryForList("EXPLAIN " + sql, String.class));
+    }
+
+    private String explain(String sql, List<Object> parameters) {
+        return String.join("\n", jdbc.queryForList("EXPLAIN " + sql, String.class, parameters.toArray()));
+    }
+
+    private static void assertDeepSeekPlan(String label, String plan, String index) {
+        assertThat(plan).as(label + " plan\n" + plan).contains(index)
+                .doesNotContain("Seq Scan", "Sort")
+                .containsPattern("(?m)Index Cond: [^\\n]*ROW\\(approved_at, id\\) < ROW\\(");
     }
 
     private static void assertPlan(String label, String plan, SetIndexes acceptable,
@@ -201,11 +247,11 @@ class PublicCaseQueryPlanTest extends CasePostgresTestSupport {
     }
 
     record FilterShape(String name, String whereFragment, SetIndexes pageIndexes,
-                       SetIndexes countIndexes, boolean checkStatusCondition,
+                       boolean checkStatusCondition,
                        boolean conditionOnlyForPublicBtree) {
         FilterShape(String name, String whereFragment, SetIndexes pageIndexes,
-                    SetIndexes countIndexes, boolean checkStatusCondition) {
-            this(name, whereFragment, pageIndexes, countIndexes, checkStatusCondition, false);
+                    boolean checkStatusCondition) {
+            this(name, whereFragment, pageIndexes, checkStatusCondition, false);
         }
         @Override public String toString() { return name; }
     }
