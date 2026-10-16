@@ -205,6 +205,26 @@ class PublicCaseSearchTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void thumbnailPrefersEarliestUploadOverLowerIdAndIgnoresForeignPhotos() {
+        long reporter = user("search-thumbnail-order@example.com");
+        CaseRecord a = save(reporter, "A", 30, Gender.MALE, GhanaRegion.GREATER_ACCRA,
+                LocalDate.of(2026, 9, 1), at(9), CaseStatus.MISSING);
+        CaseRecord b = save(reporter, "B", 30, Gender.MALE, GhanaRegion.GREATER_ACCRA,
+                LocalDate.of(2026, 9, 1), at(8), CaseStatus.MISSING);
+        CaseFile foreign = file(b, reporter, CaseFilePurpose.PHOTO, FileVisibility.PUBLIC, at(0), null);
+        CaseFile later = file(a, reporter, CaseFilePurpose.PHOTO, FileVisibility.PUBLIC, at(5), null);
+        CaseFile earlier = file(a, reporter, CaseFilePurpose.PHOTO, FileVisibility.PUBLIC, at(4), null);
+        assertThat(later.getId()).isLessThan(earlier.getId());
+
+        var result = search(PublicCaseSearchQuery.all());
+
+        assertThat(result.content()).filteredOn(c -> c.id().equals(a.getId()))
+                .extracting(PublicCaseSummaryResponse::thumbnailPhotoId).containsExactly(earlier.getId());
+        assertThat(result.content()).filteredOn(c -> c.id().equals(b.getId()))
+                .extracting(PublicCaseSummaryResponse::thumbnailPhotoId).containsExactly(foreign.getId());
+    }
+
+    @Test
     void thumbnailsLoadInOneQuery() {
         seedApproved("search-batch@example.com", CaseStatus.values());
         clearInvocations(fileSpy);
