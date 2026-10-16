@@ -141,7 +141,7 @@ when its acceptance criteria and the relevant tests are verified.
 
 ### Phase 4 — Discovery
 
-- [ ] CT-021 — Implement public case listing, filters, pagination, and indexes
+- [x] CT-021 — Implement public case listing, filters, pagination, and indexes
 - [ ] CT-022 — Implement public case details and canonical sharing data
 - [ ] CT-023 — Implement public photo delivery and private-report access boundary
 - [ ] CT-024 — Add public API safety and performance verification

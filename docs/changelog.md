@@ -1,5 +1,22 @@
 ## Unreleased
 
+- CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
+  id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
+  inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date
+  bounds accept years 0001–9999. Omitted statuses include all four outcomes; an explicitly empty status filter
+  is invalid. Forward-only keyset pagination defaults to size 20 and accepts sizes 1–50. Start with
+  `/api/public/cases?size=20`; when `hasNext` is true, repeat the same filters with the returned `nextCursor`.
+  The response metadata is `content`, `size`, `hasNext`, and `nextCursor`; no count query is run, and no exact
+  totals are returned. Cursors are opaque forward-only seek boundaries; page-number navigation is not supported, so clients
+  continue using returned cursors. Results are not snapshots.
+  Explicit legacy `page` requests return 400. Results retain the 11-field public summary; deceased summaries
+  carry `DECEASED_NOTICE`, omit withheld fields, and can retain an eligible thumbnail. A thumbnail is the earliest
+  live PUBLIC PHOTO by upload time then id; cases without one have a null value. V20 adds `pg_trgm` with a
+  `lower(full_name)` GIN index and non-partial review-status-leading B-tree indexes,
+  since Hibernate's bound enum in a generic plan cannot prove a partial-index predicate. Handoffs: CT-022 detail
+  reuses `toPublic` and returns 404 for non-approved cases; CT-023 serves `thumbnailPhotoId` only for PUBLIC
+  photos of APPROVED cases; CT-024 measures pilot-sized performance.
+
 - CT-018: case lifecycle on approved cases. Reporters (`/api/user/cases/{id}`) read their case with `version`,
   move it from `MISSING` to `FOUND_SAFE`/`FOUND_DECEASED`/`CLOSED`, set a closing statement on a resolved case and
   add photos while it is `APPROVED`. Admins (`/api/v1/admin/cases/{id}`) correct any outcome (including reopening to

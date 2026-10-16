@@ -18,8 +18,6 @@ import java.util.Optional;
 public interface CaseRecordRepository extends JpaRepository<CaseRecord, Long>, JpaSpecificationExecutor<CaseRecord> {
     Optional<CaseRecord> findByIdAndReviewStatus(Long id, ReviewStatus reviewStatus);
 
-    Page<CaseRecord> findByReviewStatusOrderByApprovedAtDescIdDesc(ReviewStatus reviewStatus, Pageable pageable);
-
     Optional<CaseRecord> findByIdAndReporterId(Long id, Long reporterId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

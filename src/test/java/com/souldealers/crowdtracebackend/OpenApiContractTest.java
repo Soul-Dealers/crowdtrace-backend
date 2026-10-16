@@ -14,6 +14,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -74,12 +75,9 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.tags",
                         hasItem("Authentication")))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']")
-                        .value("planned"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
                         .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.description",
-                        containsString("not implemented")))
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.description",
                         containsString("not implemented")))
                 // CT-017 retired the planned review placeholders in favour of the shipped review endpoints.
@@ -116,13 +114,59 @@ class OpenApiContractTest {
                         containsString("badge holder can read")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']").value("planned"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters", hasSize(12)))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[*].name", containsInAnyOrder(
+                        "name", "region", "gender", "status", "ageMin", "ageMax", "lastSeenFrom", "lastSeenTo",
+                        "approvedFrom", "approvedTo", "cursor", "size")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.minLength").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.maxLength").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
+                        containsString("Java String.trim")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
+                        containsString("3–100 UTF-16 code units")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[1].schema.enum", containsInAnyOrder(
+                        "AHAFO", "ASHANTI", "BONO", "BONO_EAST", "CENTRAL", "EASTERN", "GREATER_ACCRA",
+                        "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH", "UPPER_EAST", "UPPER_WEST", "VOLTA",
+                        "WESTERN", "WESTERN_NORTH")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[2].schema.enum",
+                        containsInAnyOrder("MALE", "FEMALE", "UNKNOWN")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].schema.type").value("array"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].schema.items.enum",
+                        containsInAnyOrder("MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[4].schema.minimum").value(0))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[4].schema.maximum").value(130))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[5].schema.minimum").value(0))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[5].schema.maximum").value(130))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[6].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[7].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[8].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[9].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[10].schema.maxLength").value(128))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.minimum").value(1))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.maximum").value(50))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.default").value(20))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].style").value("form"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].explode").value(true))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.description",
+                        containsString("0001-01-01 and 9999-12-31")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.responses.200.content['application/json'].schema.$ref")
                         .value("#/components/schemas/PublicCaseListResponse"))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseListResponse.properties.data.$ref")
-                        .value("#/components/schemas/PublicCasePageResponse"))
-                .andExpect(jsonPath("$.components.schemas.PublicCasePageResponse.properties.content.items.$ref")
-                        .value("#/components/schemas/PublicCaseResponse"))
+                        .value("#/components/schemas/PublicCaseCursorResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.content.items.$ref")
+                        .value("#/components/schemas/PublicCaseSummaryResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.nextCursor.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.page").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.totalElements").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.totalPages").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.last").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.approvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.thumbnailPhotoId.type",
+                        containsInAnyOrder("integer", "null")))
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
                         .value("planned"))
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.responses.200.content['application/json'].schema.$ref")
@@ -237,6 +281,19 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.accountStatus").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.createdAt").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
+        String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var properties = new com.fasterxml.jackson.databind.ObjectMapper().readTree(document)
+                .path("components").path("schemas").path("PublicCaseSummaryResponse").path("properties");
+        java.util.Set<String> names = new java.util.HashSet<>();
+        properties.fieldNames().forEachRemaining(names::add);
+        org.assertj.core.api.Assertions.assertThat(names).containsExactlyInAnyOrder("id", "fullName", "age", "gender",
+                "region", "lastSeenDate", "caseStatus", "presentation", "approvedAt", "resolvedAt",
+                "thumbnailPhotoId");
     }
 
     @Test

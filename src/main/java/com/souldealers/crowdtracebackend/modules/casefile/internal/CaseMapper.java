@@ -8,6 +8,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.CasePresentation;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.SensitiveDetailsResponse;
@@ -31,6 +32,13 @@ final class CaseMapper {
                 deceased ? null : c.getCircumstances(), c.getCaseStatus(), c.getClosingStatement(),
                 deceased ? null : c.getPublicContactNumber(), c.getApprovedAt(), c.getResolvedAt(),
                 deceased ? CasePresentation.DECEASED_NOTICE : CasePresentation.STANDARD);
+    }
+
+    static PublicCaseSummaryResponse toPublicSummary(CaseRecord c, Long thumbnailPhotoId) {
+        PublicCaseResponse publicCase = toPublic(c);
+        return new PublicCaseSummaryResponse(publicCase.id(), publicCase.fullName(), publicCase.age(),
+                publicCase.gender(), publicCase.region(), publicCase.lastSeenDate(), publicCase.caseStatus(),
+                publicCase.presentation(), publicCase.approvedAt(), publicCase.resolvedAt(), thumbnailPhotoId);
     }
 
     static ReporterCaseResponse toReporter(CaseRecord c, @Nullable CaseSensitiveDetails d) {
