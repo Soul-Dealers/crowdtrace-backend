@@ -1,5 +1,10 @@
 # CT-021 Public Case Listing Implementation Plan
 
+> **Superseded:** The offset-pagination decisions and implementation steps below are historical.
+> The public listing now uses keyset pagination as recorded in the
+> [2026-10-16 rewrite plan](2026-10-16-ct021-keyset-pagination.md). Keep this plan as the
+> record of the original work; do not use its page/count/depth-cap contract for current behavior.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Guests can search the public registry with `GET /api/public/cases`, using name, region, age, gender, status, last-seen and approval-date filters. Results are stably ordered, bounded, paginated and indexed, and include only approved cases.
