@@ -1,0 +1,25 @@
+{
+  "name": "crowdtrace",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "web": "pnpm --filter web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint apps",
+    "format": "prettier --write apps",
+    "api:types": "pnpm --filter web api:types"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.60.1"
+  }
+}
