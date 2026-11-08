@@ -204,6 +204,24 @@ class VerificationWorkflowTest {
     // --- users.badge_type is written with the decision ----------------------
 
     @Test
+    void listsApprovedRequestsSeparatelySoTheyCanBeRevoked() throws Exception {
+        User applicant = saveUser(UserRoles.REGISTERED_USER);
+        long requestId = submit(applicant, VerificationType.NGO, "approved listing");
+        decide(saveUser(UserRoles.MODERATOR), requestId, "approve", null);
+        User moderator = saveUser(UserRoles.MODERATOR);
+        String match = "$.data.content[?(@.id == %d)]".formatted(requestId);
+
+        mockMvc.perform(get(QUEUE).header("Authorization", bearer(moderator)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(match).doesNotExist());
+        mockMvc.perform(get(QUEUE + "&status=APPROVED").header("Authorization", bearer(moderator)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(match + ".status").value(org.hamcrest.Matchers.contains("APPROVED")));
+        mockMvc.perform(get(QUEUE + "&status=NOPE").header("Authorization", bearer(moderator)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void setsTheStoredBadgeWhenARequestIsApprovedAndClearsItWhenRevoked() throws Exception {
         User applicant = saveUser(UserRoles.REGISTERED_USER);
         long requestId = submit(applicant, VerificationType.SUBJECT_MATTER_EXPERT, "stored badge");

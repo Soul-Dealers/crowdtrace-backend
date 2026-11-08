@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,13 +30,16 @@ public class AdminVerificationController {
 
     @GetMapping("/verification-requests")
     @RequiresModerator
-    @Operation(summary = "List pending verification requests", tags = "Administration",
+    @Operation(summary = "List verification requests by status",
+            description = "Defaults to PENDING. Use status=APPROVED to find badges a Super Admin can revoke.",
+            tags = "Administration",
             responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
                     content = @Content(schema = @Schema(ref = "#/components/schemas/AdminVerificationListResponse"))))
     public ApiResponse<PagedResponse<AdminVerificationRequestResponse>> getQueue(
+            @RequestParam(defaultValue = "PENDING") VerificationStatus status,
             @ParameterObject Pageable pageable) {
-        return ApiResponse.success(verificationService.getPendingQueue(pageable),
-                "Pending verification requests retrieved successfully");
+        return ApiResponse.success(verificationService.getQueue(status, pageable),
+                "Verification requests retrieved successfully");
     }
 
     @PostMapping("/verification-requests/{id}/approve")
