@@ -1,5 +1,23 @@
 ## Unreleased
 
+- CT-023: public photo delivery and reviewer file links. `GET /api/public/cases/{caseId}/photos/{fileId}`
+  redirects (302, `no-store`) to a five-minute signed URL, but only for a live PUBLIC PHOTO attached to that
+  case while it is APPROVED; every other combination (pending, rejected, taken down, report, deleted, another
+  case's file) is the same 404. Moderators and super admins call
+  `GET /api/v1/admin/review/cases/{id}/files/{fileId}/url` for a one-minute link to any live file on the case;
+  each grant appends `CASE_FILE.PRIVATE_ACCESS_GRANTED` (target the file, metadata `caseId`) in the same
+  transaction, so no link is returned unless the audit commits. Review evidence now reports
+  `accessAvailable: true` when storage can sign. Storage that cannot sign (the in-memory fallback) answers
+  503 `FILE_ACCESS_UNAVAILABLE`. Signed responses carry `Cache-Control`: `no-store` for private files and
+  `private, max-age=<ttl>` for photos. Photos are stripped at upload, after the client checksum is checked
+  against the original bytes: JPEG keeps only image data, quantisation/Huffman tables, ICC profile, Adobe
+  colour marker and a thumbnail-free JFIF header; PNG keeps only rendering chunks. Bytes after the end marker
+  are dropped. Orientation other than upright is rewritten into a fresh one-tag EXIF block (no GPS, time or
+  device fields) so the photo still displays the right way up; pixels are never re-encoded. The stored size and
+  checksum are those of the stripped photo. Reports are stored unaltered. Accepted limits: a signed URL is a
+  bearer link until it expires, so a takedown stops new links immediately but an issued link keeps working for
+  at most its lifetime, and the generated object key is visible inside the signed URL.
+
 - CT-030: S3 storage for case files behind the existing `FileStorage` port. Setting
   `crowdtrace.storage.s3.bucket` activates `S3FileStorage`; without it the in-memory fallback stays, so local
   runs and tests need no credentials. A blank bucket fails startup. One private bucket holds every file under

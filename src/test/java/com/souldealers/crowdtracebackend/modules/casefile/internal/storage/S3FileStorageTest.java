@@ -78,6 +78,7 @@ class S3FileStorageTest {
         assertThat(response.body()).isEqualTo("%PDF-1.7 report");
         assertThat(response.headers().firstValue("Content-Type")).hasValue("application/pdf");
         assertThat(response.headers().firstValue("Content-Disposition")).hasValue("attachment");
+        assertThat(response.headers().firstValue("Cache-Control")).hasValue("no-store");
     }
 
     @Test
@@ -89,6 +90,7 @@ class S3FileStorageTest {
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.headers().firstValue("Content-Disposition")).hasValue("inline");
+        assertThat(response.headers().firstValue("Cache-Control")).hasValue("private, max-age=60");
     }
 
     @Test

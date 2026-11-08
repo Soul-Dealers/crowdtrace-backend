@@ -10,9 +10,11 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface CaseFileRepository extends JpaRepository<CaseFile, Long> {
     List<CaseFile> findByCaseIdAndDeletedAtIsNullOrderByUploadedAtAscIdAsc(Long caseId);
+    Optional<CaseFile> findByIdAndCaseIdAndDeletedAtIsNull(Long id, Long caseId);
     boolean existsByCaseIdAndPurposeAndDeletedAtIsNull(Long caseId, CaseFilePurpose purpose);
     List<CaseFile> findByUploadedByAndCaseIdIsNullAndDeletedAtIsNull(Long uploadedBy);
 

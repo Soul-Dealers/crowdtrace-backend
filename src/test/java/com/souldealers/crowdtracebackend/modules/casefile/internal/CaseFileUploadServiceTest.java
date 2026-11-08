@@ -119,6 +119,33 @@ class CaseFileUploadServiceTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void photoIsStoredWithoutMetadataAndWithTheStrippedChecksum() throws Exception {
+        long uploader = user("upload-photo-metadata@example.com");
+        byte[] text = "tEXtGPS 5.6037N 0.1870W".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(text);
+        var tagged = new java.io.ByteArrayOutputStream();
+        tagged.write(PNG, 0, 33);
+        tagged.write(java.nio.ByteBuffer.allocate(4).putInt(text.length - 4).array());
+        tagged.write(text);
+        tagged.write(java.nio.ByteBuffer.allocate(4).putInt((int) crc.getValue()).array());
+        tagged.write(PNG, 33, PNG.length - 33);
+        byte[] original = tagged.toByteArray();
+
+        CaseFileMetadataResponse response = upload(uploader, CaseFilePurpose.PHOTO, original,
+                Optional.of(sha256(original)));
+
+        assertThat(storage.objects.get(storage.lastMetadata.key())).containsExactly(PNG);
+        assertThat(storage.lastMetadata.checksumSha256()).isEqualTo(sha256(PNG));
+        assertThat(storage.lastMetadata.sizeBytes()).isEqualTo(PNG.length);
+        assertThat(response.sizeBytes()).isEqualTo(PNG.length);
+    }
+
+    private static String sha256(byte[] bytes) throws Exception {
+        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    @Test
     void rejectsOversizeBeforeStorage() {
         assertRejected(new byte[129], CaseFilePurpose.REPORT, Optional.empty());
     }
