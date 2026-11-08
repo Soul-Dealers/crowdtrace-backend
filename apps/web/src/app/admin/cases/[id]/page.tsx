@@ -87,7 +87,7 @@ function AdminCaseView({ id }: { id: number }) {
         <Badge variant="outline">{humanize(c.reviewStatus)}</Badge>
         <StatusBadge status={c.caseStatus} />
         {c.priorityMinor && <Badge variant="destructive">Minor</Badge>}
-        {c.takenDownAt && <Badge variant="destructive">Taken down</Badge>}
+        {c.reviewStatus === 'TAKEN_DOWN' && <Badge variant="destructive">Taken down</Badge>}
       </div>
       <FormMessage error={error} />
 
@@ -172,13 +172,13 @@ function AdminCaseView({ id }: { id: number }) {
         </Card>
       )}
 
-      {c.reviewStatus === 'APPROVED' && (
+      {(c.reviewStatus === 'APPROVED' || c.reviewStatus === 'TAKEN_DOWN') && (
         <LifecycleActions
           caseId={c.id}
           version={c.version}
           as="admin"
           queryKey={queryKey}
-          takenDown={!!c.takenDownAt}
+          takenDown={c.reviewStatus === 'TAKEN_DOWN'}
         />
       )}
 
