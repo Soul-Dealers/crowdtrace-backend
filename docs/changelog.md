@@ -1,5 +1,10 @@
 ## Unreleased
 
+- CT-012 follow-up: `GET /api/user/cases` lists the authenticated reporter's own cases across every review
+  outcome, newest submission first, as `ReporterCaseSummaryResponse` (`id`, `fullName`, `reviewStatus`,
+  `caseStatus`, `submittedAt`). It exposes the existing `CaseQueryService.listOwnCases`, so client sort is ignored
+  and size is clamped to 1–50. No sensitive details or admin-only flags are returned.
+
 - CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
   id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
   inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date
