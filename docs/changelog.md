@@ -1,5 +1,10 @@
 ## Unreleased
 
+- CT-022 (partial): public `GET /api/public/cases/{caseId}` now serves the existing public projection of an
+  approved case without authentication; it previously had only a placeholder contract and returned 500.
+  Pending, rejected, taken-down and unknown cases share one 404, and deceased cases keep the DECEASED_NOTICE
+  redaction. Still open on the ticket: slug lookup, comment/follow summary and a canonical share URL.
+
 - CT-010 follow-up: `GET /api/v1/admin/verification-requests` takes an optional `status` (`PENDING`,
   `APPROVED`, `REJECTED`, `REVOKED`; default `PENDING`, so existing callers are unchanged). `status=APPROVED` lists
   live badges, which is how a Super Admin finds a request to revoke. Unknown values return 400.

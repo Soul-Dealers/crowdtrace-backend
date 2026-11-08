@@ -4,6 +4,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.CursorResponse;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -87,5 +89,11 @@ public class PublicCaseController {
                 lastSeenFrom, lastSeenTo, approvedFrom, approvedTo);
         var result = caseQueryService.searchPublicCases(filter.toQuery(), cursor, requestedSize);
         return ApiResponse.success(result, "Public cases retrieved successfully");
+    }
+
+    @GetMapping("/{caseId}")
+    @Operation(summary = "Get public case", description = "Returns an approved case's public fields.")
+    public ApiResponse<PublicCaseResponse> get(@PathVariable Long caseId) {
+        return ApiResponse.success(caseQueryService.getPublicCase(caseId), "Public case retrieved successfully");
     }
 }

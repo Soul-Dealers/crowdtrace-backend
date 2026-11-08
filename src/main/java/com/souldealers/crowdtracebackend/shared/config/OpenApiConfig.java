@@ -676,12 +676,7 @@ public class OpenApiConfig {
                         adminCaseLifecycleOperation("Restore a taken-down case", "RestoreCaseRequest",
                                 "Restore a taken-down case without changing its outcome or takedown details")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicCaseListOperation()))
-                .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
-                        publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
-                                .parameters(List.of(caseIdParameter()))
-                                .responses(new ApiResponses().addApiResponse("200", jsonResponse(
-                                        "Contract placeholder only; no runtime response is available.",
-                                        "#/components/schemas/PublicCaseApiResponse")))));
+                .addPathItem("/api/public/cases/{caseId}", new PathItem().get(publicCaseDetailOperation()));
     }
 
     private Operation reporterCaseDetailOperation() {
@@ -698,6 +693,20 @@ public class OpenApiConfig {
                         .addApiResponse("401", caseProblemResponse("Authentication required"))
                         .addApiResponse("403", caseProblemResponse("Registered-user role required"))
                         .addApiResponse("404", caseProblemResponse("Unknown or foreign case")));
+    }
+
+    private Operation publicCaseDetailOperation() {
+        return new Operation().tags(List.of("Public Cases"))
+                .summary("Get public case")
+                .description("Returns an approved case's public fields; no authentication is required. Pending, "
+                        + "rejected, taken-down and unknown cases all return the same 404. Deceased cases use the "
+                        + "DECEASED_NOTICE presentation and omit location, descriptions and the contact number.")
+                .security(List.of())
+                .parameters(List.of(caseIdParameter()))
+                .responses(new ApiResponses()
+                        .addApiResponse("200", jsonResponse("Public case detail",
+                                "#/components/schemas/PublicCaseApiResponse"))
+                        .addApiResponse("404", caseProblemResponse("Unknown or non-public case")));
     }
 
     private Operation publicCaseListOperation() {

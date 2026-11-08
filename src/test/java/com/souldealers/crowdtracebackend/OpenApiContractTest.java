@@ -76,10 +76,9 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.tags",
                         hasItem("Authentication")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']").doesNotExist())
-                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.description",
-                        containsString("not implemented")))
+                // CT-022 shipped the public case detail.
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.responses.404").exists())
                 // CT-017 retired the planned review placeholders in favour of the shipped review endpoints.
                 .andExpect(jsonPath("$.paths['/api/admin/cases/review']").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision']").doesNotExist())
@@ -167,8 +166,6 @@ class OpenApiContractTest {
                         containsInAnyOrder("string", "null")))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.thumbnailPhotoId.type",
                         containsInAnyOrder("integer", "null")))
-                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
-                        .value("planned"))
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.responses.200.content['application/json'].schema.$ref")
                         .value("#/components/schemas/PublicCaseApiResponse"))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseApiResponse.properties.data.$ref")
