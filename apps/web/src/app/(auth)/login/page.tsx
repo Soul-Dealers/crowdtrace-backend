@@ -1,0 +1,66 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { AuthCard } from '@/components/app/auth-card';
+import { Field, FormMessage, formValues } from '@/components/app/form';
+import { Button } from '@/components/ui/button';
+import { api, unwrap, type LoginResponse } from '@/lib/api/client';
+import { saveSession } from '@/lib/auth';
+
+function LoginForm() {
+  const router = useRouter();
+  const expired = useSearchParams().get('expired');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+    setError(null);
+    const { email, password } = formValues(e.currentTarget);
+    const res = await api.POST('/api/v1/auth/login', { body: { email, password } });
+    setPending(false);
+    try {
+      saveSession(unwrap<LoginResponse>(res));
+    } catch (err) {
+      return setError((err as Error).message);
+    }
+    router.push('/');
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="grid gap-4">
+      {expired && !error && <FormMessage error="Your session expired. Please log in again." />}
+      <FormMessage error={error} />
+      <Field label="Email" name="email" type="email" required autoComplete="email" />
+      <Field
+        label="Password"
+        name="password"
+        type="password"
+        required
+        autoComplete="current-password"
+      />
+      <Button disabled={pending}>{pending ? 'Logging in…' : 'Log in'}</Button>
+      <div className="flex justify-between text-sm">
+        <Link href="/forgot-password" className="underline">
+          Forgot password?
+        </Link>
+        <Link href="/signup" className="underline">
+          Create an account
+        </Link>
+      </div>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <AuthCard title="Log in">
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+    </AuthCard>
+  );
+}
