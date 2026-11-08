@@ -5,6 +5,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
+import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.CursorResponse;
@@ -113,5 +114,11 @@ public class PublicCaseController {
                 .location(fileAccess.publicPhotoUrl(caseId, fileId).url())
                 .cacheControl(CacheControl.noStore())
                 .build();
+    }
+
+    @GetMapping("/{caseId}")
+    @Operation(summary = "Get public case", description = "Returns an approved case's public fields.")
+    public ApiResponse<PublicCaseResponse> get(@PathVariable Long caseId) {
+        return ApiResponse.success(caseQueryService.getPublicCase(caseId), "Public case retrieved successfully");
     }
 }
