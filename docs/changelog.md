@@ -1,5 +1,9 @@
 ## Unreleased
 
+- CT-010 follow-up: `GET /api/v1/admin/verification-requests` takes an optional `status` (`PENDING`,
+  `APPROVED`, `REJECTED`, `REVOKED`; default `PENDING`, so existing callers are unchanged). `status=APPROVED` lists
+  live badges, which is how a Super Admin finds a request to revoke. Unknown values return 400.
+
 - CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
   id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
   inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date
