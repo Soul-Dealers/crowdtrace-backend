@@ -8,6 +8,14 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080
 
 export const api = createClient<paths>({ baseUrl: API_URL });
 
+function handleExpiry(status: number) {
+  // Expired or revoked token: drop it and send the user to log in again.
+  if (status === 401 && getToken()) {
+    clearSession();
+    window.location.assign('/login?expired=1');
+  }
+}
+
 const bearer: Middleware = {
   onRequest({ request }) {
     const token = getToken();
@@ -15,11 +23,7 @@ const bearer: Middleware = {
     return request;
   },
   onResponse({ response }) {
-    // Expired or revoked token: drop it and send the user to log in again.
-    if (response.status === 401 && getToken()) {
-      clearSession();
-      window.location.assign('/login?expired=1');
-    }
+    handleExpiry(response.status);
     return response;
   },
 };
@@ -67,6 +71,7 @@ export async function uploadCaseFile(file: File, purpose: 'REPORT' | 'PHOTO') {
     body,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
+  handleExpiry(res.status);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(errorMessage(json));
   return (json as Schemas['CaseFileUploadResponse']).data!;

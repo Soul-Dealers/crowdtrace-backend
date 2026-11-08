@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { AuthCard } from '@/components/app/auth-card';
@@ -11,6 +12,7 @@ import { saveSession } from '@/lib/auth';
 
 function LoginForm() {
   const router = useRouter();
+  const qc = useQueryClient();
   const expired = useSearchParams().get('expired');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -20,14 +22,16 @@ function LoginForm() {
     setPending(true);
     setError(null);
     const { email, password } = formValues(e.currentTarget);
-    const res = await api.POST('/api/v1/auth/login', { body: { email, password } });
-    setPending(false);
     try {
+      const res = await api.POST('/api/v1/auth/login', { body: { email, password } });
+      qc.clear();
       saveSession(unwrap<LoginResponse>(res));
+      router.push('/');
     } catch (err) {
-      return setError((err as Error).message);
+      setError((err as Error).message);
+    } finally {
+      setPending(false);
     }
-    router.push('/');
   }
 
   return (

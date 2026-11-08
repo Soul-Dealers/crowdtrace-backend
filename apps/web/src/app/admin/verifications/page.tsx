@@ -9,12 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, errorMessage, unwrap, type Schemas } from '@/lib/api/client';
+import { useSession } from '@/lib/auth';
 import { VERIFICATION_TYPES, formatDate, humanize } from '@/lib/enums';
 
-type Decision = 'approve' | 'reject' | 'revoke';
+type Decision = 'approve' | 'reject';
 
 function Verifications() {
   const qc = useQueryClient();
+  const isSuperAdmin = useSession()?.role === 'SUPER_ADMIN';
   const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -30,14 +32,14 @@ function Verifications() {
 
   async function decide(id: number, decision: Decision) {
     setError(null);
-    const reviewNotes = window.prompt(`Notes for ${decision} (optional)`) ?? undefined;
+    const notes = window.prompt(`Notes for ${decision} (optional)`);
+    if (notes === null) return;
+    const reviewNotes = notes || undefined;
     const opts = { params: { path: { id } }, body: { reviewNotes } };
     const { error } =
       decision === 'approve'
         ? await api.POST('/api/v1/admin/verification-requests/{id}/approve', opts)
-        : decision === 'reject'
-          ? await api.POST('/api/v1/admin/verification-requests/{id}/reject', opts)
-          : await api.POST('/api/v1/admin/verification-requests/{id}/revoke', opts);
+        : await api.POST('/api/v1/admin/verification-requests/{id}/reject', opts);
     if (error) return setError(errorMessage(error));
     qc.invalidateQueries({ queryKey: ['admin-verifications'] });
   }
@@ -97,11 +99,6 @@ function Verifications() {
                     </Button>
                   </>
                 )}
-                {r.status === 'APPROVED' && (
-                  <Button size="sm" variant="destructive" onClick={() => decide(r.id!, 'revoke')}>
-                    Revoke
-                  </Button>
-                )}
               </td>
             </tr>
           ))}
@@ -109,25 +106,29 @@ function Verifications() {
       </table>
       <Pager page={page} totalPages={query.data?.totalPages} onChange={setPage} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Grant a badge directly</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={grant} className="grid gap-4 sm:grid-cols-2">
-            <Field label="User email" name="email" type="email" required />
-            <NativeSelect
-              label="Type"
-              name="verificationType"
-              options={VERIFICATION_TYPES}
-              format={humanize}
-            />
-            <Field label="Evidence reference" name="evidenceReference" required />
-            <Field label="Notes" name="reviewNotes" />
-            <Button className="justify-self-start">Grant</Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Granting is SUPER_ADMIN-only on the API. */}
+
+      {isSuperAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Grant a badge directly</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={grant} className="grid gap-4 sm:grid-cols-2">
+              <Field label="User email" name="email" type="email" required />
+              <NativeSelect
+                label="Type"
+                name="verificationType"
+                options={VERIFICATION_TYPES}
+                format={humanize}
+              />
+              <Field label="Evidence reference" name="evidenceReference" required />
+              <Field label="Notes" name="reviewNotes" />
+              <Button className="justify-self-start">Grant</Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

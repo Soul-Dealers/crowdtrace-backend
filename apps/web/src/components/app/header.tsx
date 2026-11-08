@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api/client';
@@ -9,6 +10,7 @@ import { clearSession, isAdmin, useSession } from '@/lib/auth';
 export function Header() {
   const session = useSession();
   const router = useRouter();
+  const qc = useQueryClient();
 
   async function logout() {
     // The bearer middleware sets the real header; the spec marks it required.
@@ -16,6 +18,7 @@ export function Header() {
       .POST('/api/v1/auth/logout', { params: { header: { Authorization: '' } } })
       .catch(() => undefined);
     clearSession();
+    qc.clear(); // don't leak the previous account's cached data to the next login
     router.push('/');
   }
 

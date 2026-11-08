@@ -17,12 +17,17 @@ export default function SignupPage() {
     setPending(true);
     setError(null);
     const { email, password, displayName } = formValues(e.currentTarget);
-    const { error } = await api.POST('/api/v1/auth/signup', {
-      body: { email, password, displayName },
-    });
-    setPending(false);
-    if (error) return setError(errorMessage(error));
-    router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+    try {
+      const { error } = await api.POST('/api/v1/auth/signup', {
+        body: { email, password, displayName },
+      });
+      if (error) return setError(errorMessage(error));
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
