@@ -1,5 +1,11 @@
 ## Unreleased
 
+- CT-037 (partial): auth endpoints now document typed envelopes. `login` returns `LoginApiResponse`
+  (`LoginResponse`: `displayName`, `email`, `role`, `token`); `me` and `profile-settings` return `UserApiResponse`;
+  `signup`, `verify-otp` and `logout` return `GenericMessageApiResponse`. Previously they collapsed to the generic
+  `ApiResponse`, whose `data` claims to be a `PagedResponse`. Logout no longer lists `Authorization` as a required
+  parameter, since `bearerAuth` already documents it. Runtime behaviour is unchanged.
+
 - CT-012 follow-up: `GET /api/user/cases` lists the authenticated reporter's own cases across every review
   outcome, newest submission first, as `ReporterCaseSummaryResponse` (`id`, `fullName`, `reviewStatus`,
   `caseStatus`, `submittedAt`). It exposes the existing `CaseQueryService.listOwnCases`, so client sort is ignored
