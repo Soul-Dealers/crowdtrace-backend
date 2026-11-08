@@ -47,6 +47,8 @@ public class AuthController {
             description = "Creates a pending account and sends an email verification OTP.",
             tags = "Authentication")
     @SecurityRequirements
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Account created; verification code sent",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/GenericMessageApiResponse")))
     @PostMapping("/signup")
     @RateLimit("ip-signup")
     public ApiResponse<GenericResponseMessage> signUpUser(@Valid @RequestBody SignUpRequest request){
@@ -59,6 +61,8 @@ public class AuthController {
             description = "Exchanges credentials for a short-lived access token",
             tags = "Authentication")
     @SecurityRequirements
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Access token issued",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/LoginApiResponse")))
     @PostMapping("/login")
     @RateLimit("ip-login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request){
@@ -67,6 +71,8 @@ public class AuthController {
     }
 
     @SecurityRequirements
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Email verified",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/GenericMessageApiResponse")))
     @PostMapping("/verify-otp")
     @RateLimit("ip-otp-attempt")
     public ApiResponse<GenericResponseMessage> verifyOtp(@Valid @RequestBody VerifyOtpDto request) {
