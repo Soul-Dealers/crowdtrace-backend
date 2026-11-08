@@ -156,7 +156,7 @@ when its acceptance criteria and the relevant tests are verified.
 
 ### Phase 6 — Privacy
 
-- [ ] CT-030 — Implement S3 storage service with generated keys and signed access
+- [x] CT-030 — Implement S3 storage service with generated keys and signed access
 - [ ] CT-031 — Enforce consent, privacy-aware mapping, and sensitive-data logging rules
 - [ ] CT-032 — Implement retention eligibility and field/file deletion
 - [ ] CT-033 — Add retention dry-run, audit, metrics, retry, and alerting

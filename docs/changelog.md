@@ -1,5 +1,19 @@
 ## Unreleased
 
+- CT-030: S3 storage for case files behind the existing `FileStorage` port. Setting
+  `crowdtrace.storage.s3.bucket` activates `S3FileStorage`; without it the in-memory fallback stays, so local
+  runs and tests need no credentials. A blank bucket fails startup. One private bucket holds every file under
+  generated `reports/<uuid>` / `photos/<uuid>` keys, so client filenames never become paths. Puts send the
+  content type and the SHA-256 checksum (hex stored, base64 sent) so S3 rejects corrupted bodies, and use
+  `If-None-Match: *` so a key can never be overwritten. Encryption at rest is the bucket default (no per-object
+  SSE header), and public access must be blocked on the bucket. The new `SignedFileAccess` port issues presigned
+  GET URLs (private files as attachments, photos inline) whose lifetime must be positive and at most
+  `max-download-ttl` (default 15 minutes); in-memory storage does not implement it. Signing does not authorize:
+  CT-023 must check report permissions and case visibility before asking for a URL. The upload service now
+  registers rollback cleanup before the put, so an ambiguous put failure (for example a timeout after S3 stored
+  the object) still deletes the object. Tests run against LocalStack 4.4 with signature validation on, because
+  MinIO images are no longer published on Docker Hub; `docker compose up localstack` provides the same locally.
+
 - CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
   id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
   inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date

@@ -49,8 +49,9 @@ public class CaseFileUploadServiceImpl implements CaseFileUploadService {
                     .storageKey(key.value()).contentType(metadata.contentType()).sizeBytes(metadata.sizeBytes())
                     .checksumSha256(metadata.checksumSha256()).build();
 
-            store(metadata, upload.path());
+            // Register cleanup first: a put that times out may still have stored the object.
             deleteOnRollback(key, file);
+            store(metadata, upload.path());
             return CaseMapper.toFileMetadata(fileRepository.save(file));
         } catch (IOException failure) {
             throw new RuntimeException("File upload failed");
