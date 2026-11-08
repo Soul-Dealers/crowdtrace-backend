@@ -227,6 +227,8 @@ class CaseFileUploadServiceTest extends CasePostgresTestSupport {
 
         assertThat(storage.objects).isEmpty();
         assertThat(files.count()).isZero();
+        // A failed put may still have stored the object (e.g. a timeout), so cleanup always runs.
+        assertThat(storage.deleteCalls).isEqualTo(1);
         assertThat(storage.lastPath).doesNotExist();
     }
 
