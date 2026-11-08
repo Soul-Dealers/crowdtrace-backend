@@ -1,7 +1,9 @@
 package com.souldealers.crowdtracebackend.modules.governance;
 
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseFileAccessService;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
+import com.souldealers.crowdtracebackend.modules.casefile.SignedFileUrl;
 import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.shared.ApiResponse;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
@@ -17,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +45,7 @@ public class ReviewController {
     private static final String PROBLEM = "#/components/schemas/ProblemDetail";
 
     private final ReviewService reviewService;
+    private final CaseFileAccessService fileAccess;
 
     @GetMapping
     @RequiresModerator
@@ -80,6 +85,24 @@ public class ReviewController {
             + ERRORS)
     public ApiResponse<ReviewCaseDetailResponse> detail(@PathVariable Long id) {
         return ApiResponse.success(reviewService.getCaseDetail(id), "Review case retrieved successfully");
+    }
+
+    @GetMapping("/{id}/files/{fileId}/url")
+    @RequiresModerator
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(ref = "#/components/schemas/SignedFileUrlApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Moderator role required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown case, or the file is not attached to it", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "File storage cannot issue download links", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
+    @Operation(summary = "Get a download link for case evidence", description = "Returns a signed URL for any live "
+            + "file attached to the case, valid for one minute. Private reports download as attachments. Each "
+            + "link issued is recorded in the audit log. Responses are not cacheable.")
+    public ResponseEntity<ApiResponse<SignedFileUrl>> fileUrl(Authentication authentication, @PathVariable Long id,
+            @PathVariable Long fileId) {
+        SignedFileUrl url = fileAccess.reviewerFileUrl(authentication.getName(), id, fileId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(url, "Download link issued"));
     }
 
     @PostMapping("/{id}/approve")

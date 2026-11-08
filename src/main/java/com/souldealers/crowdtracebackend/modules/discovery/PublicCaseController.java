@@ -1,5 +1,6 @@
 package com.souldealers.crowdtracebackend.modules.discovery;
 
+import com.souldealers.crowdtracebackend.modules.casefile.CaseFileAccessService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
@@ -17,7 +18,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +49,7 @@ public class PublicCaseController {
             + "New approvals ahead of the cursor do not shift later results, while filter changes start a different search.";
 
     private final CaseQueryService caseQueryService;
+    private final CaseFileAccessService fileAccess;
 
     @GetMapping
     @ApiResponses({
@@ -87,5 +93,25 @@ public class PublicCaseController {
                 lastSeenFrom, lastSeenTo, approvedFrom, approvedTo);
         var result = caseQueryService.searchPublicCases(filter.toQuery(), cursor, requestedSize);
         return ApiResponse.success(result, "Public cases retrieved successfully");
+    }
+
+    @GetMapping("/{caseId}/photos/{fileId}")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "302", description = "Redirect to "
+                    + "a signed photo URL valid for five minutes"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "No such public "
+                    + "photo on an approved case", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "File storage "
+                    + "cannot issue download links", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(ref = PROBLEM)))})
+    @Operation(summary = "Get a public case photo", description = "Redirects to the photo. Only photos of approved "
+            + "cases are served; location, time and device metadata were removed at upload. Use this path as the "
+            + "image source; the redirect itself is not cacheable.")
+    public ResponseEntity<Void> photo(@PathVariable Long caseId, @PathVariable Long fileId) {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(fileAccess.publicPhotoUrl(caseId, fileId).url())
+                .cacheControl(CacheControl.noStore())
+                .build();
     }
 }

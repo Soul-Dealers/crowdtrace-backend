@@ -10,6 +10,7 @@ import java.util.Map;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.RateLimitExceededException;
+import com.souldealers.crowdtracebackend.shared.FileAccessUnavailableException;
 import com.souldealers.crowdtracebackend.shared.RateLimitUnavailableException;
 import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
@@ -261,6 +262,22 @@ public class GlobalExceptionHandler {
                         "Too many requests",
                         RATE_LIMIT_EXCEEDED_MSG,
                         "RATE_LIMIT_EXCEEDED",
+                        request));
+    }
+
+    @ExceptionHandler(FileAccessUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleFileAccessUnavailable(
+            FileAccessUnavailableException exception,
+            HttpServletRequest request) {
+
+        log.error("File storage cannot sign downloads on {} {}", request.getMethod(), request.getRequestURI());
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problem(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Service unavailable",
+                        exception.getMessage(),
+                        "FILE_ACCESS_UNAVAILABLE",
                         request));
     }
 

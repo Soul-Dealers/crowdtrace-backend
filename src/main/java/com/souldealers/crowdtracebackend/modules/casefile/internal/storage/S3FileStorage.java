@@ -69,11 +69,14 @@ public class S3FileStorage implements FileStorage, SignedFileAccess {
         if (ttl == null || ttl.isNegative() || ttl.isZero() || ttl.compareTo(maxDownloadTtl) > 0) {
             throw new IllegalArgumentException("Download URL lifetime must be positive and at most " + maxDownloadTtl);
         }
+        boolean isPrivate = object.visibility() == FileVisibility.PRIVATE;
         GetObjectRequest get = GetObjectRequest.builder()
                 .bucket(bucket)
                 .key(object.key().value())
                 .responseContentType(object.contentType())
-                .responseContentDisposition(object.visibility() == FileVisibility.PRIVATE ? "attachment" : "inline")
+                .responseContentDisposition(isPrivate ? "attachment" : "inline")
+                // Private files must not linger in caches; public photos may be cached only as long as the URL lives.
+                .responseCacheControl(isPrivate ? "no-store" : "private, max-age=" + ttl.toSeconds())
                 .build();
         try {
             return presigner.presignGetObject(GetObjectPresignRequest.builder()

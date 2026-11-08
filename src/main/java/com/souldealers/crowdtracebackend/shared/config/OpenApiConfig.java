@@ -113,6 +113,13 @@ public class OpenApiConfig {
         schemas.put("ReviewCaseDetailResponse", reviewCaseDetailSchema());
         schemas.put("ReviewCaseDetailApiResponse", caseResponseEnvelope("Case with evidence, matches and history",
                 "#/components/schemas/ReviewCaseDetailResponse"));
+        schemas.put("SignedFileUrl", new ObjectSchema()
+                .description("Short-lived download link; whoever holds it can download the file until expiresAt.")
+                .addProperties("url", new StringSchema().format("uri"))
+                .addProperties("expiresAt", new StringSchema().format("date-time"))
+                .required(List.of("url", "expiresAt")));
+        schemas.put("SignedFileUrlApiResponse", caseResponseEnvelope("Download link",
+                "#/components/schemas/SignedFileUrl"));
         schemas.put("CaseReviewDecisionResponse", reviewDecisionSchema());
         schemas.put("CaseReviewDecisionApiResponse", caseResponseEnvelope("Recorded review decision",
                 "#/components/schemas/CaseReviewDecisionResponse"));
@@ -293,8 +300,8 @@ public class OpenApiConfig {
 
     private Schema reviewEvidenceSchema() {
         return new ObjectSchema()
-                .description("File metadata only; accessAvailable stays false until signed access exists. "
-                        + "No URL or storage key is returned.")
+                .description("File metadata only. When accessAvailable is true, request a download link from "
+                        + "/api/v1/admin/review/cases/{id}/files/{fileId}/url. No URL or storage key is returned.")
                 .addProperties("file", new Schema<>().$ref("#/components/schemas/CaseFileMetadataResponse"))
                 .addProperties("accessAvailable", new BooleanSchema());
     }

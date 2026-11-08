@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.governance.internal;
 
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.CaseFileAccessService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewDecision;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewMutationService;
@@ -54,6 +55,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ActorLookup actorLookup;
     private final CaseReviewMutationService caseReviews;
     private final CaseQueryService caseQueries;
+    private final CaseFileAccessService fileAccess;
     private final CaseReviewRepository reviewRepository;
     private final AuditRecorder auditRecorder;
     private final ApplicationEventPublisher events;
@@ -87,8 +89,9 @@ public class ReviewServiceImpl implements ReviewService {
         List<DuplicateMatchResponse> matches = caseQueries.listDuplicateMatches(caseId);
         List<CaseReviewHistoryResponse> history = reviewRepository.findByCaseIdOrderByCreatedAtAscIdAsc(caseId)
                 .stream().map(ReviewServiceImpl::toHistory).toList();
-        return new ReviewCaseDetailResponse(caseDetails,
-                caseDetails.files().stream().map(ReviewEvidenceResponse::metadataOnly).toList(), matches, history);
+        boolean accessAvailable = fileAccess.signedAccessAvailable();
+        return new ReviewCaseDetailResponse(caseDetails, caseDetails.files().stream()
+                .map(file -> new ReviewEvidenceResponse(file, accessAvailable)).toList(), matches, history);
     }
 
     private static CaseReviewHistoryResponse toHistory(CaseReview review) {
