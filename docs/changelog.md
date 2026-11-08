@@ -1,5 +1,10 @@
 ## Unreleased
 
+- CT-022 (partial): public `GET /api/public/cases/{caseId}` now serves the existing public projection of an
+  approved case without authentication; it previously had only a placeholder contract and returned 500.
+  Pending, rejected, taken-down and unknown cases share one 404, and deceased cases keep the DECEASED_NOTICE
+  redaction. Still open on the ticket: slug lookup, comment/follow summary and a canonical share URL.
+
 - CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
   id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
   inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date

@@ -87,6 +87,47 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void guestOpensAnApprovedCaseAndSeesOnlyPublicFields() throws Exception {
+        CaseRecord visible = createCase("Ama Owusu", ReviewStatus.APPROVED, CaseStatus.MISSING, 14);
+
+        String body = mvc.perform(get(PATH + "/" + visible.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Public case retrieved successfully"))
+                .andExpect(jsonPath("$.data.fullName").value("Ama Owusu"))
+                .andExpect(jsonPath("$.data.lastSeenLocation").value("Accra"))
+                .andExpect(jsonPath("$.data.publicContactNumber").value("+233200000000"))
+                .andExpect(jsonPath("$.data.presentation").value("STANDARD"))
+                .andReturn().getResponse().getContentAsString();
+        java.util.Set<String> fields = new java.util.HashSet<>();
+        new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).get("data").fieldNames()
+                .forEachRemaining(fields::add);
+        assertThat(fields).containsExactlyInAnyOrder("id", "fullName", "age", "gender", "lastSeenDate", "region",
+                "lastSeenLocation", "physicalDescription", "clothing", "circumstances", "caseStatus",
+                "closingStatement", "publicContactNumber", "approvedAt", "resolvedAt", "presentation");
+    }
+
+    @Test
+    void deceasedCaseDetailWithholdsSensitiveFields() throws Exception {
+        CaseRecord deceased = createCase("Yaw Boateng", ReviewStatus.APPROVED, CaseStatus.FOUND_DECEASED, 15);
+
+        mvc.perform(get(PATH + "/" + deceased.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.presentation").value("DECEASED_NOTICE"))
+                .andExpect(jsonPath("$.data.lastSeenLocation").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.publicContactNumber").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void nonPublicAndUnknownCasesAreNotFound() throws Exception {
+        CaseRecord pending = createCase("Pending Person", ReviewStatus.SUBMITTED, null, 16);
+        CaseRecord rejected = createCase("Rejected Person", ReviewStatus.REJECTED, null, 17);
+
+        mvc.perform(get(PATH + "/" + pending.getId())).andExpect(status().isNotFound());
+        mvc.perform(get(PATH + "/" + rejected.getId())).andExpect(status().isNotFound());
+        mvc.perform(get(PATH + "/999999999")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void invalidEnumAndNumericParametersReturnInvalidRequest() throws Exception {
         invalid("?status=BOGUS");
         invalid("?region=MARS");
