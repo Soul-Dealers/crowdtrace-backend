@@ -84,6 +84,14 @@ public class OpenApiConfig {
         schemas.put("ApiResponse", apiResponseSchema());
         schemas.put("PagedResponse", pagedResponseSchema());
         schemas.put("UserResponse", userResponseSchema());
+        schemas.put("UserApiResponse", caseResponseEnvelope("Single user profile",
+                "#/components/schemas/UserResponse"));
+        schemas.put("LoginResponse", loginResponseSchema());
+        schemas.put("LoginApiResponse", caseResponseEnvelope("Issued access token and identity",
+                "#/components/schemas/LoginResponse"));
+        schemas.put("GenericResponseMessage", genericResponseMessageSchema());
+        schemas.put("GenericMessageApiResponse", caseResponseEnvelope("Confirmation message",
+                "#/components/schemas/GenericResponseMessage"));
         schemas.put("UserPageResponse", userPageResponseSchema());
         schemas.put("UserListResponse", userListResponseSchema());
         schemas.put("VerificationRequestResponse", verificationRequestResponseSchema());
@@ -458,6 +466,20 @@ public class OpenApiConfig {
                 .addProperties("caseId", new IntegerSchema().format("int64"))
                 .addProperties("reviewStatus", new StringSchema()._enum(List.of("SUBMITTED")))
                 .addProperties("submittedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema loginResponseSchema() {
+        return new ObjectSchema()
+                .description("Identity and short-lived bearer token returned by a successful login.")
+                .addProperties("displayName", new StringSchema())
+                .addProperties("email", new StringSchema().format("email"))
+                .addProperties("role", new StringSchema()._enum(List.of("REGISTERED_USER", "MODERATOR", "SUPER_ADMIN")))
+                .addProperties("token", new StringSchema().description("JWT access token for the bearerAuth scheme."))
+                .required(List.of("displayName", "email", "role", "token"));
+    }
+
+    private Schema genericResponseMessageSchema() {
+        return new ObjectSchema().addProperties("message", new StringSchema());
     }
 
     private Schema caseResponseEnvelope(String description, String dataReference) {
