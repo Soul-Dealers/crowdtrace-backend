@@ -308,6 +308,19 @@ class OpenApiContractTest {
     }
 
     @Test
+    void documentsTheReporterOwnCaseList() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].get.responses['200'].content['application/json']"
+                        + ".schema['$ref']").value("#/components/schemas/ReporterCaseListResponse"))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post").exists())
+                .andExpect(jsonPath("$.components.schemas.ReporterCasePageResponse.properties.content.items['$ref']")
+                        .value("#/components/schemas/ReporterCaseSummaryResponse"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseSummaryResponse.properties.sensitiveDetails")
+                        .doesNotExist());
+    }
+
+    @Test
     void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
         String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
