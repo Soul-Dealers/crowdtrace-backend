@@ -79,9 +79,9 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Override
     @Transactional(readOnly = true)
-    public PagedResponse<AdminVerificationRequestResponse> getPendingQueue(Pageable pageable) {
+    public PagedResponse<AdminVerificationRequestResponse> getQueue(VerificationStatus status, Pageable pageable) {
         return PagedResponse.from(requestRepository.findByStatusOrderByCreatedAtAsc(
-                VerificationStatus.PENDING, pageable).map(this::toAdminResponse));
+                status, pageable).map(this::toAdminResponse));
     }
 
     @Override

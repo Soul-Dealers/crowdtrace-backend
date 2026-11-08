@@ -10,7 +10,7 @@ public interface VerificationService {
 
     List<VerificationRequestResponse> getOwnRequests(String actorEmail);
 
-    PagedResponse<AdminVerificationRequestResponse> getPendingQueue(Pageable pageable);
+    PagedResponse<AdminVerificationRequestResponse> getQueue(VerificationStatus status, Pageable pageable);
 
     AdminVerificationRequestResponse approve(String actorEmail, Long requestId,
                                              VerificationDecisionRequest decision);

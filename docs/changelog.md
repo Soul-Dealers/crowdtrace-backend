@@ -1,5 +1,9 @@
 ## Unreleased
 
+- CT-010 follow-up: `GET /api/v1/admin/verification-requests` takes an optional `status` (`PENDING`,
+  `APPROVED`, `REJECTED`, `REVOKED`; default `PENDING`, so existing callers are unchanged). `status=APPROVED` lists
+  live badges, which is how a Super Admin finds a request to revoke. Unknown values return 400.
+
 - CT-037 (partial): auth endpoints now document typed envelopes. `login` returns `LoginApiResponse`
   (`LoginResponse`: `displayName`, `email`, `role`, `token`); `me` and `profile-settings` return `UserApiResponse`;
   `signup`, `verify-otp` and `logout` return `GenericMessageApiResponse`. Previously they collapsed to the generic
