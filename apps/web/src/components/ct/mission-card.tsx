@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { Megaphone } from 'lucide-react';
 
-export type MissionStats = { openCases?: number; foundSafe?: number; sightings?: number };
+/** Numbers or short labels such as "50+"; unknown values render as a dash, never as zero. */
+export type MissionStats = { openCases?: number | string; foundSafe?: number | string; sightings?: number | string };
 
-function Stat({ value, label }: { value?: number; label: string }) {
+function Stat({ value, label }: { value?: number | string; label: string }) {
   return (
     <div className="text-center">
       <div className="text-2xl font-semibold">{value ?? '—'}</div>
