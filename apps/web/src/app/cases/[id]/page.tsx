@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { WithRail } from '@/components/ct/app-shell';
 import { CaseContactCard } from '@/components/ct/case-contact-card';
-import { CasePhoto } from '@/components/ct/case-photo';
+import { CaseGallery } from '@/components/ct/case-gallery';
 import { CommunityRules } from '@/components/ct/community-rules';
 import { Panel } from '@/components/ct/panel';
 import { Pill, type PillTone } from '@/components/ct/pill';
@@ -103,7 +103,7 @@ export default function PublicCasePage() {
       </nav>
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,264px)_1fr]">
-        <CasePhoto caseId={c.id!} alt={c.fullName!} className="aspect-[4/3]" />
+        <CaseGallery caseId={c.id!} photoIds={c.photoIds ?? []} alt={c.fullName!} />
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{caseKindLabel(c.age!)} · Case {c.id}</p>
           <h1 className="text-3xl font-semibold">{c.fullName}</h1>

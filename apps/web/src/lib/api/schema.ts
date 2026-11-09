@@ -1261,6 +1261,8 @@ export interface components {
       resolvedAt?: string | null;
       /** @enum {string} */
       presentation?: 'STANDARD' | 'DECEASED_NOTICE';
+      /** @description Public photo file IDs, oldest first. Fetch each from /api/public/cases/{caseId}/photos/{fileId}. */
+      photoIds?: number[];
     };
     PublicCaseSummaryResponse: {
       /** Format: int64 */
