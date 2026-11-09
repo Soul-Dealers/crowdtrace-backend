@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { DetailList } from '@/components/app/detail-list';
 import { Field, FormMessage, NativeSelect, formValues } from '@/components/app/form';
 import { RequireAuth } from '@/components/app/require-auth';
+import { StatusBadge } from '@/components/app/status-badge';
+import { PageHeader } from '@/components/ct/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,7 +99,7 @@ function Account() {
           <ul className="grid gap-2 text-sm">
             {requests.data?.map((r) => (
               <li key={r.id} className="flex flex-wrap gap-2">
-                <Badge variant="outline">{humanize(r.status)}</Badge>
+                <StatusBadge status={r.status} />
                 {humanize(r.verificationType)} · {r.evidenceReference} · {formatDate(r.createdAt)}
               </li>
             ))}
@@ -123,11 +125,11 @@ function Account() {
 
 export default function AccountPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Account</h1>
+    <div className="max-w-3xl space-y-5">
+      <PageHeader title="Account" description="Your profile and verification badge." />
       <RequireAuth>
         <Account />
       </RequireAuth>
-    </main>
+    </div>
   );
 }

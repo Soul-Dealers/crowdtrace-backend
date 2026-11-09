@@ -7,7 +7,6 @@ import { FormMessage } from '@/components/app/form';
 import { LifecycleActions } from '@/components/app/lifecycle-actions';
 import { RequireAuth } from '@/components/app/require-auth';
 import { StatusBadge } from '@/components/app/status-badge';
-import { Badge } from '@/components/ui/badge';
 import { api, unwrap, type Schemas } from '@/lib/api/client';
 import { formatDate, humanize } from '@/lib/enums';
 
@@ -21,15 +20,15 @@ function ReporterCase({ id }: { id: number }) {
       ),
   });
 
-  if (query.isPending) return <p>Loading…</p>;
+  if (query.isPending) return <div className="h-60 animate-pulse rounded-2xl bg-muted" aria-busy />;
   if (query.isError) return <FormMessage error={(query.error as Error).message} />;
   const c = query.data;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid max-w-3xl gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">{c.fullName}</h1>
-        <Badge variant="outline">{humanize(c.reviewStatus)}</Badge>
+        <h1 className="text-2xl font-semibold sm:text-3xl">{c.fullName}</h1>
+        <StatusBadge status={c.reviewStatus} />
         <StatusBadge status={c.caseStatus} />
       </div>
       <DetailList
@@ -58,10 +57,10 @@ function ReporterCase({ id }: { id: number }) {
 export default function MyCasePage() {
   const { id } = useParams<{ id: string }>();
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <>
       <RequireAuth>
         <ReporterCase id={Number(id)} />
       </RequireAuth>
-    </main>
+    </>
   );
 }
