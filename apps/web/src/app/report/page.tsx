@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { Field, FormMessage, NativeSelect, formValues } from '@/components/app/form';
 import { RequireAuth } from '@/components/app/require-auth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { WithRail } from '@/components/ct/app-shell';
+import { Panel } from '@/components/ct/panel';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage, uploadCaseFile, unwrap, type Schemas } from '@/lib/api/client';
@@ -13,11 +14,15 @@ import { GENDERS, REGIONS, humanize } from '@/lib/enums';
 
 const CONSENT_VERSION = process.env.NEXT_PUBLIC_CONSENT_VERSION ?? 'v1';
 
-function Area({ label, name, required }: { label: string; name: string; required?: boolean }) {
+function Area({
+  label,
+  name,
+  ...props
+}: React.ComponentProps<typeof Textarea> & { label: string; name: string }) {
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Textarea id={name} name={name} required={required} />
+      <Textarea id={name} name={name} {...props} />
     </div>
   );
 }
@@ -80,76 +85,194 @@ function ReportForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-6">
+    <form onSubmit={onSubmit} className="grid gap-5">
       <FormMessage error={error} />
-      <Card>
-        <CardHeader>
-          <CardTitle>Missing person</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+      <Section
+        n={1}
+        title="Who is missing"
+        note="Shown publicly once a moderator approves the case."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Full name" name="fullName" required />
           <Field label="Age" name="age" type="number" min={0} max={130} required />
-          <NativeSelect label="Gender" name="gender" options={GENDERS} format={humanize} required />
-          <NativeSelect label="Region" name="region" options={REGIONS} format={humanize} required />
-          <Field label="Last seen date" name="lastSeenDate" type="date" required />
-          <Field label="Last seen location" name="lastSeenLocation" required />
-          <Field label="Public contact number" name="publicContactNumber" type="tel" required />
-          <div className="sm:col-span-2 grid gap-4">
-            <Area label="Physical description" name="physicalDescription" required />
-            <Area label="Clothing" name="clothing" required />
-            <Area label="Circumstances" name="circumstances" required />
-          </div>
-        </CardContent>
-      </Card>
+          <NativeSelect
+            label="Gender"
+            name="gender"
+            options={GENDERS}
+            format={humanize}
+            placeholder="Select"
+            required
+          />
+          <NativeSelect
+            label="Region"
+            name="region"
+            options={REGIONS}
+            format={humanize}
+            placeholder="Select"
+            required
+          />
+          <Field
+            label="Last seen date"
+            name="lastSeenDate"
+            type="date"
+            required
+            max={new Date().toISOString().slice(0, 10)}
+          />
+          <Field
+            label="Last seen location"
+            name="lastSeenLocation"
+            placeholder="e.g. Kaneshie Market, Accra"
+            required
+          />
+          <Field
+            label="Public contact number"
+            name="publicContactNumber"
+            type="tel"
+            placeholder="024 000 0000"
+            hint="People with information will call this number."
+            required
+          />
+        </div>
+        <div className="mt-4 grid gap-4">
+          <Area
+            label="Physical description"
+            name="physicalDescription"
+            placeholder="Height, build, hair, distinguishing marks"
+            required
+          />
+          <Area label="Clothing when last seen" name="clothing" required />
+          <Area
+            label="What happened"
+            name="circumstances"
+            placeholder="Where they were going, who they were with"
+            required
+          />
+        </div>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Private details (reviewers only)</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Your relationship to them" name="reporterRelationship" required />
+      <Section n={2} title="Private details" note="Only moderators reviewing the case see these.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Your relationship to them"
+            name="reporterRelationship"
+            placeholder="e.g. Mother"
+            required
+          />
           <Field label="Medical conditions" name="medicalConditions" />
           <Field label="Known associates" name="knownAssociates" />
           <Field label="Vehicle info" name="vehicleInfo" />
           <Field label="Social media handles" name="socialMediaHandles" />
-        </CardContent>
-      </Card>
+        </div>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Documents</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
+      <Section n={3} title="Documents and photos">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Police report (PDF or JPEG, required)"
+            label="Police report"
             name="reports"
             type="file"
             accept="application/pdf,image/jpeg"
             multiple
             required
+            className="h-auto py-2"
+            hint="PDF or JPEG. Required; reviewers only."
           />
-          <Field label="Photos (up to 5)" name="photos" type="file" accept="image/*" multiple />
-          <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" required className="mt-1" />I consent to CrowdTrace processing
-            the sensitive details above for case review.
-          </label>
-        </CardContent>
-      </Card>
+          <Field
+            label="Photos"
+            name="photos"
+            type="file"
+            accept="image/*"
+            multiple
+            className="h-auto py-2"
+            hint="Up to 5. Location and device data are removed."
+          />
+        </div>
+        <label className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-muted p-3.5 text-sm text-text-secondary">
+          <input type="checkbox" required className="mt-0.5 size-4 accent-brand" />I consent to
+          CrowdTrace processing the sensitive details above for case review.
+        </label>
+      </Section>
 
-      <Button disabled={!!step} className="justify-self-start">
-        {step ?? 'Submit case'}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="lg" disabled={!!step}>
+          {step ?? 'Submit for review'}
+        </Button>
+        <span className="text-sm text-text-subtle">
+          Nothing is public until a moderator approves it.
+        </span>
+      </div>
     </form>
   );
 }
 
+function Section({
+  n,
+  title,
+  note,
+  children,
+}: {
+  n: number;
+  title: string;
+  note?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Panel
+      title={
+        <span className="flex items-center gap-2.5">
+          <span className="flex size-6 items-center justify-center rounded-full bg-chip font-mono text-xs">
+            {n}
+          </span>
+          {title}
+        </span>
+      }
+      meta={note && <span className="hidden sm:inline">{note}</span>}
+      bodyClassName="p-4 sm:p-5"
+    >
+      {note && <p className="mb-4 text-sm text-muted-foreground sm:hidden">{note}</p>}
+      {children}
+    </Panel>
+  );
+}
+
+const NEXT_STEPS = [
+  ['Submitted', 'Your report goes to a moderator, not the public.'],
+  ['Reviewed', 'They check the police report and may contact you.'],
+  ['Published', 'Approved cases appear on Browse with your contact number.'],
+] as const;
+
 export default function ReportPage() {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Report a missing person</h1>
-      <RequireAuth>
-        <ReportForm />
-      </RequireAuth>
-    </main>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Report a missing person</h1>
+        <p className="text-muted-foreground">
+          Takes about 5 minutes. Have the police report ready.
+        </p>
+      </header>
+      <WithRail
+        rail={
+          <Panel title="What happens next" mono bodyClassName="p-4">
+            <ol className="space-y-4">
+              {NEXT_STEPS.map(([label, text], i) => (
+                <li key={label} className="flex gap-3">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border font-mono text-xs">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <div className="text-sm font-medium">{label}</div>
+                    <p className="text-sm text-muted-foreground">{text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Panel>
+        }
+      >
+        <RequireAuth>
+          <ReportForm />
+        </RequireAuth>
+      </WithRail>
+    </div>
   );
 }

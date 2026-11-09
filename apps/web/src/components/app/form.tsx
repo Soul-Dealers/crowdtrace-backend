@@ -2,13 +2,27 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type FieldProps = React.ComponentProps<typeof Input> & { label: string; name: string };
+type FieldProps = React.ComponentProps<typeof Input> & {
+  label: string;
+  name: string;
+  hint?: string;
+};
 
-export function Field({ label, name, ...props }: FieldProps) {
+export function Field({ label, name, hint, ...props }: FieldProps) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid content-start gap-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} {...props} />
+      <Input
+        id={name}
+        name={name}
+        aria-describedby={hint ? `${name}-hint` : undefined}
+        {...props}
+      />
+      {hint && (
+        <p id={`${name}-hint`} className="text-xs text-text-subtle">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -49,7 +63,7 @@ export function NativeSelect({
       <select
         id={name}
         name={name}
-        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+        className="h-11 rounded-xl border border-border bg-muted px-3 text-sm hover:border-white/15 focus-visible:border-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
         {...props}
       >
         {placeholder !== undefined && <option value="">{placeholder}</option>}

@@ -48,10 +48,10 @@ function LoginForm() {
       />
       <Button disabled={pending}>{pending ? 'Logging in…' : 'Log in'}</Button>
       <div className="flex justify-between text-sm">
-        <Link href="/forgot-password" className="underline">
+        <Link href="/forgot-password" className="text-text-secondary hover:text-foreground">
           Forgot password?
         </Link>
-        <Link href="/signup" className="underline">
+        <Link href="/signup" className="font-medium text-brand hover:underline">
           Create an account
         </Link>
       </div>
