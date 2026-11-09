@@ -97,13 +97,14 @@ class PublicCaseEndpointTest extends CasePostgresTestSupport {
                 .andExpect(jsonPath("$.data.lastSeenLocation").value("Accra"))
                 .andExpect(jsonPath("$.data.publicContactNumber").value("+233200000000"))
                 .andExpect(jsonPath("$.data.presentation").value("STANDARD"))
+                .andExpect(jsonPath("$.data.photoIds").isEmpty())
                 .andReturn().getResponse().getContentAsString();
         java.util.Set<String> fields = new java.util.HashSet<>();
         new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).get("data").fieldNames()
                 .forEachRemaining(fields::add);
         assertThat(fields).containsExactlyInAnyOrder("id", "fullName", "age", "gender", "lastSeenDate", "region",
                 "lastSeenLocation", "physicalDescription", "clothing", "circumstances", "caseStatus",
-                "closingStatement", "publicContactNumber", "approvedAt", "resolvedAt", "presentation");
+                "closingStatement", "publicContactNumber", "approvedAt", "resolvedAt", "presentation", "photoIds");
     }
 
     @Test

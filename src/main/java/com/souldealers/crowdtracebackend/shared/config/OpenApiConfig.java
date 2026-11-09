@@ -222,7 +222,10 @@ public class OpenApiConfig {
                 .addProperties("publicContactNumber", nullableString())
                 .addProperties("approvedAt", new StringSchema().format("date-time"))
                 .addProperties("resolvedAt", nullableString().format("date-time"))
-                .addProperties("presentation", new StringSchema()._enum(List.of("STANDARD", "DECEASED_NOTICE")));
+                .addProperties("presentation", new StringSchema()._enum(List.of("STANDARD", "DECEASED_NOTICE")))
+                .addProperties("photoIds", new ArraySchema().items(new IntegerSchema().format("int64"))
+                        .description("Public photo file IDs, oldest first. Fetch each from "
+                                + "/api/public/cases/{caseId}/photos/{fileId}."));
     }
 
     private Schema reporterCaseResponseSchema() {

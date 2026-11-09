@@ -241,6 +241,8 @@ class OpenApiContractTest {
                         containsInAnyOrder("string", "null")))
                 .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.resolvedAt.type",
                         containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.photoIds.items.format")
+                        .value("int64"))
                 .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.version.type")
                         .value("integer"))
                 .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.sensitiveDetails.anyOf[0].$ref")

@@ -1,5 +1,8 @@
 ## Unreleased
 
+- CT-022 (part): `GET /api/public/cases/{caseId}` now returns `photoIds`, the case's live PUBLIC PHOTO file IDs
+  oldest first (ties by ID), using the same filter as list thumbnails, so each one resolves through
+  `GET /api/public/cases/{caseId}/photos/{fileId}`. Empty array when there are none. The list endpoint is unchanged.
 - CT-023: public photo delivery and reviewer file links. `GET /api/public/cases/{caseId}/photos/{fileId}`
   redirects (302, `no-store`) to a five-minute signed URL, but only for a live PUBLIC PHOTO attached to that
   case while it is APPROVED; every other combination (pending, rejected, taken down, report, deleted, another

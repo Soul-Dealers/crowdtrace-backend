@@ -24,18 +24,18 @@ import java.util.List;
 final class CaseMapper {
     CaseMapper() {}
 
-    static PublicCaseResponse toPublic(CaseRecord c) {
+    static PublicCaseResponse toPublic(CaseRecord c, List<Long> photoIds) {
         boolean deceased = c.getCaseStatus() == CaseStatus.FOUND_DECEASED;
         return new PublicCaseResponse(c.getId(), c.getFullName(), c.getAge(), c.getGender(), c.getLastSeenDate(),
                 c.getRegion(), deceased ? null : c.getLastSeenLocation(),
                 deceased ? null : c.getPhysicalDescription(), deceased ? null : c.getClothing(),
                 deceased ? null : c.getCircumstances(), c.getCaseStatus(), c.getClosingStatement(),
                 deceased ? null : c.getPublicContactNumber(), c.getApprovedAt(), c.getResolvedAt(),
-                deceased ? CasePresentation.DECEASED_NOTICE : CasePresentation.STANDARD);
+                deceased ? CasePresentation.DECEASED_NOTICE : CasePresentation.STANDARD, List.copyOf(photoIds));
     }
 
     static PublicCaseSummaryResponse toPublicSummary(CaseRecord c, Long thumbnailPhotoId) {
-        PublicCaseResponse publicCase = toPublic(c);
+        PublicCaseResponse publicCase = toPublic(c, List.of());
         return new PublicCaseSummaryResponse(publicCase.id(), publicCase.fullName(), publicCase.age(),
                 publicCase.gender(), publicCase.region(), publicCase.lastSeenDate(), publicCase.caseStatus(),
                 publicCase.presentation(), publicCase.approvedAt(), publicCase.resolvedAt(), thumbnailPhotoId);

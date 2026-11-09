@@ -30,4 +30,12 @@ public interface CaseFileRepository extends JpaRepository<CaseFile, Long> {
             ORDER BY case_id, uploaded_at, id
             """, nativeQuery = true)
     List<CaseThumbnail> findThumbnails(@Param("caseIds") Collection<Long> caseIds);
+
+    /** Same filter as the thumbnails: the photos the public photo endpoint will serve, oldest first. */
+    @Query(value = """
+            SELECT id FROM case_files
+            WHERE case_id = :caseId AND purpose = 'PHOTO' AND visibility = 'PUBLIC' AND deleted_at IS NULL
+            ORDER BY uploaded_at, id
+            """, nativeQuery = true)
+    List<Long> findPublicPhotoIds(@Param("caseId") Long caseId);
 }
