@@ -52,7 +52,7 @@ public class CaseQueryServiceImpl implements CaseQueryService {
     @Override
     public PublicCaseResponse getPublicCase(Long caseId) {
         return caseRepository.findByIdAndReviewStatus(caseId, ReviewStatus.APPROVED)
-                .map(CaseMapper::toPublic)
+                .map(c -> CaseMapper.toPublic(c, fileRepository.findPublicPhotoIds(c.getId())))
                 .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
     }
 

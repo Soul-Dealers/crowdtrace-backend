@@ -15,11 +15,12 @@ class CaseProjectionContractTest {
 
     @Test
     void publicJsonHasExactlyThePublicFields() {
-        JsonNode json = mapper.readTree(mapper.writeValueAsString(CaseMapper.toPublic(fullCase())));
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(CaseMapper.toPublic(fullCase(), List.of(7L, 9L))));
         assertThat(json.propertyNames()).containsExactlyInAnyOrder(
                 "id", "fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
                 "physicalDescription", "clothing", "circumstances", "caseStatus", "closingStatement",
-                "publicContactNumber", "approvedAt", "resolvedAt", "presentation");
+                "publicContactNumber", "approvedAt", "resolvedAt", "presentation", "photoIds");
+        assertThat(json.get("photoIds").toString()).isEqualTo("[7,9]");
         assertThat(json.get("fullName").asText()).isEqualTo("Kofi Mensah");
         assertThat(json.get("lastSeenDate").asText()).isEqualTo("2026-09-30");
         assertThat(json.get("resolvedAt").asText()).isEqualTo("2026-10-01T09:00:00");
@@ -31,7 +32,7 @@ class CaseProjectionContractTest {
         var deceased = fullCase();
         deceased.setCaseStatus(CaseStatus.FOUND_DECEASED);
 
-        JsonNode json = mapper.readTree(mapper.writeValueAsString(CaseMapper.toPublic(deceased)));
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(CaseMapper.toPublic(deceased, List.of())));
 
         assertThat(json.get("lastSeenLocation").isNull()).isTrue();
         assertThat(json.get("physicalDescription").isNull()).isTrue();
@@ -46,7 +47,7 @@ class CaseProjectionContractTest {
 
     @Test
     void publicJsonCarriesNoAdminOnlyValue() {
-        String json = mapper.writeValueAsString(CaseMapper.toPublic(fullCase()));
+        String json = mapper.writeValueAsString(CaseMapper.toPublic(fullCase(), List.of()));
         assertThat(json).doesNotContain(MEDICAL, ASSOCIATES, VEHICLE, SOCIALS, RELATION, EMAIL, STORAGE_KEY)
                 .doesNotContain("reporterId", "priorityMinor", "duplicateFlag", "reviewStatus", "submittedAt",
                         "takedownReason", "takenDownBy", "takenDownAt");

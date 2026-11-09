@@ -83,6 +83,21 @@ class CaseFileRepositoryTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void listsOnlyLivePublicPhotosOfTheCaseOldestFirst() {
+        long r = user("public-photos@example.com"), c = cases.save(aCase(r).build()).getId();
+        long other = cases.save(aCase(r).build()).getId();
+        CaseFile later = upload(r, c, "pp-later", at(10), null, CaseFilePurpose.PHOTO);
+        CaseFile first = upload(r, c, "pp-first", at(9), null, CaseFilePurpose.PHOTO);
+        CaseFile tied = upload(r, c, "pp-tie", at(10), null, CaseFilePurpose.PHOTO);
+        upload(r, c, "pp-deleted", at(8), at(11), CaseFilePurpose.PHOTO);
+        upload(r, c, "pp-report", at(8), null, CaseFilePurpose.REPORT);
+        upload(r, other, "pp-other", at(8), null, CaseFilePurpose.PHOTO);
+
+        assertThat(files.findPublicPhotoIds(c)).containsExactly(first.getId(), later.getId(), tied.getId());
+        assertThat(files.findPublicPhotoIds(cases.save(aCase(r).build()).getId())).isEmpty();
+    }
+
+    @Test
     void recordsWhoUploaded() {
         long r = user("uploader@example.com");
         CaseFile file = upload(r, null, "who", at(9), null, CaseFilePurpose.REPORT);
