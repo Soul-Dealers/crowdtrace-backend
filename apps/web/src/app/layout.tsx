@@ -1,20 +1,23 @@
 import type { Metadata } from 'next';
-import { Header } from '@/components/app/header';
+import { Geist, Geist_Mono } from 'next/font/google';
+import { AppShell } from '@/components/ct/app-shell';
 import { Providers } from '@/components/providers';
 import './globals.css';
 
+const sans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' });
+const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
+
 export const metadata: Metadata = {
-  title: 'CrowdTrace',
-  description: 'Community-powered missing persons reporting.',
+  title: 'Find. Ghana — CrowdTrace',
+  description: 'Community-powered missing persons reporting across Ghana.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-background text-foreground antialiased">
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <Providers>
-          <Header />
-          {children}
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>
