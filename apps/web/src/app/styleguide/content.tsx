@@ -88,7 +88,7 @@ export function StyleguideContent() {
           <p className="text-sm text-muted-foreground">Missing child · CT-GH-2026-0148</p>
           <h2 className="text-3xl font-semibold">Abena Owusu</h2>
           <div className="flex gap-2"><Pill tone="warning">Missing</Pill><Pill>Day <b className="text-foreground">9</b></Pill><Pill tone="danger">Under 18</Pill></div>
-          <CaseContactCard phone="0245617720" gender="FEMALE" shareUrl="https://crowdtrace.example/cases/1" className="max-w-md" />
+          <CaseContactCard phone="0245617720" gender="FEMALE" sharePath="/cases/1" className="max-w-md" />
         </div>
       </section>
 

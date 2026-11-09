@@ -25,10 +25,11 @@ function useFlash() {
  * The family's public contact number with call / copy / share actions.
  * Follow is disabled until the follow API exists (pass onFollow to enable it).
  */
-export function CaseContactCard({ phone, gender, shareUrl, onFollow, className }: {
+export function CaseContactCard({ phone, gender, sharePath, onFollow, className }: {
   phone: string;
   gender: keyof typeof pronoun;
-  shareUrl: string;
+  /** Path of the public case page; the full link is built on click so server and client render the same markup. */
+  sharePath: string;
   onFollow?: () => void;
   className?: string;
 }) {
@@ -54,7 +55,7 @@ export function CaseContactCard({ phone, gender, shareUrl, onFollow, className }
             className="inline-flex items-center gap-1.5 rounded-lg bg-info px-3 py-1.5 text-sm font-semibold text-black">
             Copy Number {icon('number', Copy)}
           </button>
-          <button type="button" onClick={() => copy('link', shareUrl)}
+          <button type="button" onClick={() => copy('link', new URL(sharePath, window.location.origin).href)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-black px-3 py-1.5 text-sm font-semibold">
             Copy Link {icon('link', Link2)}
           </button>
