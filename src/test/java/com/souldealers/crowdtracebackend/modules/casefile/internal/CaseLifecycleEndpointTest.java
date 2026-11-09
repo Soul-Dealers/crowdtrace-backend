@@ -84,6 +84,27 @@ class CaseLifecycleEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void reporterListReturnsOnlyOwnCasesWithoutPrivateFields() throws Exception {
+        CaseRecord first = approved(ownerId);
+        CaseRecord second = approved(ownerId, CaseStatus.FOUND_SAFE);
+        approved(actor(email("foreign-list"), UserRoles.REGISTERED_USER));
+
+        mvc.perform(get("/api/user/cases")).andExpect(status().isUnauthorized());
+        mvc.perform(as(get("/api/user/cases"), ownerEmail))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.content[*].id").value(org.hamcrest.Matchers
+                        .containsInAnyOrder(first.getId().intValue(), second.getId().intValue())))
+                .andExpect(jsonPath("$.data.content[0].reviewStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.data.content[0].sensitiveDetails").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].priorityMinor").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].duplicateFlag").doesNotExist());
+        mvc.perform(as(get("/api/user/cases").param("size", "500"), ownerEmail))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.size").value(50));
+    }
+
+    @Test
     void reporterUsesTokenActorAndGetsLifecycleResponse() throws Exception {
         CaseRecord own = approved(ownerId);
         assertThat(jdbc.queryForObject("SELECT reporter_id FROM cases WHERE id=?", Long.class, own.getId()))

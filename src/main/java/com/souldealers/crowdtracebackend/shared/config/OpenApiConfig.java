@@ -84,6 +84,14 @@ public class OpenApiConfig {
         schemas.put("ApiResponse", apiResponseSchema());
         schemas.put("PagedResponse", pagedResponseSchema());
         schemas.put("UserResponse", userResponseSchema());
+        schemas.put("UserApiResponse", caseResponseEnvelope("Single user profile",
+                "#/components/schemas/UserResponse"));
+        schemas.put("LoginResponse", loginResponseSchema());
+        schemas.put("LoginApiResponse", caseResponseEnvelope("Issued access token and identity",
+                "#/components/schemas/LoginResponse"));
+        schemas.put("GenericResponseMessage", genericResponseMessageSchema());
+        schemas.put("GenericMessageApiResponse", caseResponseEnvelope("Confirmation message",
+                "#/components/schemas/GenericResponseMessage"));
         schemas.put("UserPageResponse", userPageResponseSchema());
         schemas.put("UserListResponse", userListResponseSchema());
         schemas.put("VerificationRequestResponse", verificationRequestResponseSchema());
@@ -113,6 +121,13 @@ public class OpenApiConfig {
         schemas.put("ReviewCaseDetailResponse", reviewCaseDetailSchema());
         schemas.put("ReviewCaseDetailApiResponse", caseResponseEnvelope("Case with evidence, matches and history",
                 "#/components/schemas/ReviewCaseDetailResponse"));
+        schemas.put("SignedFileUrl", new ObjectSchema()
+                .description("Short-lived download link; whoever holds it can download the file until expiresAt.")
+                .addProperties("url", new StringSchema().format("uri"))
+                .addProperties("expiresAt", new StringSchema().format("date-time"))
+                .required(List.of("url", "expiresAt")));
+        schemas.put("SignedFileUrlApiResponse", caseResponseEnvelope("Download link",
+                "#/components/schemas/SignedFileUrl"));
         schemas.put("CaseReviewDecisionResponse", reviewDecisionSchema());
         schemas.put("CaseReviewDecisionApiResponse", caseResponseEnvelope("Recorded review decision",
                 "#/components/schemas/CaseReviewDecisionResponse"));
@@ -131,6 +146,10 @@ public class OpenApiConfig {
         schemas.put("ReporterCaseResponse", reporterCaseResponseSchema());
         schemas.put("ReporterCaseApiResponse", caseResponseEnvelope("Reporter-owned case detail",
                 "#/components/schemas/ReporterCaseResponse"));
+        schemas.put("ReporterCaseSummaryResponse", reporterCaseSummarySchema());
+        schemas.put("ReporterCasePageResponse", reporterCasePageSchema());
+        schemas.put("ReporterCaseListResponse", caseResponseEnvelope("Reporter-owned case page",
+                "#/components/schemas/ReporterCasePageResponse"));
         schemas.put("CaseLifecycleResponse", caseLifecycleResponseSchema());
         schemas.put("CaseLifecycleApiResponse", caseResponseEnvelope("Case lifecycle mutation result",
                 "#/components/schemas/CaseLifecycleResponse"));
@@ -280,6 +299,28 @@ public class OpenApiConfig {
                 .addProperties("submittedAt", new StringSchema().format("date-time"));
     }
 
+    private Schema reporterCaseSummarySchema() {
+        return new ObjectSchema()
+                .description("Reporter-owned list summary; no sensitive details or admin-only flags.")
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("fullName", new StringSchema())
+                .addProperties("reviewStatus", new StringSchema()
+                        ._enum(List.of("SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "TAKEN_DOWN")))
+                .addProperties("caseStatus", nullableString())
+                .addProperties("submittedAt", new StringSchema().format("date-time"));
+    }
+
+    private Schema reporterCasePageSchema() {
+        return new ObjectSchema()
+                .addProperties("content", new ArraySchema().items(
+                        new Schema<>().$ref("#/components/schemas/ReporterCaseSummaryResponse")))
+                .addProperties("page", new IntegerSchema().format("int32"))
+                .addProperties("size", new IntegerSchema().format("int32"))
+                .addProperties("totalElements", new IntegerSchema().format("int64"))
+                .addProperties("totalPages", new IntegerSchema().format("int32"))
+                .addProperties("last", new BooleanSchema());
+    }
+
     private Schema reviewQueuePageSchema() {
         return new ObjectSchema()
                 .addProperties("content", new ArraySchema().items(
@@ -293,8 +334,8 @@ public class OpenApiConfig {
 
     private Schema reviewEvidenceSchema() {
         return new ObjectSchema()
-                .description("File metadata only; accessAvailable stays false until signed access exists. "
-                        + "No URL or storage key is returned.")
+                .description("File metadata only. When accessAvailable is true, request a download link from "
+                        + "/api/v1/admin/review/cases/{id}/files/{fileId}/url. No URL or storage key is returned.")
                 .addProperties("file", new Schema<>().$ref("#/components/schemas/CaseFileMetadataResponse"))
                 .addProperties("accessAvailable", new BooleanSchema());
     }
@@ -460,6 +501,20 @@ public class OpenApiConfig {
                 .addProperties("submittedAt", new StringSchema().format("date-time"));
     }
 
+    private Schema loginResponseSchema() {
+        return new ObjectSchema()
+                .description("Identity and short-lived bearer token returned by a successful login.")
+                .addProperties("displayName", new StringSchema())
+                .addProperties("email", new StringSchema().format("email"))
+                .addProperties("role", new StringSchema()._enum(List.of("REGISTERED_USER", "MODERATOR", "SUPER_ADMIN")))
+                .addProperties("token", new StringSchema().description("JWT access token for the bearerAuth scheme."))
+                .required(List.of("displayName", "email", "role", "token"));
+    }
+
+    private Schema genericResponseMessageSchema() {
+        return new ObjectSchema().addProperties("message", new StringSchema());
+    }
+
     private Schema caseResponseEnvelope(String description, String dataReference) {
         return new ObjectSchema().description(description)
                 .addProperties("success", new BooleanSchema())
@@ -609,7 +664,8 @@ public class OpenApiConfig {
                 .addPathItem("/actuator/health/readiness", healthPath(
                         "Readiness probe", "Returns the current readiness status, including database health."))
                 .addPathItem("/api/user/case-files", new PathItem().post(caseFileUploadOperation()))
-                .addPathItem("/api/user/cases", new PathItem().post(caseSubmissionOperation()))
+                .addPathItem("/api/user/cases", new PathItem().get(reporterCaseListOperation())
+                        .post(caseSubmissionOperation()))
                 .addPathItem("/api/user/cases/{id}", new PathItem().get(reporterCaseDetailOperation()))
                 .addPathItem("/api/user/cases/{id}/status", new PathItem().patch(caseLifecycleOperation(
                         "Change a case outcome", "UpdateCaseStatusRequest", "Change case outcome")))
@@ -627,12 +683,7 @@ public class OpenApiConfig {
                         adminCaseLifecycleOperation("Restore a taken-down case", "RestoreCaseRequest",
                                 "Restore a taken-down case without changing its outcome or takedown details")))
                 .addPathItem("/api/public/cases", new PathItem().get(publicCaseListOperation()))
-                .addPathItem("/api/public/cases/{caseId}", new PathItem().get(
-                        publicPlannedOperation("Public Cases", "Get public case", "Planned public case detail operation.")
-                                .parameters(List.of(caseIdParameter()))
-                                .responses(new ApiResponses().addApiResponse("200", jsonResponse(
-                                        "Contract placeholder only; no runtime response is available.",
-                                        "#/components/schemas/PublicCaseApiResponse")))));
+                .addPathItem("/api/public/cases/{caseId}", new PathItem().get(publicCaseDetailOperation()));
     }
 
     private Operation reporterCaseDetailOperation() {
@@ -649,6 +700,20 @@ public class OpenApiConfig {
                         .addApiResponse("401", caseProblemResponse("Authentication required"))
                         .addApiResponse("403", caseProblemResponse("Registered-user role required"))
                         .addApiResponse("404", caseProblemResponse("Unknown or foreign case")));
+    }
+
+    private Operation publicCaseDetailOperation() {
+        return new Operation().tags(List.of("Public Cases"))
+                .summary("Get public case")
+                .description("Returns an approved case's public fields; no authentication is required. Pending, "
+                        + "rejected, taken-down and unknown cases all return the same 404. Deceased cases use the "
+                        + "DECEASED_NOTICE presentation and omit location, descriptions and the contact number.")
+                .security(List.of())
+                .parameters(List.of(caseIdParameter()))
+                .responses(new ApiResponses()
+                        .addApiResponse("200", jsonResponse("Public case detail",
+                                "#/components/schemas/PublicCaseApiResponse"))
+                        .addApiResponse("404", caseProblemResponse("Unknown or non-public case")));
     }
 
     private Operation publicCaseListOperation() {
@@ -769,6 +834,25 @@ public class OpenApiConfig {
                         .addApiResponse("413", caseProblemResponse("File exceeds the multipart upload limit"))
                         .addApiResponse("429", retryableCaseProblemResponse("Per-user upload quota exhausted"))
                         .addApiResponse("503", retryableCaseProblemResponse("Upload quota store unavailable")));
+    }
+
+    private Operation reporterCaseListOperation() {
+        return new Operation().tags(List.of("Case Submission"))
+                .summary("List my cases")
+                .description("Returns the authenticated reporter's own cases across every review outcome, newest "
+                        + "submission first. Client sort parameters are ignored; size is clamped to 1–50.")
+                .security(List.of(new SecurityRequirement().addList("bearerAuth")))
+                .parameters(List.of(
+                        new Parameter().name("page").in("query").required(false).description("Zero-based page.")
+                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ZERO)._default(0)),
+                        new Parameter().name("size").in("query").required(false).description("Page size (1–50).")
+                                .schema(new IntegerSchema().format("int32").minimum(BigDecimal.ONE)
+                                        .maximum(BigDecimal.valueOf(50))._default(20))))
+                .responses(new ApiResponses()
+                        .addApiResponse("200", jsonResponse("Reporter-owned case page",
+                                "#/components/schemas/ReporterCaseListResponse"))
+                        .addApiResponse("401", caseProblemResponse("Authentication required"))
+                        .addApiResponse("403", caseProblemResponse("Registered-user role required")));
     }
 
     private Operation caseSubmissionOperation() {

@@ -143,7 +143,7 @@ when its acceptance criteria and the relevant tests are verified.
 
 - [x] CT-021 — Implement public case listing, filters, pagination, and indexes
 - [ ] CT-022 — Implement public case details and canonical sharing data
-- [ ] CT-023 — Implement public photo delivery and private-report access boundary
+- [x] CT-023 — Implement public photo delivery and private-report access boundary
 - [ ] CT-024 — Add public API safety and performance verification
 
 ### Phase 5 — Community
@@ -156,7 +156,7 @@ when its acceptance criteria and the relevant tests are verified.
 
 ### Phase 6 — Privacy
 
-- [ ] CT-030 — Implement S3 storage service with generated keys and signed access
+- [x] CT-030 — Implement S3 storage service with generated keys and signed access
 - [ ] CT-031 — Enforce consent, privacy-aware mapping, and sensitive-data logging rules
 - [ ] CT-032 — Implement retention eligibility and field/file deletion
 - [ ] CT-033 — Add retention dry-run, audit, metrics, retry, and alerting

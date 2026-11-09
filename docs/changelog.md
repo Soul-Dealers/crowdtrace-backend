@@ -1,5 +1,57 @@
 ## Unreleased
 
+- CT-023: public photo delivery and reviewer file links. `GET /api/public/cases/{caseId}/photos/{fileId}`
+  redirects (302, `no-store`) to a five-minute signed URL, but only for a live PUBLIC PHOTO attached to that
+  case while it is APPROVED; every other combination (pending, rejected, taken down, report, deleted, another
+  case's file) is the same 404. Moderators and super admins call
+  `GET /api/v1/admin/review/cases/{id}/files/{fileId}/url` for a one-minute link to any live file on the case;
+  each grant appends `CASE_FILE.PRIVATE_ACCESS_GRANTED` (target the file, metadata `caseId`) in the same
+  transaction, so no link is returned unless the audit commits. Review evidence now reports
+  `accessAvailable: true` when storage can sign. Storage that cannot sign (the in-memory fallback) answers
+  503 `FILE_ACCESS_UNAVAILABLE`. Signed responses carry `Cache-Control`: `no-store` for private files and
+  `private, max-age=<ttl>` for photos. Photos are stripped at upload, after the client checksum is checked
+  against the original bytes: JPEG keeps only image data, quantisation/Huffman tables, ICC profile, Adobe
+  colour marker and a thumbnail-free JFIF header; PNG keeps only rendering chunks. Bytes after the end marker
+  are dropped. Orientation other than upright is rewritten into a fresh one-tag EXIF block (no GPS, time or
+  device fields) so the photo still displays the right way up; pixels are never re-encoded. The stored size and
+  checksum are those of the stripped photo. Reports are stored unaltered. Accepted limits: a signed URL is a
+  bearer link until it expires, so a takedown stops new links immediately but an issued link keeps working for
+  at most its lifetime, and the generated object key is visible inside the signed URL.
+
+- CT-030: S3 storage for case files behind the existing `FileStorage` port. Setting
+  `crowdtrace.storage.s3.bucket` activates `S3FileStorage`; without it the in-memory fallback stays, so local
+  runs and tests need no credentials. A blank bucket fails startup. One private bucket holds every file under
+  generated `reports/<uuid>` / `photos/<uuid>` keys, so client filenames never become paths. Puts send the
+  content type and the SHA-256 checksum (hex stored, base64 sent) so S3 rejects corrupted bodies, and use
+  `If-None-Match: *` so a key can never be overwritten. Encryption at rest is the bucket default (no per-object
+  SSE header), and public access must be blocked on the bucket. The new `SignedFileAccess` port issues presigned
+  GET URLs (private files as attachments, photos inline) whose lifetime must be positive and at most
+  `max-download-ttl` (default 15 minutes); in-memory storage does not implement it. Signing does not authorize:
+  CT-023 must check report permissions and case visibility before asking for a URL. The upload service now
+  registers rollback cleanup before the put, so an ambiguous put failure (for example a timeout after S3 stored
+  the object) still deletes the object. Tests run against LocalStack 4.4 with signature validation on, because
+  MinIO images are no longer published on Docker Hub; `docker compose up localstack` provides the same locally.
+
+- CT-022 (partial): public `GET /api/public/cases/{caseId}` now serves the existing public projection of an
+  approved case without authentication; it previously had only a placeholder contract and returned 500.
+  Pending, rejected, taken-down and unknown cases share one 404, and deceased cases keep the DECEASED_NOTICE
+  redaction. Still open on the ticket: slug lookup, comment/follow summary and a canonical share URL.
+
+- CT-010 follow-up: `GET /api/v1/admin/verification-requests` takes an optional `status` (`PENDING`,
+  `APPROVED`, `REJECTED`, `REVOKED`; default `PENDING`, so existing callers are unchanged). `status=APPROVED` lists
+  live badges, which is how a Super Admin finds a request to revoke. Unknown values return 400.
+
+- CT-037 (partial): auth endpoints now document typed envelopes. `login` returns `LoginApiResponse`
+  (`LoginResponse`: `displayName`, `email`, `role`, `token`); `me` and `profile-settings` return `UserApiResponse`;
+  `signup`, `verify-otp` and `logout` return `GenericMessageApiResponse`. Previously they collapsed to the generic
+  `ApiResponse`, whose `data` claims to be a `PagedResponse`. Logout no longer lists `Authorization` as a required
+  parameter, since `bearerAuth` already documents it. Runtime behaviour is unchanged.
+
+- CT-012 follow-up: `GET /api/user/cases` lists the authenticated reporter's own cases across every review
+  outcome, newest submission first, as `ReporterCaseSummaryResponse` (`id`, `fullName`, `reviewStatus`,
+  `caseStatus`, `submittedAt`). It exposes the existing `CaseQueryService.listOwnCases`, so client sort is ignored
+  and size is clamped to 1–50. No sensitive details or admin-only flags are returned.
+
 - CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
   id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
   inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date

@@ -4,7 +4,9 @@ import com.souldealers.crowdtracebackend.modules.casefile.CaseFileMetadataRespon
 import com.souldealers.crowdtracebackend.modules.casefile.CaseFilePurpose;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseFileUploadService;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.files.CaseFileProperties;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.files.DetectedType;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.files.FileContentInspector;
+import com.souldealers.crowdtracebackend.modules.casefile.internal.files.PhotoMetadataStripper;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.files.SpooledUpload;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.files.StorageKey;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseFile;
@@ -19,8 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -38,23 +42,37 @@ public class CaseFileUploadServiceImpl implements CaseFileUploadService {
     public CaseFileMetadataResponse upload(Long uploaderId, CaseFilePurpose purpose, InputStream content,
             Optional<String> clientSha256) {
         try (SpooledUpload upload = SpooledUpload.from(content, properties.getMaxSizeBytes())) {
-            String contentType = inspector.inspect(upload.path(), purpose).contentType();
+            DetectedType type = inspector.inspect(upload.path(), purpose);
             if (clientSha256.isPresent() && !clientSha256.get().equalsIgnoreCase(upload.checksumSha256())) {
                 throw new ValidationException("File checksum does not match uploaded content");
             }
-            StorageKey key = StorageKey.generate(purpose);
-            StoredObject metadata = new StoredObject(key, purpose.visibility(), contentType,
-                    upload.sizeBytes(), upload.checksumSha256());
-            CaseFile file = CaseFile.builder().uploadedBy(uploaderId).purpose(purpose).visibility(metadata.visibility())
-                    .storageKey(key.value()).contentType(metadata.contentType()).sizeBytes(metadata.sizeBytes())
-                    .checksumSha256(metadata.checksumSha256()).build();
-
-            store(metadata, upload.path());
-            deleteOnRollback(key, file);
-            return CaseMapper.toFileMetadata(fileRepository.save(file));
+            if (purpose != CaseFilePurpose.PHOTO) {
+                return persist(uploaderId, purpose, type, upload);
+            }
+            // Public photos lose location, time and device metadata before they are ever stored.
+            byte[] stripped = PhotoMetadataStripper.strip(Files.readAllBytes(upload.path()), type);
+            try (SpooledUpload photo = SpooledUpload.from(new ByteArrayInputStream(stripped),
+                    properties.getMaxSizeBytes())) {
+                return persist(uploaderId, purpose, type, photo);
+            }
         } catch (IOException failure) {
             throw new RuntimeException("File upload failed");
         }
+    }
+
+    private CaseFileMetadataResponse persist(Long uploaderId, CaseFilePurpose purpose, DetectedType type,
+            SpooledUpload upload) throws IOException {
+        StorageKey key = StorageKey.generate(purpose);
+        StoredObject metadata = new StoredObject(key, purpose.visibility(), type.contentType(),
+                upload.sizeBytes(), upload.checksumSha256());
+        CaseFile file = CaseFile.builder().uploadedBy(uploaderId).purpose(purpose).visibility(metadata.visibility())
+                .storageKey(key.value()).contentType(metadata.contentType()).sizeBytes(metadata.sizeBytes())
+                .checksumSha256(metadata.checksumSha256()).build();
+
+        // Register cleanup first: a put that times out may still have stored the object.
+        deleteOnRollback(key, file);
+        store(metadata, upload.path());
+        return CaseMapper.toFileMetadata(fileRepository.save(file));
     }
 
     private void store(StoredObject metadata, Path content) throws IOException {
