@@ -127,7 +127,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * List my cases
+     * @description Returns the authenticated reporter's own cases across every review outcome, newest submission first. Client sort parameters are ignored; size is clamped to 1–50.
+     */
+    get: operations['listOwn'];
     put?: never;
     /**
      * Submit a case for review
@@ -309,31 +313,9 @@ export interface paths {
     };
     /**
      * Get public case
-     * @description Planned public case detail operation. Contract placeholder only. This operation is planned and not implemented in the current runtime. No controller exists yet; implementation is scheduled for a later domain phase.
+     * @description Returns an approved case's public fields.
      */
-    get: {
-      parameters: {
-        query?: never;
-        header?: never;
-        path: {
-          /** @description Planned case identifier. */
-          caseId: string;
-        };
-        cookie?: never;
-      };
-      requestBody?: never;
-      responses: {
-        /** @description Contract placeholder only; no runtime response is available. */
-        200: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['PublicCaseApiResponse'];
-          };
-        };
-      };
-    };
+    get: operations['get'];
     put?: never;
     post?: never;
     delete?: never;
@@ -700,7 +682,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List pending verification requests */
+    /**
+     * List verification requests by status
+     * @description Defaults to PENDING. Use status=APPROVED to find badges a Super Admin can revoke.
+     */
     get: operations['getQueue'];
     put?: never;
     post?: never;
@@ -742,6 +727,46 @@ export interface paths {
      * @description Case, version, evidence metadata, duplicate matches and review history in one snapshot. Send caseDetails.version as expectedCaseVersion. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
      */
     get: operations['detail'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/review/cases/{id}/files/{fileId}/url': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a download link for case evidence
+     * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
+     */
+    get: operations['fileUrl'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/public/cases/{caseId}/photos/{fileId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a public case photo
+     * @description Redirects to the photo. Only photos of approved cases are served; location, time and device metadata were removed at upload. Use this path as the image source; the redirect itself is not cacheable.
+     */
+    get: operations['photo'];
     put?: never;
     post?: never;
     delete?: never;
@@ -799,6 +824,40 @@ export interface components {
       createdAt?: string;
       verified?: boolean;
       badgeType?: string;
+    };
+    /** @description Single user profile */
+    UserApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['UserResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Identity and short-lived bearer token returned by a successful login. */
+    LoginResponse: {
+      displayName: string;
+      /** Format: email */
+      email: string;
+      /** @enum {string} */
+      role: 'REGISTERED_USER' | 'MODERATOR' | 'SUPER_ADMIN';
+      /** @description JWT access token for the bearerAuth scheme. */
+      token: string;
+    };
+    /** @description Issued access token and identity */
+    LoginApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['LoginResponse'];
+      errors?: Record<string, never>;
+    };
+    GenericResponseMessage: {
+      message?: string;
+    };
+    /** @description Confirmation message */
+    GenericMessageApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['GenericResponseMessage'];
+      errors?: Record<string, never>;
     };
     /** @description Concrete page shape returned by the current user listing endpoint. */
     UserPageResponse: {
@@ -1023,7 +1082,7 @@ export interface components {
       data?: components['schemas']['ReviewQueuePageResponse'];
       errors?: Record<string, never>;
     };
-    /** @description File metadata only; accessAvailable stays false until signed access exists. No URL or storage key is returned. */
+    /** @description File metadata only. When accessAvailable is true, request a download link from /api/v1/admin/review/cases/{id}/files/{fileId}/url. No URL or storage key is returned. */
     ReviewEvidenceResponse: {
       file?: components['schemas']['CaseFileMetadataResponse'];
       accessAvailable?: boolean;
@@ -1113,6 +1172,20 @@ export interface components {
       success?: boolean;
       message?: string;
       data?: components['schemas']['ReviewCaseDetailResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Short-lived download link; whoever holds it can download the file until expiresAt. */
+    SignedFileUrl: {
+      /** Format: uri */
+      url: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    /** @description Download link */
+    SignedFileUrlApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['SignedFileUrl'];
       errors?: Record<string, never>;
     };
     CaseReviewDecisionResponse: {
@@ -1286,6 +1359,36 @@ export interface components {
       data?: components['schemas']['ReporterCaseResponse'];
       errors?: Record<string, never>;
     };
+    /** @description Reporter-owned list summary; no sensitive details or admin-only flags. */
+    ReporterCaseSummaryResponse: {
+      /** Format: int64 */
+      id?: number;
+      fullName?: string;
+      /** @enum {string} */
+      reviewStatus?: 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'TAKEN_DOWN';
+      caseStatus?: string | null;
+      /** Format: date-time */
+      submittedAt?: string;
+    };
+    ReporterCasePageResponse: {
+      content?: components['schemas']['ReporterCaseSummaryResponse'][];
+      /** Format: int32 */
+      page?: number;
+      /** Format: int32 */
+      size?: number;
+      /** Format: int64 */
+      totalElements?: number;
+      /** Format: int32 */
+      totalPages?: number;
+      last?: boolean;
+    };
+    /** @description Reporter-owned case page */
+    ReporterCaseListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['ReporterCasePageResponse'];
+      errors?: Record<string, never>;
+    };
     CaseLifecycleResponse: {
       /** Format: int64 */
       caseId: number;
@@ -1333,9 +1436,6 @@ export interface components {
       code: string;
       /** Format: email */
       email: string;
-    };
-    GenericResponseMessage: {
-      message?: string;
     };
     SignUpRequest: {
       /** Format: email */
@@ -1481,6 +1581,52 @@ export interface operations {
         headers: {
           /** @description Seconds until the request may be retried. */
           'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  listOwn: {
+    parameters: {
+      query?: {
+        /** @description Zero-based page. */
+        page?: number;
+        /** @description Page size (1–50). */
+        size?: number;
+        /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+        sort?: string[];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Reporter-owned case page */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReporterCaseListResponse'];
+          '*/*': components['schemas']['ApiResponse'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Registered-user role required */
+      403: {
+        headers: {
           [name: string]: unknown;
         };
         content: {
@@ -2182,6 +2328,39 @@ export interface operations {
       };
     };
   };
+  get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Planned case identifier. */
+        caseId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Public case detail */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCaseApiResponse'];
+          '*/*': components['schemas']['ApiResponse'];
+        };
+      };
+      /** @description Unknown or non-public case */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   submit_1: {
     parameters: {
       query?: never;
@@ -2219,13 +2398,13 @@ export interface operations {
       };
     };
     responses: {
-      /** @description OK */
+      /** @description Email verified */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          '*/*': components['schemas']['ApiResponse'];
+          '*/*': components['schemas']['GenericMessageApiResponse'];
         };
       };
     };
@@ -2243,13 +2422,13 @@ export interface operations {
       };
     };
     responses: {
-      /** @description OK */
+      /** @description Account created; verification code sent */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          '*/*': components['schemas']['ApiResponse'];
+          '*/*': components['schemas']['GenericMessageApiResponse'];
         };
       };
     };
@@ -2329,21 +2508,19 @@ export interface operations {
   logout: {
     parameters: {
       query?: never;
-      header: {
-        Authorization: string;
-      };
+      header?: never;
       path?: never;
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description OK */
+      /** @description Token revoked */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          '*/*': components['schemas']['ApiResponse'];
+          '*/*': components['schemas']['GenericMessageApiResponse'];
         };
       };
     };
@@ -2361,13 +2538,13 @@ export interface operations {
       };
     };
     responses: {
-      /** @description OK */
+      /** @description Access token issued */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          '*/*': components['schemas']['ApiResponse'];
+          '*/*': components['schemas']['LoginApiResponse'];
         };
       };
     };
@@ -2718,13 +2895,13 @@ export interface operations {
       };
     };
     responses: {
-      /** @description OK */
+      /** @description Updated user profile */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          '*/*': components['schemas']['ApiResponse'];
+          '*/*': components['schemas']['UserApiResponse'];
         };
       };
     };
@@ -2785,13 +2962,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description OK */
+      /** @description Current user profile */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          '*/*': components['schemas']['ApiResponse'];
+          '*/*': components['schemas']['UserApiResponse'];
         };
       };
     };
@@ -2799,6 +2976,7 @@ export interface operations {
   getQueue: {
     parameters: {
       query?: {
+        status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
         /** @description Zero-based page index (0..N) */
         page?: number;
         /** @description The size of the page to be returned */
@@ -2932,6 +3110,104 @@ export interface operations {
       };
       /** @description Unknown case */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  fileUrl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        fileId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['SignedFileUrlApiResponse'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Moderator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Unknown case, or the file is not attached to it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description File storage cannot issue download links */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  photo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+        fileId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Redirect to a signed photo URL valid for five minutes */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No such public photo on an approved case */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description File storage cannot issue download links */
+      503: {
         headers: {
           [name: string]: unknown;
         };

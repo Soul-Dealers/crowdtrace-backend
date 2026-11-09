@@ -53,8 +53,7 @@ function Account() {
     );
   }
   async function logout() {
-    // The bearer middleware sets the real header.
-    await api.POST('/api/v1/auth/logout', { params: { header: { Authorization: '' } } }).catch(() => undefined);
+    await api.POST('/api/v1/auth/logout').catch(() => undefined);
     clearSession();
     qc.clear(); // don't leak the previous account's cached data to the next login
     router.push('/');
