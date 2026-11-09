@@ -17,7 +17,7 @@ export function CasePhoto({ caseId, photoId, alt, className, iconClassName }: {
   return (
     <div className={cn('relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#0b0b0b] to-[#2b2117] ring-1 ring-white/5', className)}>
       {photoId ? (
-        // eslint-disable-next-line @next/next/no-img-element -- signed redirect URLs can't go through next/image
+        // A plain img: the photo URL redirects to a short-lived signed URL, which next/image would cache.
         <img src={publicPhotoUrl(caseId, photoId)} alt={alt} className="size-full object-cover" loading="lazy" />
       ) : (
         <div className="flex size-full items-center justify-center" aria-label={`${alt}: no photo`} role="img">
