@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.validation.FieldError;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.*;
@@ -49,6 +50,17 @@ public class GlobalExceptionHandler {
                 HttpStatus.NOT_FOUND,
                 "Resource not found",
                 exception.getMessage(),
+                "RESOURCE_NOT_FOUND",
+                request);
+    }
+
+    /** An unmapped route. Spring's message names a "static resource", so it is not echoed. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResourceFound(NoResourceFoundException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "Resource not found",
+                RESOURCE_NOT_FOUND,
                 "RESOURCE_NOT_FOUND",
                 request);
     }
