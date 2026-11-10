@@ -68,7 +68,7 @@ export function SideNav({ browseCount, onNavigate }: { browseCount?: number; onN
       title: 'Contribute',
       items: [
         { label: 'File A Case', icon: Megaphone, href: '/report', active: pathname === '/report' },
-        { label: 'Posting Guide', icon: FileText, active: false },
+        { label: 'Posting Guide', icon: FileText, href: '/guide', active: pathname === '/guide' },
         { label: 'Get Verified', icon: BadgeCheck, href: '/account', active: pathname === '/account' },
       ],
     },

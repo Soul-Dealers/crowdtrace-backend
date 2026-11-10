@@ -189,7 +189,7 @@ function ReportForm() {
         </div>
         <label className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-muted p-3.5 text-sm text-text-secondary">
           <input type="checkbox" required className="mt-0.5 size-4 accent-brand" />I consent to
-          CrowdTrace processing the sensitive details above for case review.
+          Over Here processing the sensitive details above for case review.
         </label>
       </Section>
 

@@ -8,7 +8,7 @@ const sans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' });
 const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
 export const metadata: Metadata = {
-  title: 'Find. Ghana — CrowdTrace',
+  title: { default: 'Over Here', template: '%s · Over Here' },
   description: 'Community-powered missing persons reporting across Ghana.',
 };
 

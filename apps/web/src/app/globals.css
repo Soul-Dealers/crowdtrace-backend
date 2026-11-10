@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* CrowdTrace is dark-only; values sampled from the Figma exports in design/CrowdTrace. */
+  /* The app is dark-only; values sampled from the Figma exports in design/CrowdTrace. */
   color-scheme: dark;
   --radius: 0.75rem;
   --background: #0b0d0f;

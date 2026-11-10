@@ -56,7 +56,7 @@ function BrowseCases() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold sm:text-3xl">Everyone on CrowdTrace</h1>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Everyone on Over Here</h1>
         <p className="text-muted-foreground">
           People reported missing in Ghana, and what happened to them. Each case was checked against a police
           report before it was published.

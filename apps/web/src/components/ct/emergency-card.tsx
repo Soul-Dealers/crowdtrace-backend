@@ -3,12 +3,7 @@
 import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { copyText } from './copy-chip';
-
-export const EMERGENCY_LINES = [
-  { number: '191', label: 'Police' },
-  { number: '18555', label: 'Police Toll-Free' },
-  { number: '112', label: 'All Emergencies' },
-] as const;
+import { EMERGENCY_LINES } from './emergency-lines';
 
 /** "Someone in danger now": tapping a line copies the number. */
 export function EmergencyCard() {
