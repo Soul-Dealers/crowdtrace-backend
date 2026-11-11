@@ -9,7 +9,7 @@ export function publicPhotoUrl(caseId: number, photoId: number): string {
   return `${API_URL}/api/public/cases/${caseId}/photos/${photoId}`;
 }
 
-/** Case photo, or the silhouette placeholder on the design's dark-to-brown gradient when there is none. */
+/** Case photo, or the silhouette placeholder when there is none. */
 export function CasePhoto({ caseId, photoId, alt, className, iconClassName }: {
   caseId: number;
   photoId?: number | null;
@@ -20,7 +20,7 @@ export function CasePhoto({ caseId, photoId, alt, className, iconClassName }: {
   // Storage may be unable to sign (503) or the object may be gone; show the placeholder rather than a broken image.
   const [failed, setFailed] = useState(false);
   return (
-    <div className={cn('relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#0b0b0b] to-[#2b2117] ring-1 ring-white/5', className)}>
+    <div className={cn('relative overflow-hidden rounded-2xl bg-panel ring-1 ring-white/5', className)}>
       {photoId && !failed ? (
         // A plain img: the photo URL redirects to a short-lived signed URL, which next/image would cache.
         <img src={publicPhotoUrl(caseId, photoId)} alt={alt} className="size-full object-cover" loading="lazy"

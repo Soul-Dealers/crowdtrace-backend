@@ -602,6 +602,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/user/cases/{caseId}/comments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Post a case comment
+     * @description Posts a comment to an approved case's discussion under the caller's display name, as a reply when parentCommentId is set. Requires a registered user. The body is trimmed and must be 1–2000 characters.
+     */
+    post: operations['create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/auth/profile-settings': {
     parameters: {
       query?: never;
@@ -775,6 +795,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/public/cases/{caseId}/comments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List case comments
+     * @description Returns an approved case's top-level comments, or one comment's direct replies when parentCommentId is set, newest first, under each author's display name and badge only. Removed comments are never returned. A comment its author deleted keeps its place with deleted=true and no author or body, so its replies stay readable. Use nextCursor to load older ones.
+     */
+    get: operations['list_1'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/user/cases/{caseId}/comments/{commentId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete own comment
+     * @description Deletes the caller's own comment: its text is erased and it shows as deleted, while its replies stay. Deleting again is harmless.
+     */
+    delete: operations['delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -816,6 +876,8 @@ export interface components {
     /** @description User projection returned by the current user listing endpoint. */
     UserResponse: {
       displayName?: string;
+      /** Format: uuid */
+      avatarSeed?: string;
       /** Format: email */
       email?: string;
       role?: string;
@@ -1317,6 +1379,58 @@ export interface components {
       data?: components['schemas']['PublicCaseCursorResponse'];
       errors?: Record<string, never>;
     };
+    /** @description Pseudonymous author: display name, avatar seed and verification badge only. */
+    PublicUserResponse: {
+      displayName: string;
+      /** Format: uuid */
+      avatarSeed: string;
+      verified: boolean;
+      /** @description POLICE, NGO or SUBJECT_MATTER_EXPERT; null when not verified */
+      badgeType?: string | null;
+    };
+    CommentResponse: {
+      /** Format: int64 */
+      id: number;
+      /**
+       * Format: int64
+       * @description Null for a top-level comment
+       */
+      parentCommentId: null | number;
+      /** @description Null when the author deleted the comment */
+      author: components['schemas']['PublicUserResponse'] | null;
+      /** @description Null when the author deleted the comment */
+      body: string | null;
+      /** Format: date-time */
+      createdAt: string;
+      /**
+       * Format: int64
+       * @description Visible direct replies, not all descendants
+       */
+      replyCount: number;
+      /** @description The author deleted this comment */
+      deleted: boolean;
+    };
+    CommentCursorResponse: {
+      content?: components['schemas']['CommentResponse'][];
+      /** Format: int32 */
+      size?: number;
+      hasNext?: boolean;
+      nextCursor?: string | null;
+    };
+    /** @description Case comment cursor page */
+    CommentListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentCursorResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Posted comment */
+    CommentApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentResponse'];
+      errors?: Record<string, never>;
+    };
     /** @description Public case detail */
     PublicCaseApiResponse: {
       success?: boolean;
@@ -1495,6 +1609,11 @@ export interface components {
       /** Format: int64 */
       expectedCaseVersion: number;
       photoFileIds: number[];
+    };
+    CreateCommentRequest: {
+      body: string;
+      /** Format: int64 */
+      parentCommentId?: number;
     };
     UpdateUserProfileRequest: {
       displayName: string;
@@ -2884,6 +3003,59 @@ export interface operations {
       };
     };
   };
+  create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateCommentRequest'];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentApiResponse'];
+        };
+      };
+      /** @description Invalid body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No approved case with this id, or the parent comment is missing, removed or deleted */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   updateProfile: {
     parameters: {
       query?: never;
@@ -3210,6 +3382,92 @@ export interface operations {
       };
       /** @description File storage cannot issue download links */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  list_1: {
+    parameters: {
+      query?: {
+        /** @description List this comment's direct replies instead of top-level comments */
+        parentCommentId?: number;
+        /** @description Opaque cursor returned as nextCursor */
+        cursor?: string;
+        /** @description Page size (1–50) */
+        size?: number;
+      };
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentListResponse'];
+        };
+      };
+      /** @description Invalid size, cursor or parentCommentId */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No approved case with this id, or no visible parent comment on it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+        commentId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No approved case with this id, or no visible comment of the caller's on it */
+      404: {
         headers: {
           [name: string]: unknown;
         };

@@ -4,20 +4,18 @@ import Link from 'next/link';
 import { Plus, X } from 'lucide-react';
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { EmergencyCard } from './emergency-card';
 import { SideNav } from './side-nav';
 import { TopBar } from './top-bar';
 
-/** Top bar, left navigation with the emergency card, and the page. Below lg the nav moves into a drawer. */
+/** Top bar, left navigation and the page. Below lg the nav moves into a drawer. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   useEffect(() => setOpen(false), [pathname]);
 
   const sidebar = (
-    <div className="flex h-full flex-col justify-between gap-6 p-4">
+    <div className="p-4">
       <Suspense><SideNav onNavigate={() => setOpen(false)} /></Suspense>
-      <EmergencyCard />
     </div>
   );
 
@@ -44,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {pathname !== '/report' && (
         <Link href="/report" aria-label="Report a missing person"
-          className="fixed bottom-6 right-5 z-30 flex size-14 items-center justify-center rounded-full bg-gradient-to-b from-[#ff8a4c] to-brand-strong text-white shadow-[0_8px_30px_rgb(244_115_50/0.45)] lg:hidden">
+          className="fixed bottom-6 right-5 z-30 flex size-14 items-center justify-center rounded-full bg-brand-strong text-white shadow-[0_8px_30px_rgb(244_115_50/0.45)] lg:hidden">
           <Plus className="size-6" />
         </Link>
       )}

@@ -141,6 +141,13 @@ public class OpenApiConfig {
         schemas.put("PublicCaseCursorResponse", publicCaseCursorSchema());
         schemas.put("PublicCaseListResponse", caseResponseEnvelope("Public case cursor page",
                 "#/components/schemas/PublicCaseCursorResponse"));
+        schemas.put("PublicUserResponse", publicUserSchema());
+        schemas.put("CommentResponse", commentSchema());
+        schemas.put("CommentCursorResponse", cursorSchema("#/components/schemas/CommentResponse"));
+        schemas.put("CommentListResponse", caseResponseEnvelope("Case comment cursor page",
+                "#/components/schemas/CommentCursorResponse"));
+        schemas.put("CommentApiResponse", caseResponseEnvelope("Posted comment",
+                "#/components/schemas/CommentResponse"));
         schemas.put("PublicCaseApiResponse", caseResponseEnvelope("Public case detail",
                 "#/components/schemas/PublicCaseResponse"));
         schemas.put("ReporterCaseResponse", reporterCaseResponseSchema());
@@ -260,6 +267,40 @@ public class OpenApiConfig {
         return new JsonSchema().anyOf(List.of(
                 new JsonSchema().$ref(reference),
                 new JsonSchema().types(new LinkedHashSet<>(List.of("null")))));
+    }
+
+    private Schema publicUserSchema() {
+        return new ObjectSchema()
+                .description("Pseudonymous author: display name, avatar seed and verification badge only.")
+                .addProperties("displayName", new StringSchema())
+                .addProperties("avatarSeed", new StringSchema().format("uuid"))
+                .addProperties("verified", new BooleanSchema())
+                .addProperties("badgeType", nullableString()
+                        .description("POLICE, NGO or SUBJECT_MATTER_EXPERT; null when not verified"))
+                .required(List.of("displayName", "avatarSeed", "verified"));
+    }
+
+    private Schema commentSchema() {
+        return new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("parentCommentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
+                        .format("int64").description("Null for a top-level comment"))
+                .addProperties("author", nullableRef("#/components/schemas/PublicUserResponse")
+                        .description("Null when the author deleted the comment"))
+                .addProperties("body", nullableString().description("Null when the author deleted the comment"))
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .addProperties("replyCount", new IntegerSchema().format("int64")
+                        .description("Visible direct replies, not all descendants"))
+                .addProperties("deleted", new BooleanSchema().description("The author deleted this comment"))
+                .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted"));
+    }
+
+    private Schema cursorSchema(String itemReference) {
+        return new ObjectSchema()
+                .addProperties("content", new ArraySchema().items(new Schema<>().$ref(itemReference)))
+                .addProperties("size", new IntegerSchema().format("int32"))
+                .addProperties("hasNext", new BooleanSchema())
+                .addProperties("nextCursor", nullableString());
     }
 
     private Schema publicCaseCursorSchema() {
@@ -563,6 +604,7 @@ public class OpenApiConfig {
         return new ObjectSchema()
                 .description("User projection returned by the current user listing endpoint.")
                 .addProperties("displayName", new StringSchema())
+                .addProperties("avatarSeed", new StringSchema().format("uuid"))
                 .addProperties("email", new StringSchema().format("email"))
                 .addProperties("role", new StringSchema())
                 .addProperties("accountStatus", new StringSchema())

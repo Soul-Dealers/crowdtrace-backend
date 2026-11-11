@@ -1,9 +1,12 @@
 package com.souldealers.crowdtracebackend.modules.identity;
 
+import java.util.UUID;
+
 /**
  * The only identity projection other modules may show publicly.
  *
- * <p>Carries the pseudonym and the verified badge, and nothing else. Email, role,
+ * <p>Carries the pseudonym, the avatar seed and the verified badge, and nothing else.
+ * The avatar seed is random and not derived from the user id, so it reveals nothing. Email, role,
  * account status, and verification evidence are private to the identity module —
  * keeping them off this record is what makes pseudonymous participation safe.
  * Use {@link UserResponse} for the authenticated user's own view of themselves.
@@ -23,6 +26,7 @@ package com.souldealers.crowdtracebackend.modules.identity;
  */
 public record PublicUserResponse(
         String displayName,
+        UUID avatarSeed,
         boolean verified,
         VerificationType badgeType) {
 }

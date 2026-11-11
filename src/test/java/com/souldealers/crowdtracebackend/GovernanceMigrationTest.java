@@ -1,5 +1,6 @@
 package com.souldealers.crowdtracebackend;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +41,13 @@ class GovernanceMigrationTest {
     }
 
     @Autowired private JdbcTemplate jdbc;
+
+    @BeforeEach
+    void reportableComments() {
+        for (long id = 9001; id <= 9011; id++) {
+            comment(id);
+        }
+    }
 
     @Test
     void createsTheThreeGovernanceTables() {
@@ -344,9 +352,10 @@ class GovernanceMigrationTest {
     }
 
     @Test
-    void commentIdHasNoForeignKeyYet() {
-        jdbc.update("INSERT INTO content_reports (comment_id, reporter_id, reason) VALUES (987654321, ?, 'SPAM')", user());
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM content_reports WHERE comment_id = 987654321", Integer.class)).isEqualTo(1);
+    void commentIdMustReferenceAComment() {
+        long reporter = user();
+        assertViolation("fk_content_reports_comment", () -> jdbc.update(
+                "INSERT INTO content_reports (comment_id, reporter_id, reason) VALUES (987654321, ?, 'SPAM')", reporter));
     }
 
     @Test
@@ -413,5 +422,12 @@ class GovernanceMigrationTest {
 
     private List<String> indexesOn(String table) {
         return jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = ?", String.class, table);
+    }
+    /** content_reports.comment_id references comments (V22); give each fixture id a real comment. */
+    private void comment(long id) {
+        long author = user();
+        jdbc.update("""
+                INSERT INTO comments (id, case_id, author_id, body) VALUES (?, ?, ?, 'Fixture comment')
+                ON CONFLICT (id) DO NOTHING""", id, caseFor(author), author);
     }
 }

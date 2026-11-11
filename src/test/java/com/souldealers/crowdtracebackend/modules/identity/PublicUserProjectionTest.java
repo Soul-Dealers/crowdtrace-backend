@@ -13,10 +13,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * CT-009: "public responses expose only the pseudonym and permitted badge metadata".
+ * CT-009: "public responses expose only the pseudonym and permitted badge metadata", plus the random avatar seed.
  *
  * <p>The public projection is a module-boundary seam rather than an HTTP endpoint —
  * {@code /api/public/**} belongs to discovery (phase 4), and no consumer exists yet.
@@ -95,7 +97,23 @@ class PublicUserProjectionTest {
         // checks against a small record would pass or fail on the fixture name.
         // Equality also catches fields nobody thought to enumerate.
         assertThat(json).isEqualTo(
-                "{\"displayName\":\"Public Pseudonym\",\"verified\":true,\"badgeType\":\"POLICE\"}");
+                "{\"displayName\":\"Public Pseudonym\",\"avatarSeed\":\"" + user.getAvatarSeed()
+                        + "\",\"verified\":true,\"badgeType\":\"POLICE\"}");
+    }
+
+    /** The avatar must stay put when a user renames, and each user gets their own seed. */
+    @Test
+    void keepsTheAvatarSeedAcrossARename() {
+        User user = saveUser("renamer@example.com", "Old Name", null);
+        User other = saveUser("someone-else@example.com", "Old Name", null);
+        UUID before = userService.getPublicProfile(user.getId()).avatarSeed();
+
+        userService.updateProfile("renamer@example.com", new UpdateUserProfileRequest("New Name"));
+
+        PublicUserResponse after = userService.getPublicProfile(user.getId());
+        assertThat(after.displayName()).isEqualTo("New Name");
+        assertThat(after.avatarSeed()).isNotNull().isEqualTo(before);
+        assertThat(userService.getPublicProfile(other.getId()).avatarSeed()).isNotEqualTo(before);
     }
 
     private User saveUser(String email, String displayName, VerificationType badgeType) {

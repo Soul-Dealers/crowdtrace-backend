@@ -24,6 +24,7 @@ class UserResponseTest {
         String userJson = objectMapper.writeValueAsString(user);
         String responseJson = objectMapper.writeValueAsString(new UserResponse(
                 "Public Pseudonym",
+                null,
                 "private@example.com",
                 UserRoles.REGISTERED_USER,
                 UserStatus.ACTIVE,

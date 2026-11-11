@@ -16,7 +16,7 @@ function Stat({ value, label }: { value?: number | string; label: string }) {
 /** Right-rail pitch with headline stats and the main call to action. Unknown stats show a dash, not zero. */
 export function MissionCard({ stats }: { stats: MissionStats }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#3a2a20] bg-gradient-to-b from-black via-black via-35% to-brand-strong shadow-[0_18px_50px_-20px_rgb(244_115_50/0.6)]">
+    <section className="overflow-hidden rounded-2xl border border-border bg-panel">
       <div className="space-y-2 p-5 pb-4">
         <h2 className="text-xl font-semibold leading-tight">
           Every Case Reviewed.<br /><span className="text-brand">Every Lead Heard</span>

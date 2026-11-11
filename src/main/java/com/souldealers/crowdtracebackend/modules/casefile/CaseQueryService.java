@@ -11,6 +11,15 @@ public interface CaseQueryService {
     /** Approved cases only; anything else is not found. */
     PublicCaseResponse getPublicCase(Long caseId);
 
+    /** Whether the case is approved and so publicly visible. */
+    boolean isPublicCase(Long caseId);
+
+    /**
+     * Like {@link #isPublicCase} but holds a shared lock on the case row until the caller's transaction ends, so a
+     * concurrent takedown waits. Must run inside a read-write transaction.
+     */
+    boolean lockPublicCase(Long caseId);
+
     /** Approved cases matching the query, newest approval first, then id; client sorting is ignored. */
     CursorResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, String cursor, int size);
 

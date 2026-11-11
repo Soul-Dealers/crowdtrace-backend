@@ -1,5 +1,5 @@
 import { CopyChip } from './copy-chip';
-import { EMERGENCY_LINES } from './emergency-card';
+import { EMERGENCY_LINES } from './emergency-lines';
 import { Panel } from './panel';
 
 const RULES: React.ReactNode[] = [

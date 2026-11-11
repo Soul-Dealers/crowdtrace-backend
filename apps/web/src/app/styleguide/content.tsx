@@ -38,13 +38,13 @@ const feed: FeedItem[] = [
 ];
 
 const comments: CaseComment[] = [
-  { id: '1', author: 'Maame_Owusu', role: 'FAMILY', pinned: true, ago: '1 d ago',
+  { id: '1', author: 'Maame_Owusu', avatarSeed: '3f6c1d2e-8a41-4b7f-9c0e-5d2a7b8e1f40', role: 'FAMILY', pinned: true, ago: '1 d ago',
     body: 'Update from the family: a trotro driver on the Kumasi–Accra route thinks he saw Abena at Nkawkaw. We are going there today. Thank you all for sharing.',
-    replies: [{ id: '1a', author: 'Ama_ChildSafe', role: 'EXPERT', ago: '1 d ago',
+    replies: [{ id: '1a', author: 'Ama_ChildSafe', avatarSeed: 'a9e2c4b1-6d3f-4e8a-b7c5-0f1e2d3c4b5a', role: 'EXPERT', ago: '1 d ago',
       body: 'Thinking of you all. When you get to Nkawkaw, tell the district police there first so they can support the search.',
-      replies: [{ id: '1b', author: 'Maame_Owusu', role: 'FAMILY', ago: '1 d ago', body: 'Thank you. We did, and they were very helpful.' }] }] },
-  { id: '2', author: 'OseiObserves', ago: '4 h ago', body: 'Shared in three church WhatsApp groups in Konongo and Nkawkaw. Praying she comes home.',
-    replies: [{ id: '2a', author: 'NanaYaa_K', ago: '3 h ago', body: 'Same here, shared in our Konongo market group. Many people are looking.' }] },
+      replies: [{ id: '1b', author: 'Maame_Owusu', avatarSeed: '3f6c1d2e-8a41-4b7f-9c0e-5d2a7b8e1f40', role: 'FAMILY', ago: '1 d ago', body: 'Thank you. We did, and they were very helpful.' }] }] },
+  { id: '2', author: 'OseiObserves', avatarSeed: '5b7d9f1a-2c4e-4a6b-8d0f-1e3a5c7b9d2f', ago: '4 h ago', body: 'Shared in three church WhatsApp groups in Konongo and Nkawkaw. Praying she comes home.',
+    replies: [{ id: '2a', author: 'NanaYaa_K', avatarSeed: 'c1d3e5f7-a9b2-4c4d-9e6f-8a0b2c4d6e8f', ago: '3 h ago', body: 'Same here, shared in our Konongo market group. Many people are looking.' }] },
 ];
 
 export function StyleguideContent() {

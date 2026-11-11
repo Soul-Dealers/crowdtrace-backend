@@ -22,6 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -62,6 +63,11 @@ public class User {
     private LocalDateTime updatedAt;
 
     private LocalDateTime deletedAt;
+
+    /** Public, random seed for the default avatar. Never changes and reveals nothing about the id. */
+    @Builder.Default
+    @Column(name = "avatar_seed", nullable = false, updatable = false)
+    private UUID avatarSeed = UUID.randomUUID();
 
     @Builder.Default
     @Column(name = "credentials_version", nullable = false)

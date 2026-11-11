@@ -6,6 +6,7 @@ import { Field, FormMessage, NativeSelect, formValues } from '@/components/app/f
 import { RequireAuth } from '@/components/app/require-auth';
 import { Button } from '@/components/ui/button';
 import { WithRail } from '@/components/ct/app-shell';
+import { EmergencyCard } from '@/components/ct/emergency-card';
 import { Panel } from '@/components/ct/panel';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -189,7 +190,7 @@ function ReportForm() {
         </div>
         <label className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-muted p-3.5 text-sm text-text-secondary">
           <input type="checkbox" required className="mt-0.5 size-4 accent-brand" />I consent to
-          CrowdTrace processing the sensitive details above for case review.
+          Over Here processing the sensitive details above for case review.
         </label>
       </Section>
 
@@ -251,7 +252,8 @@ export default function ReportPage() {
         </p>
       </header>
       <WithRail
-        rail={
+        rail={<>
+          <EmergencyCard />
           <Panel title="What happens next" mono bodyClassName="p-4">
             <ol className="space-y-4">
               {NEXT_STEPS.map(([label, text], i) => (
@@ -267,7 +269,7 @@ export default function ReportPage() {
               ))}
             </ol>
           </Panel>
-        }
+        </>}
       >
         <RequireAuth>
           <ReportForm />
