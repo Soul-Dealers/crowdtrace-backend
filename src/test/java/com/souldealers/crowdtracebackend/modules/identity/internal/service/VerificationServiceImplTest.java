@@ -20,9 +20,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
+import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
+import org.mockito.Spy;
 
 import java.sql.SQLException;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,6 +57,12 @@ class VerificationServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuditRecorder auditRecorder;
+
+    @Spy
+    private Clock clock = Clock.fixed(Instant.parse("2026-10-10T12:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks
     private VerificationServiceImpl verificationService;
@@ -98,6 +110,10 @@ class VerificationServiceImplTest {
 
         verificationService.approve(ACTOR, 10L, null);
 
+        verify(userRepository, times(1)).findByEmail(ACTOR);
+        verify(requestRepository).applyDecision(eq(10L), eq(VerificationStatus.PENDING),
+                eq(VerificationStatus.APPROVED), any(), ArgumentMatchers.isNull(),
+                eq(LocalDateTime.of(2026, 10, 10, 12, 0)));
         verify(userRepository).setBadgeType(2L, VerificationType.NGO);
         verify(userRepository, never()).clearBadgeType(anyLong(), any());
     }
@@ -110,6 +126,9 @@ class VerificationServiceImplTest {
 
         verify(userRepository).clearBadgeType(2L, VerificationType.NGO);
         verify(userRepository, never()).setBadgeType(anyLong(), any());
+        verify(requestRepository).applyRevocation(eq(10L), any(User.class), ArgumentMatchers.isNull(),
+                any(LocalDateTime.class));
+        verify(requestRepository, never()).applyDecision(anyLong(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -129,8 +148,13 @@ class VerificationServiceImplTest {
         request.setStatus(from);
         when(userRepository.findByEmail(ACTOR)).thenReturn(Optional.of(actor));
         when(requestRepository.findById(10L)).thenReturn(Optional.of(request));
-        when(requestRepository.applyDecision(eq(10L), eq(from), eq(to), eq(actor),
-                ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        if (to == VerificationStatus.REVOKED) {
+            when(requestRepository.applyRevocation(eq(10L), eq(actor),
+                    ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        } else {
+            when(requestRepository.applyDecision(eq(10L), eq(from), eq(to), eq(actor),
+                    ArgumentMatchers.isNull(), any(LocalDateTime.class))).thenReturn(1);
+        }
         when(requestRepository.findWithUserById(10L)).thenReturn(Optional.of(request));
     }
 

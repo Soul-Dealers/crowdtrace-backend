@@ -10,6 +10,7 @@ import java.util.Map;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.RateLimitExceededException;
+import com.souldealers.crowdtracebackend.shared.FileAccessUnavailableException;
 import com.souldealers.crowdtracebackend.shared.RateLimitUnavailableException;
 import com.souldealers.crowdtracebackend.shared.UnauthorizedException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
@@ -27,9 +28,13 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.validation.FieldError;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.*;
@@ -45,6 +50,17 @@ public class GlobalExceptionHandler {
                 HttpStatus.NOT_FOUND,
                 "Resource not found",
                 exception.getMessage(),
+                "RESOURCE_NOT_FOUND",
+                request);
+    }
+
+    /** An unmapped route. Spring's message names a "static resource", so it is not echoed. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResourceFound(NoResourceFoundException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "Resource not found",
+                RESOURCE_NOT_FOUND,
                 "RESOURCE_NOT_FOUND",
                 request);
     }
@@ -148,6 +164,42 @@ public class GlobalExceptionHandler {
                 request);
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "Payload too large",
+                "The uploaded file exceeds the maximum allowed size",
+                "PAYLOAD_TOO_LARGE",
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ProblemDetail handleMissingRequestPart(
+            MissingServletRequestPartException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid request",
+                "The required request part '" + exception.getRequestPartName() + "' is missing",
+                "INVALID_REQUEST",
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingRequestParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid request",
+                "The required request parameter '" + exception.getParameterName() + "' is missing",
+                "INVALID_REQUEST",
+                request);
+    }
+
     @ExceptionHandler(UnauthorizedException.class)
     public ProblemDetail handleUnauthorized(UnauthorizedException exception, HttpServletRequest request) {
         log.warn("Unauthorized access attempt while processing {} {}",
@@ -222,6 +274,22 @@ public class GlobalExceptionHandler {
                         "Too many requests",
                         RATE_LIMIT_EXCEEDED_MSG,
                         "RATE_LIMIT_EXCEEDED",
+                        request));
+    }
+
+    @ExceptionHandler(FileAccessUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleFileAccessUnavailable(
+            FileAccessUnavailableException exception,
+            HttpServletRequest request) {
+
+        log.error("File storage cannot sign downloads on {} {}", request.getMethod(), request.getRequestURI());
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(problem(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Service unavailable",
+                        exception.getMessage(),
+                        "FILE_ACCESS_UNAVAILABLE",
                         request));
     }
 

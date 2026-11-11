@@ -9,8 +9,12 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -71,22 +75,13 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.tags",
                         hasItem("Authentication")))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/public/cases'].get.description",
-                        containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.description",
-                        containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post['x-crowdtrace-status']")
-                        .value("planned"))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get.description",
-                        containsString("not implemented")))
-                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.description",
-                        containsString("not implemented")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get['x-crowdtrace-status']").doesNotExist())
+                // CT-022 shipped the public case detail.
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get['x-crowdtrace-status']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.responses.404").exists())
+                // CT-017 retired the planned review placeholders in favour of the shipped review endpoints.
+                .andExpect(jsonPath("$.paths['/api/admin/cases/review']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision']").doesNotExist())
                 // Registration and login must stay reachable without a token; /me and
                 // /logout inherit the document-level bearerAuth requirement instead.
                 .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post.security").isEmpty())
@@ -109,16 +104,168 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/approve'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/reject'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-requests/{id}/revoke'].post").exists())
+                .andExpect(jsonPath("$.components.schemas.AdminVerificationRequestResponse.properties.revokedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.AdminVerificationRequestResponse.properties.revocationNotes.type")
+                        .value("string"))
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-grants'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/verification-grants'].post.description",
                         containsString("badge holder can read")))
                 .andExpect(jsonPath("$.paths['/api/public/cases'].get.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.security").isEmpty())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters", hasSize(12)))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[*].name", containsInAnyOrder(
+                        "name", "region", "gender", "status", "ageMin", "ageMax", "lastSeenFrom", "lastSeenTo",
+                        "approvedFrom", "approvedTo", "cursor", "size")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.minLength").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].schema.maxLength").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
+                        containsString("Java String.trim")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[0].description",
+                        containsString("3–100 UTF-16 code units")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[1].schema.enum", containsInAnyOrder(
+                        "AHAFO", "ASHANTI", "BONO", "BONO_EAST", "CENTRAL", "EASTERN", "GREATER_ACCRA",
+                        "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH", "UPPER_EAST", "UPPER_WEST", "VOLTA",
+                        "WESTERN", "WESTERN_NORTH")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[2].schema.enum",
+                        containsInAnyOrder("MALE", "FEMALE", "UNKNOWN")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].schema.type").value("array"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].schema.items.enum",
+                        containsInAnyOrder("MISSING", "FOUND_SAFE", "FOUND_DECEASED", "CLOSED")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[4].schema.minimum").value(0))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[4].schema.maximum").value(130))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[5].schema.minimum").value(0))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[5].schema.maximum").value(130))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[6].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[7].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[8].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[9].schema.format").value("date"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[10].schema.maxLength").value(128))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.minimum").value(1))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.maximum").value(50))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[11].schema.default").value(20))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].style").value("form"))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.parameters[3].explode").value(true))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.description",
+                        containsString("0001-01-01 and 9999-12-31")))
+                .andExpect(jsonPath("$.paths['/api/public/cases'].get.responses.200.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/PublicCaseListResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseListResponse.properties.data.$ref")
+                        .value("#/components/schemas/PublicCaseCursorResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.content.items.$ref")
+                        .value("#/components/schemas/PublicCaseSummaryResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.nextCursor.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.page").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.totalElements").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.totalPages").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseCursorResponse.properties.last").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.approvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseSummaryResponse.properties.thumbnailPhotoId.type",
+                        containsInAnyOrder("integer", "null")))
+                .andExpect(jsonPath("$.paths['/api/public/cases/{caseId}'].get.responses.200.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/PublicCaseApiResponse"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/PublicCaseResponse"))
                 // Admin operations inherit the document-level bearerAuth requirement.
                 .andExpect(jsonPath("$.security[0].bearerAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/admin/cases/review'].get.security").doesNotExist())
-                .andExpect(jsonPath("$.paths['/api/admin/cases/{caseId}/decision'].post.security")
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases'].get.parameters[*].name",
+                        hasItems("status", "priorityMinor", "duplicateFlag", "submittedFrom", "submittedTo")))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/reject'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}'].get.responses.200.content.*.schema.$ref",
+                        hasItem("#/components/schemas/ReporterCaseApiResponse")))
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/status'].patch.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/UpdateCaseStatusRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/status'].patch.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/closing-statement'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/closing-statement'].put.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/SetClosingStatementRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/closing-statement'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/closing-statement'].put.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/TakeDownCaseRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/takedown'].post.responses.403").exists())
+                .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.required", containsInAnyOrder(
+                        "expectedCaseVersion", "reason")))
+                .andExpect(jsonPath("$.components.schemas.TakeDownCaseRequest.properties.reason.maxLength").value(2000))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/RestoreCaseRequest"))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/cases/{id}/restore'].post.responses.403").exists())
+                .andExpect(jsonPath("$.components.schemas.RestoreCaseRequest.required", contains("expectedCaseVersion")))
+                .andExpect(jsonPath("$.components.schemas.SetClosingStatementRequest.properties.closingStatement.maxLength")
+                        .value(2000))
+                .andExpect(jsonPath("$.paths['/api/user/cases/{id}/photos'].post.responses.200.content['*/*'].schema.$ref")
+                        .value("#/components/schemas/CasePhotosAddedApiResponse"))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/CasePhotosAddedResponse"))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedResponse.required", containsInAnyOrder(
+                        "caseId", "caseVersion", "photos", "addedAt")))
+                .andExpect(jsonPath("$.components.schemas.CasePhotosAddedResponse.properties.photos.items.$ref")
+                        .value("#/components/schemas/CaseFileMetadataResponse"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.caseVersion").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closingStatement.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.resolvedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.closedAt.nullable")
                         .doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.required", containsInAnyOrder(
+                        "caseId", "caseVersion", "reviewStatus", "caseStatus", "occurredAt")))
+                .andExpect(jsonPath("$.components.schemas.CaseLifecycleResponse.properties.occurredAt.type")
+                        .value("string"))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.presentation.enum",
+                        containsInAnyOrder("STANDARD", "DECEASED_NOTICE")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.lastSeenLocation.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.closingStatement.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.PublicCaseResponse.properties.photoIds.items.format")
+                        .value("int64"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.version.type")
+                        .value("integer"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.sensitiveDetails.anyOf[0].$ref")
+                        .value("#/components/schemas/SensitiveDetailsResponse"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.sensitiveDetails.anyOf[1].type")
+                        .value("null"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.resolvedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.closedAt.format")
+                        .value("date-time"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseResponse.properties.closedAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.takedownReason.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.takenDownAt.type",
+                        containsInAnyOrder("string", "null")))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}'].get.responses.200.content.*.schema.$ref",
+                        hasItem("#/components/schemas/ReviewCaseDetailApiResponse")))
+                .andExpect(jsonPath("$.paths['/api/v1/admin/review/cases/{id}/approve'].post.responses.200.content.*.schema.$ref",
+                        hasItem("#/components/schemas/CaseReviewDecisionApiResponse")))
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.version").exists())
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.caseDetails.properties.files").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.ReviewCaseDetailResponse.properties.evidence").exists())
                 .andExpect(jsonPath("$.components.schemas.ProblemDetail").exists())
                 .andExpect(jsonPath("$.components.schemas.ApiResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.PagedResponse").exists())
@@ -133,6 +280,181 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.accountStatus").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.createdAt").exists())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.properties.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void typesTheAuthResponseEnvelopes() throws Exception {
+        String ok = ".responses['200'].content['*/*'].schema['$ref']";
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post" + ok)
+                        .value("#/components/schemas/LoginApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/me'].get" + ok)
+                        .value("#/components/schemas/UserApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/profile-settings'].patch" + ok)
+                        .value("#/components/schemas/UserApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/signup'].post" + ok)
+                        .value("#/components/schemas/GenericMessageApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/verify-otp'].post" + ok)
+                        .value("#/components/schemas/GenericMessageApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post" + ok)
+                        .value("#/components/schemas/GenericMessageApiResponse"))
+                .andExpect(jsonPath("$.components.schemas.LoginResponse.properties.token").exists())
+                .andExpect(jsonPath("$.components.schemas.LoginResponse.properties.role.enum",
+                        containsInAnyOrder("REGISTERED_USER", "MODERATOR", "SUPER_ADMIN")))
+                // bearerAuth already documents the header; a required parameter would force clients to pass it.
+                .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.parameters").doesNotExist());
+    }
+
+    @Test
+    void documentsTheReporterOwnCaseList() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].get.responses['200'].content['application/json']"
+                        + ".schema['$ref']").value("#/components/schemas/ReporterCaseListResponse"))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post").exists())
+                .andExpect(jsonPath("$.components.schemas.ReporterCasePageResponse.properties.content.items['$ref']")
+                        .value("#/components/schemas/ReporterCaseSummaryResponse"))
+                .andExpect(jsonPath("$.components.schemas.ReporterCaseSummaryResponse.properties.sensitiveDetails")
+                        .doesNotExist());
+    }
+
+    @Test
+    void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
+        String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var properties = new com.fasterxml.jackson.databind.ObjectMapper().readTree(document)
+                .path("components").path("schemas").path("PublicCaseSummaryResponse").path("properties");
+        java.util.Set<String> names = new java.util.HashSet<>();
+        properties.fieldNames().forEachRemaining(names::add);
+        org.assertj.core.api.Assertions.assertThat(names).containsExactlyInAnyOrder("id", "fullName", "age", "gender",
+                "region", "lastSeenDate", "caseStatus", "presentation", "approvedAt", "resolvedAt",
+                "thumbnailPhotoId");
+    }
+
+    @Test
+    void documentsTheRegisteredUserUploadAndMultipartContract() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.tags", hasItem("Case Submission")))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.description",
+                        containsString("registered-user JWT")))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post['x-crowdtrace-status']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.requestBody.required").value(true))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.requestBody.content['multipart/form-data'].schema.$ref")
+                        .value("#/components/schemas/CaseFileUploadRequest"))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.required",
+                        containsInAnyOrder("file", "purpose")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.properties.file.format").value("binary"))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.properties.purpose.enum",
+                        containsInAnyOrder("REPORT", "PHOTO")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadRequest.properties.sha256.type").value("string"))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.parameters").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.201.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/CaseFileUploadResponse"))
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.401").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.403").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.413").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.429.headers['Retry-After']").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.503.headers['Retry-After']").exists())
+                .andExpect(jsonPath("$.paths['/api/user/case-files'].post.responses.400.content['application/problem+json'].schema.$ref")
+                        .value("#/components/schemas/ProblemDetail"));
+    }
+
+    @Test
+    void documentsTheSubmissionAndNonBlockingEventContract() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.tags", hasItem("Case Submission")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post['x-crowdtrace-status']").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.description", containsString("Duplicates never block")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.description", containsString("AFTER_COMMIT")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.description", containsString("best-effort")))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.requestBody.required").value(true))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.requestBody.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/CaseSubmissionRequest"))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.201.content['application/json'].schema.$ref")
+                        .value("#/components/schemas/CaseSubmissionApiResponse"))
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.400").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.401").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.403").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.404").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.409").exists())
+                .andExpect(jsonPath("$.paths['/api/user/cases'].post.responses.404.content['application/problem+json'].schema.$ref")
+                        .value("#/components/schemas/ProblemDetail"));
+    }
+
+    @Test
+    void describesSubmissionValidationAndConsentInTheRequestSchemas() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.required", containsInAnyOrder(
+                        "fullName", "age", "gender", "lastSeenDate", "region", "lastSeenLocation",
+                        "physicalDescription", "clothing", "circumstances", "publicContactNumber",
+                        "sensitiveDetails", "consent", "reportFileIds")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.fullName.maxLength").value(255))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.age.minimum").value(0))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.age.maximum").value(130))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.gender.enum",
+                        containsInAnyOrder("MALE", "FEMALE", "UNKNOWN")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.region.enum", containsInAnyOrder(
+                        "AHAFO", "ASHANTI", "BONO", "BONO_EAST", "CENTRAL", "EASTERN", "GREATER_ACCRA",
+                        "NORTH_EAST", "NORTHERN", "OTI", "SAVANNAH", "UPPER_EAST", "UPPER_WEST",
+                        "VOLTA", "WESTERN", "WESTERN_NORTH")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenDate.format").value("date"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenDate.description",
+                        containsString("1900-01-01")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenDate.description",
+                        containsString("UTC")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.lastSeenLocation.maxLength").value(500))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.publicContactNumber.maxLength").value(32))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.sensitiveDetails.$ref")
+                        .value("#/components/schemas/SensitiveDetailsInput"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.consent.$ref")
+                        .value("#/components/schemas/ConsentInput"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.reportFileIds.minItems").value(1))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.reportFileIds.items.minimum").value(1))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.photoFileIds.maxItems").value(5))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionRequest.properties.photoFileIds.items.minimum").value(1))
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.required", contains("reporterRelationship")))
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.reporterRelationship.maxLength").value(100))
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.medicalConditions").exists())
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.knownAssociates").exists())
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.vehicleInfo").exists())
+                .andExpect(jsonPath("$.components.schemas.SensitiveDetailsInput.properties.socialMediaHandles").exists())
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.required", containsInAnyOrder("accepted", "version", "source")))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.accepted.enum", contains(true)))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.version.maxLength").value(32))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.version.description",
+                        containsString("crowdtrace.consent.sensitive-data-version")))
+                .andExpect(jsonPath("$.components.schemas.ConsentInput.properties.source.enum",
+                        containsInAnyOrder("WEB", "MOBILE", "API")));
+    }
+
+    @Test
+    void documentsOnlySafeUploadMetadataAndSubmissionResponseFields() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.CaseFileUploadResponse.properties.data.$ref")
+                        .value("#/components/schemas/CaseFileMetadataResponse"))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties", aMapWithSize(6)))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.id").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.purpose.enum",
+                        containsInAnyOrder("REPORT", "PHOTO")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.visibility.enum",
+                        containsInAnyOrder("PRIVATE", "PUBLIC")))
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.contentType").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.sizeBytes").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseFileMetadataResponse.properties.uploadedAt").exists())
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionApiResponse.properties.data.$ref")
+                        .value("#/components/schemas/CaseSubmissionResponse"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties", aMapWithSize(3)))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties.caseId.format").value("int64"))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties.reviewStatus.enum", contains("SUBMITTED")))
+                .andExpect(jsonPath("$.components.schemas.CaseSubmissionResponse.properties.submittedAt.format").value("date-time"));
     }
 
     @Test
@@ -156,5 +478,22 @@ class OpenApiContractTest {
                                 + "\"displayName\":\"Security Regression\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void reviewDetailSchemaDocumentsEveryAdminCaseField() throws Exception {
+        String body = mockMvc.perform(get("/v3/api-docs")).andReturn().getResponse().getContentAsString();
+        var props = tools.jackson.databind.json.JsonMapper.builder().build().readTree(body)
+                .at("/components/schemas/ReviewCaseDetailResponse/properties/caseDetails/properties");
+        java.util.Set<String> documented = new java.util.TreeSet<>();
+        props.propertyNames().forEach(documented::add);
+        java.util.Set<String> actual = new java.util.TreeSet<>();
+        for (var c : com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse.class
+                .getRecordComponents()) {
+            if (!c.getName().equals("files")) {
+                actual.add(c.getName());
+            }
+        }
+        org.assertj.core.api.Assertions.assertThat(documented).isEqualTo(actual);
     }
 }

@@ -3,3 +3,5 @@
 .env
 target
 *.iml
+apps
+node_modules

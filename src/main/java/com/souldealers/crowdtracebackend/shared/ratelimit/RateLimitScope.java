@@ -5,5 +5,7 @@ public enum RateLimitScope {
     /** Coarse abuse guard, keyed on client address. Fails open. */
     IP,
     /** The security control, keyed on the normalised identifier. Fails closed. */
-    IDENTITY
+    IDENTITY,
+    /** Per-user quota, keyed on the authenticated user's id. Fails closed. */
+    USER
 }

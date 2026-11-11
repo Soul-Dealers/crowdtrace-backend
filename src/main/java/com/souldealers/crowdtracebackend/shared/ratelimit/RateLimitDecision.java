@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.shared.ratelimit;
 
+import java.time.Instant;
+
 /**
  * The outcome of charging a bucket.
  *
@@ -7,7 +9,11 @@ package com.souldealers.crowdtracebackend.shared.ratelimit;
  * transaction, and throwing inside it would mark that transaction rollback-only
  * and undo the very increment being recorded. Callers throw, outside the boundary.
  */
-public record RateLimitDecision(boolean allowed, long retryAfterSeconds, String policyName) {
+public record RateLimitDecision(boolean allowed, long retryAfterSeconds, String policyName, Instant windowEndsAt) {
+
+    public RateLimitDecision(boolean allowed, long retryAfterSeconds, String policyName) {
+        this(allowed, retryAfterSeconds, policyName, null);
+    }
 
     public static RateLimitDecision allow(String policyName) {
         return new RateLimitDecision(true, 0, policyName);

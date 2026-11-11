@@ -9,6 +9,10 @@ import java.util.Collection;
 import java.util.List;
 
 public record SecurityUser(User user) implements UserDetails {
+    public Long userId() {
+        return user.getId();
+    }
+
     @Override
     public String getUsername() {
         return user.getEmail();

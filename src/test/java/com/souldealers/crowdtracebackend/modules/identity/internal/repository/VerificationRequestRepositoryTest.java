@@ -156,6 +156,47 @@ class VerificationRequestRepositoryTest {
         assertThat(secondUpdate).isZero();
     }
 
+    @Test
+    void revokesOnlyAnApprovedRequestAndPreservesItsApprovalAttribution() {
+        User applicant = userRepository.saveAndFlush(user("revocation-applicant@example.com"));
+        User approver = userRepository.saveAndFlush(user("revocation-approver@example.com"));
+        User revoker = userRepository.saveAndFlush(user("revocation-admin@example.com"));
+        LocalDateTime approvedAt = LocalDateTime.of(2026, 1, 2, 9, 0);
+        VerificationRequest approved = verificationRequestRepository.saveAndFlush(VerificationRequest.builder()
+                .user(applicant)
+                .verificationType(VerificationType.POLICE)
+                .evidenceReference("evidence/identity-proof.pdf")
+                .status(VerificationStatus.APPROVED)
+                .reviewer(approver)
+                .reviewNotes("approved")
+                .reviewedAt(approvedAt)
+                .createdAt(LocalDateTime.of(2026, 1, 1, 9, 0))
+                .build());
+        LocalDateTime revokedAt = approvedAt.plusDays(1);
+
+        int firstUpdate = verificationRequestRepository.applyRevocation(
+                approved.getId(), revoker, "fraud", revokedAt);
+        int secondUpdate = verificationRequestRepository.applyRevocation(
+                approved.getId(), revoker, "second attempt", revokedAt.plusMinutes(1));
+
+        VerificationRequest revoked = verificationRequestRepository.findById(approved.getId()).orElseThrow();
+        assertThat(firstUpdate).isEqualTo(1);
+        assertThat(secondUpdate).isZero();
+        assertThat(revoked.getStatus()).isEqualTo(VerificationStatus.REVOKED);
+        assertThat(revoked.getReviewer().getId()).isEqualTo(approver.getId());
+        assertThat(revoked.getReviewNotes()).isEqualTo("approved");
+        assertThat(revoked.getReviewedAt()).isEqualTo(approvedAt);
+        assertThat(revoked.getRevokedBy().getId()).isEqualTo(revoker.getId());
+        assertThat(revoked.getRevocationNotes()).isEqualTo("fraud");
+        assertThat(revoked.getRevokedAt()).isEqualTo(revokedAt);
+
+        User pendingApplicant = userRepository.saveAndFlush(user("pending-revocation-applicant@example.com"));
+        VerificationRequest pending = verificationRequestRepository.saveAndFlush(request(
+                pendingApplicant, VerificationStatus.PENDING, LocalDateTime.of(2026, 1, 1, 9, 0)));
+        assertThat(verificationRequestRepository.applyRevocation(
+                pending.getId(), revoker, "fraud", revokedAt)).isZero();
+    }
+
     private VerificationRequest request(User user, VerificationStatus status, LocalDateTime createdAt) {
         return VerificationRequest.builder()
                 .user(user)

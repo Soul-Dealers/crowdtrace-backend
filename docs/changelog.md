@@ -1,5 +1,133 @@
 ## Unreleased
 
+- CT-022 (part): `GET /api/public/cases/{caseId}` now returns `photoIds`, the case's live PUBLIC PHOTO file IDs
+  oldest first (ties by ID), using the same filter as list thumbnails, so each one resolves through
+  `GET /api/public/cases/{caseId}/photos/{fileId}`. Empty array when there are none. The list endpoint is unchanged.
+- CT-023: public photo delivery and reviewer file links. `GET /api/public/cases/{caseId}/photos/{fileId}`
+  redirects (302, `no-store`) to a five-minute signed URL, but only for a live PUBLIC PHOTO attached to that
+  case while it is APPROVED; every other combination (pending, rejected, taken down, report, deleted, another
+  case's file) is the same 404. Moderators and super admins call
+  `GET /api/v1/admin/review/cases/{id}/files/{fileId}/url` for a one-minute link to any live file on the case;
+  each grant appends `CASE_FILE.PRIVATE_ACCESS_GRANTED` (target the file, metadata `caseId`) in the same
+  transaction, so no link is returned unless the audit commits. Review evidence now reports
+  `accessAvailable: true` when storage can sign. Storage that cannot sign (the in-memory fallback) answers
+  503 `FILE_ACCESS_UNAVAILABLE`. Signed responses carry `Cache-Control`: `no-store` for private files and
+  `private, max-age=<ttl>` for photos. Photos are stripped at upload, after the client checksum is checked
+  against the original bytes: JPEG keeps only image data, quantisation/Huffman tables, ICC profile, Adobe
+  colour marker and a thumbnail-free JFIF header; PNG keeps only rendering chunks. Bytes after the end marker
+  are dropped. Orientation other than upright is rewritten into a fresh one-tag EXIF block (no GPS, time or
+  device fields) so the photo still displays the right way up; pixels are never re-encoded. The stored size and
+  checksum are those of the stripped photo. Reports are stored unaltered. Accepted limits: a signed URL is a
+  bearer link until it expires, so a takedown stops new links immediately but an issued link keeps working for
+  at most its lifetime, and the generated object key is visible inside the signed URL.
+
+- CT-030: S3 storage for case files behind the existing `FileStorage` port. Setting
+  `crowdtrace.storage.s3.bucket` activates `S3FileStorage`; without it the in-memory fallback stays, so local
+  runs and tests need no credentials. A blank bucket fails startup. One private bucket holds every file under
+  generated `reports/<uuid>` / `photos/<uuid>` keys, so client filenames never become paths. Puts send the
+  content type and the SHA-256 checksum (hex stored, base64 sent) so S3 rejects corrupted bodies, and use
+  `If-None-Match: *` so a key can never be overwritten. Encryption at rest is the bucket default (no per-object
+  SSE header), and public access must be blocked on the bucket. The new `SignedFileAccess` port issues presigned
+  GET URLs (private files as attachments, photos inline) whose lifetime must be positive and at most
+  `max-download-ttl` (default 15 minutes); in-memory storage does not implement it. Signing does not authorize:
+  CT-023 must check report permissions and case visibility before asking for a URL. The upload service now
+  registers rollback cleanup before the put, so an ambiguous put failure (for example a timeout after S3 stored
+  the object) still deletes the object. Tests run against LocalStack 4.4 with signature validation on, because
+  MinIO images are no longer published on Docker Hub; `docker compose up localstack` provides the same locally.
+
+- CT-022 (partial): public `GET /api/public/cases/{caseId}` now serves the existing public projection of an
+  approved case without authentication; it previously had only a placeholder contract and returned 500.
+  Pending, rejected, taken-down and unknown cases share one 404, and deceased cases keep the DECEASED_NOTICE
+  redaction. Still open on the ticket: slug lookup, comment/follow summary and a canonical share URL.
+
+- CT-010 follow-up: `GET /api/v1/admin/verification-requests` takes an optional `status` (`PENDING`,
+  `APPROVED`, `REJECTED`, `REVOKED`; default `PENDING`, so existing callers are unchanged). `status=APPROVED` lists
+  live badges, which is how a Super Admin finds a request to revoke. Unknown values return 400.
+
+- CT-037 (partial): auth endpoints now document typed envelopes. `login` returns `LoginApiResponse`
+  (`LoginResponse`: `displayName`, `email`, `role`, `token`); `me` and `profile-settings` return `UserApiResponse`;
+  `signup`, `verify-otp` and `logout` return `GenericMessageApiResponse`. Previously they collapsed to the generic
+  `ApiResponse`, whose `data` claims to be a `PagedResponse`. Logout no longer lists `Authorization` as a required
+  parameter, since `bearerAuth` already documents it. Runtime behaviour is unchanged.
+
+- CT-012 follow-up: `GET /api/user/cases` lists the authenticated reporter's own cases across every review
+  outcome, newest submission first, as `ReporterCaseSummaryResponse` (`id`, `fullName`, `reviewStatus`,
+  `caseStatus`, `submittedAt`). It exposes the existing `CaseQueryService.listOwnCases`, so client sort is ignored
+  and size is clamped to 1–50. No sensitive details or admin-only flags are returned.
+
+- CT-021: public `GET /api/public/cases` searches approved cases ordered by approval time descending, then
+  id descending. Filters cover literal case-insensitive names (3–100 characters after trimming), region, gender,
+  inclusive age bounds (0–130), case statuses, inclusive last-seen dates, and inclusive approval dates; date
+  bounds accept years 0001–9999. Omitted statuses include all four outcomes; an explicitly empty status filter
+  is invalid. Forward-only keyset pagination defaults to size 20 and accepts sizes 1–50. Start with
+  `/api/public/cases?size=20`; when `hasNext` is true, repeat the same filters with the returned `nextCursor`.
+  The response metadata is `content`, `size`, `hasNext`, and `nextCursor`; no count query is run, and no exact
+  totals are returned. Cursors are opaque forward-only seek boundaries; page-number navigation is not supported, so clients
+  continue using returned cursors. Results are not snapshots.
+  Explicit legacy `page` requests return 400. Results retain the 11-field public summary; deceased summaries
+  carry `DECEASED_NOTICE`, omit withheld fields, and can retain an eligible thumbnail. A thumbnail is the earliest
+  live PUBLIC PHOTO by upload time then id; cases without one have a null value. V20 adds `pg_trgm` with a
+  `lower(full_name)` GIN index and non-partial review-status-leading B-tree indexes,
+  since Hibernate's bound enum in a generic plan cannot prove a partial-index predicate. Handoffs: CT-022 detail
+  reuses `toPublic` and returns 404 for non-approved cases; CT-023 serves `thumbnailPhotoId` only for PUBLIC
+  photos of APPROVED cases; CT-024 measures pilot-sized performance.
+
+- CT-018: case lifecycle on approved cases. Reporters (`/api/user/cases/{id}`) read their case with `version`,
+  move it from `MISSING` to `FOUND_SAFE`/`FOUND_DECEASED`/`CLOSED`, set a closing statement on a resolved case and
+  add photos while it is `APPROVED`. Admins (`/api/v1/admin/cases/{id}`) correct any outcome (including reopening to
+  `MISSING`, which clears `resolved_at`, `closed_at` and the statement), set statements, take a case down with a
+  private reason and restore it. Admins cannot take down or restore a case they reported (403). Every mutation locks
+  the case, checks `expectedCaseVersion`, records its `CASE.*` audit event (new `CASE.RESTORED`) and publishes an
+  ids-only `notification` event (`CaseStatusChangedEvent`, `CasePhotosAddedEvent`, `CaseTakenDownEvent`,
+  `CaseRestoredEvent`) in one transaction. Photo audits are enforced per file through `LivePhotoAuditor`; a reopen
+  that clears a statement is enforced through `ClosingStatementClearer`. `FOUND_DECEASED` public projections carry
+  `presentation = DECEASED_NOTICE` and null the last-seen location, physical description, clothing, circumstances
+  and contact number. V19 adds `takedown_reason`/`taken_down_by`/`taken_down_at` and checks that each case's
+  columns match its review state and outcome. Restore keeps the latest takedown columns; a second takedown overwrites
+  them. Nullable OpenAPI 3.1 fields use `type` unions.
+  Handoffs: CT-021/022 must use the public mapper (deceased withholding) and keep the `APPROVED` filter; CT-023
+  must refuse files of a taken-down case; CT-026 blocks new follows on non-approved cases and keeps follow rows
+  across restore; CT-027 consumes the four events (reporter-only for takedown/restore, never the reason); CT-028
+  emails the reporter on `CaseStatusChangedEvent`; CT-032 keys retention off `resolved_at`/`closed_at`. Live-case
+  field edits and police closing statements remain out of scope.
+
+- CT-017: moderator review queue and decisions under `/api/v1/admin/review/cases` (filtered queue, detail with
+  duplicate matches and review history, approve, reject). A decision locks the case, checks state, version and
+  report, appends an immutable `case_reviews` row, records `CASE.APPROVED`/`CASE.REJECTED` and publishes
+  `CaseReviewDecidedEvent` in one transaction; self-review returns 403; a stale `expectedCaseVersion` or an already-decided case returns 409.
+  Attaching files and adding duplicate matches now bump the case version; case timestamps use the UTC clock.
+  `AdminCaseResponse` gains `version`. Review detail lists evidence as metadata only (`accessAvailable = false`);
+  signed access (CT-023/030) and in-app delivery (CT-027) must land before moderator rollout. Retires the
+  `/api/admin/cases/review` and `/decision` OpenAPI placeholders.
+- CT-017 (implementation rulings): the casefile port `CaseReviewMutationService.decide` takes `Long` case ids and
+  runs the self-review check under the case lock (403, then state, version, report as 409). Submission commits at version 1 (the attach bump); duplicate detection may raise it. Clients must send caseDetails.version. Review detail uses a first-statement `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY` inside
+  `REQUIRES_NEW`, because the DELAYED_ACQUISITION handling mode rejects `@Transactional` isolation. The detail view
+  hides the admin `files` field and shows files as evidence.
+  Handoff (CT-018/CT-023): any future path that removes or replaces case evidence must lock the case and
+  force-increment its version, otherwise the approval report check and the stale-version check stop holding.
+
+- CT-020: added a central transactional audit recorder with a closed action vocabulary, schema-validated metadata,
+  per-operation audit enforcement, and database-enforced append-only audit events. Verification approve, reject,
+  revoke, and grant are audited; revocation preserves approval attribution and adds `revokedAt` and
+  `revocationNotes` to the admin response and OpenAPI contract. Correlation IDs are normalized. Adds
+  `spring-boot-starter-aspectj`.
+- CT-020 (PR #51 review): `case_reviews` is append-only and `content_reports` only moves `OPEN → RESOLVED`, never
+  deleted, with `resolved_at >= created_at`. The audit metadata DB check is an 8 KB backstop behind the app's 4 KB limit.
+  `review_source` defaults to `HUMAN`; three unused governance indexes are dropped. Every timestamp default is UTC.
+
+- CT-016: governance schema — human-only case review history with required rejection notes, structured PII-minimized
+  audit events with explicit system actors, and attributable comment reports (one open report per user per comment).
+  Schema and query tests only; comment FK lands with CT-025.
+
+- CT-014: deterministic normalized-name and last-seen duplicate detection after submission commits,
+  directional match metadata without name snapshots, and a review flag on the new case only.
+  Configurable validated thresholds, concurrent/idempotent detection and PII-safe failure logging;
+  detection failures cannot reject intake. Release committed intake connections before detection
+  to prevent connection-pool starvation during concurrent submissions. No new dependencies or admin API changes.
+
+- CT-013: authenticated report/photo uploads with per-user quotas and atomic validated case submission,
+  current-version consent, immediate minor priority, safe responses and a non-blocking submitted-case event.
+- CT-012: case entities, repositories, and public/reporter/admin projections behind CaseQueryService.
 - CT-011: case registry schema (cases, sensitive details, case files, consents) with migration and query tests.
 
 ## 2026-09-29 — Add CT-009 authentication and current-user endpoints

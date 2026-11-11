@@ -1,9 +1,10 @@
 package com.souldealers.crowdtracebackend.modules.identity.internal.service;
 
-import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.modules.identity.PublicUserResponse;
-import com.souldealers.crowdtracebackend.modules.identity.UserResponse;
+import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UpdateUserProfileRequest;
+import com.souldealers.crowdtracebackend.modules.identity.UserResponse;
+import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
@@ -14,6 +15,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_FOUND_MSG;
 
@@ -51,12 +57,26 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND_MSG));
 
-        return new PublicUserResponse(user.getDisplayName(), user.getBadgeType() != null, user.getBadgeType());
+        return toPublic(user);
+    }
+
+    @Override
+    public Map<Long, PublicUserResponse> getPublicProfiles(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllById(Set.copyOf(userIds)).stream()
+                .collect(Collectors.toMap(User::getId, UserServiceImpl::toPublic));
+    }
+
+    private static PublicUserResponse toPublic(User user) {
+        return new PublicUserResponse(user.getDisplayName(), user.getAvatarSeed(), user.getBadgeType() != null, user.getBadgeType());
     }
 
     private UserResponse buildUserResponse(User user) {
         return UserResponse.builder()
                 .displayName(user.getDisplayName())
+                .avatarSeed(user.getAvatarSeed())
                 .email(user.getEmail())
                 .accountStatus(user.getAccountStatus())
                 .createdAt(user.getCreatedAt())
@@ -70,4 +90,11 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND_MSG));
     }
+
+    @Override
+    @RequiresModerator
+    public Optional<String> getAccountEmail(Long userId) {
+        return userRepository.findById(userId).map(User::getEmail);
+    }
+
 }

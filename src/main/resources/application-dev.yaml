@@ -77,5 +77,8 @@ cors:
   allowed-origins:
     - "https://crowdtrace.com"
     - "https://www.crowdtrace.com"
+    - "http://localhost:3000"
+    # Vercel deployments of this project (production alias, branch and preview URLs).
+    - "https://crowdtrace*.vercel.app"
 
 secret-key: ${JWT_SECRET:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}

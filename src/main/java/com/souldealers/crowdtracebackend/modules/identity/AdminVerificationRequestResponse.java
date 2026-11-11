@@ -11,5 +11,7 @@ public record AdminVerificationRequestResponse(
         VerificationStatus status,
         String reviewNotes,
         LocalDateTime createdAt,
-        LocalDateTime reviewedAt) {
+        LocalDateTime reviewedAt,
+        LocalDateTime revokedAt,
+        String revocationNotes) {
 }

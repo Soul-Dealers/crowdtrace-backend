@@ -43,3 +43,11 @@ build/
 *.sql.gz
 crowdtrace-backup-*.sql
 /graphify-out/
+
+### Frontend (apps/web) ###
+node_modules/
+.next/
+.vercel
+*.tsbuildinfo
+.env*.local
+next-env.d.ts

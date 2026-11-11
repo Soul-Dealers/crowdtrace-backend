@@ -15,12 +15,28 @@ services:
       timeout: 5s
       retries: 10
 
+  # Local S3 for case files. Run the backend on the host with the CROWDTRACE_STORAGE_S3_* values from
+  # example.env; presigned URLs embed localhost:4566, which browsers can reach.
+  localstack:
+    image: localstack/localstack:4.4
+    environment:
+      SERVICES: s3
+      S3_SKIP_SIGNATURE_VALIDATION: "0"
+      CROWDTRACE_STORAGE_S3_BUCKET: ${CROWDTRACE_STORAGE_S3_BUCKET:-crowdtrace-case-files}
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+      - ./localstack/seed:/etc/localstack/seed:ro
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # Loads the dummy data in db/dev-seed. Set only here, never in a profile file.
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/dev-seed
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-crowdtrace}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?SPRING_DATASOURCE_USERNAME must be set}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD must be set}

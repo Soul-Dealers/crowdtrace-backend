@@ -39,9 +39,11 @@ delivers media through the correct access boundary.
 - **Depends on:** CT-015, CT-022, CT-030
 - **Issue:** Define photo delivery and authorized private-report download behavior. Keep raw S3 keys
   internal, generate time-limited URLs, enforce visibility and actor permissions, and validate media metadata.
+  Strip EXIF/GPS metadata from public photos before they are first served.
 - **Acceptance criteria:** Public photos are available only for approved cases; reports are restricted
-  to authorized reviewers/administrators; URLs expire; object paths are generated and never user-controlled.
-- **Tests:** Public/private access matrix, URL expiry, key-generation, and unauthorized-download tests.
+  to authorized reviewers/administrators; URLs expire; object paths are generated and never user-controlled;
+  served photos carry no EXIF/GPS metadata.
+- **Tests:** Public/private access matrix, URL expiry, key-generation, unauthorized-download, and EXIF-stripping tests.
 
 ### CT-024 — Add public API safety and performance verification
 

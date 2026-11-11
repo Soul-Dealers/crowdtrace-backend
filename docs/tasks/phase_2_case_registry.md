@@ -39,21 +39,52 @@ consent while preserving a strict public/admin data boundary.
 - **Labels:** `epic:case-registry`, `type:feature`, `type:security`, `priority:p0`
 - **Depends on:** CT-009, CT-011, CT-012, CT-015
 - **Issue:** Implement `POST /api/user/cases` with public details, sensitive details, public contact,
-  report-file reference, explicit consent, age/date validation, and initial review status.
+  one or more `reportFileIds`, optional `photoFileIds` (up to 5), explicit current-version consent,
+  and age/date validation. Create cases as `SUBMITTED` with no public outcome, set
+  `priority_minor = age < 18` at insert, and publish `CaseSubmittedEvent(caseId)` inside the submission
+  transaction. Also implement `POST /api/user/case-files` (multipart report/photo upload via CT-015's
+  services) with a limit of 20 successful uploads per user per 24-hour window; rejected files refund
+  their quota charge.
 - **Acceptance criteria:** Valid submissions enter review; missing report or consent returns actionable
   validation errors; consent version/timestamp/source are stored; response returns a safe case reference;
-  possible duplicates do not block submission.
-- **Tests:** Valid submission, missing file, missing consent, invalid dates/age, ownership, and safe-response tests.
+  possible duplicates do not block submission; reporters can upload a report and up to 5 photos and attach
+  only their own unattached uploads in the matching report/photo slots. Case, sensitive details,
+  consent and attachments commit atomically. The response contains only `caseId`, `reviewStatus`
+  and `submittedAt`; age 17 receives minor priority and age 18 does not.
+- **Tests:** Valid submission, missing file, missing consent, invalid dates/age, ownership, safe-response,
+  upload endpoint/quota/refund, photo attachment/cap, foreign-file, atomic rollback, boundary-age,
+  and throwing-after-commit-listener tests.
 
-### CT-014 — Implement non-blocking duplicate detection and minor prioritization
+### CT-014 — Implement non-blocking duplicate detection
 
 - **Labels:** `epic:case-registry`, `type:feature`, `priority:p1`
-- **Depends on:** CT-012
-- **Issue:** Add normalized-name plus reported/last-seen date matching, confidence/reason metadata,
-  and a minor flag for age under 18. Store results for reviewers without rejecting intake.
+- **Depends on:** CT-012, CT-013
+- **Issue:** Add normalized-name plus last-seen date matching, confidence/reason metadata,
+  and the duplicate review signal. Consume CT-013's `CaseSubmittedEvent(caseId)` with
+  `@TransactionalEventListener(AFTER_COMMIT)` and write results in `REQUIRES_NEW`. Delivery is
+  best-effort with no replay while the application uses Modulith core only. CT-013 owns minor
+  priority at creation; CT-014 does not change `priority_minor`. Only the new submission is flagged;
+  existing cases keep their flags and versions. All review/case statuses and same-reporter cases
+  are candidates. Detection locks the new case so concurrent redelivery is a clean no-op.
+- **Matching rules:** Unicode accent/case/punctuation normalization and sorted tokens (keeping
+  repeats); code-point Levenshtein similarity ≥ 0.90 and last-seen dates within 7 days by default.
+  A single-token name requires an exact normalized match; missing dates produce no match.
+  `submitted_at` is never a matching date. Thresholds are startup-validated under
+  `crowdtrace.duplicates` (`date-window-days`: 0–32767, `name-threshold-permille`: 0–1000).
+- **Metadata:** Directional match rows store ids, integer scores, fixed reason codes and algorithm
+  version `v1`, without name snapshots. Confidence is a ranking aid, not a probability:
+  `roundHalfUp(100 × (0.8 × N + 0.2 × (1 − days/(window + 1))))`.
+  With the default 7-day window this is the agreed `days/8` formula. Similarity is rounded to
+  permille only for storage; threshold comparison uses the exact fraction. Review APIs and
+  moderator duplicate/distinct decisions belong to CT-017. Logs contain only case id and
+  exception type; failures never reject intake. Hibernate releases physical connections at commit
+  before detection starts, preventing pool starvation under concurrent submissions. See plan D10a
+  for the JDBC read-only hint and custom-isolation tradeoffs.
 - **Acceptance criteria:** Detection is deterministic for the same data; missing dates are handled;
-  age 17 is flagged and age 18 is not; a possible match marks the case but does not block it.
-- **Tests:** False-positive, missing-date, boundary-age, and non-blocking submission tests.
+  a possible match marks the case for reviewers; listener failures cannot reject or roll back intake.
+- **Tests:** False-positive, missing-date, deterministic matching, duplicate metadata, after-commit
+  processing, concurrent/idempotent delivery, existing-case immutability, configuration validation,
+  and non-blocking listener failure tests. Minor age boundaries are covered by CT-013.
 
 ### CT-015 — Implement file metadata validation and case-file association
 

@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.shared;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,13 +19,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -167,6 +173,57 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.detail").value("The request parameter is invalid"));
     }
 
+    @Test
+    void shouldRenderOversizedMultipartUploadAsPayloadTooLarge() throws Exception {
+        mockMvc.perform(multipart("/oversized-upload")
+                        .file(new MockMultipartFile("file", new byte[]{1}))
+                        .header(CorrelationIdFilter.CORRELATION_ID_HEADER, "upload-123")
+                        .accept(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(status().isContentTooLarge())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:crowdtrace:problem:payload-too-large"))
+                .andExpect(jsonPath("$.title").value("Payload too large"))
+                .andExpect(jsonPath("$.status").value(413))
+                .andExpect(jsonPath("$.detail").value("The uploaded file exceeds the maximum allowed size"))
+                .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"))
+                .andExpect(jsonPath("$.instance").value("/oversized-upload"))
+                .andExpect(jsonPath("$.correlationId").value("upload-123"));
+    }
+
+    @Test
+    void shouldRenderMissingFilePartAsBadRequest() throws Exception {
+        mockMvc.perform(multipart("/upload")
+                        .param("purpose", "REPORT")
+                        .header(CorrelationIdFilter.CORRELATION_ID_HEADER, "upload-456")
+                        .accept(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:crowdtrace:problem:invalid-request"))
+                .andExpect(jsonPath("$.title").value("Invalid request"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("The required request part 'file' is missing"))
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.instance").value("/upload"))
+                .andExpect(jsonPath("$.correlationId").value("upload-456"));
+    }
+
+    @Test
+    void shouldRenderMissingPurposeAsBadRequest() throws Exception {
+        mockMvc.perform(multipart("/upload")
+                        .file(new MockMultipartFile("file", new byte[]{1}))
+                        .header(CorrelationIdFilter.CORRELATION_ID_HEADER, "upload-789")
+                        .accept(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:crowdtrace:problem:invalid-request"))
+                .andExpect(jsonPath("$.title").value("Invalid request"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("The required request parameter 'purpose' is missing"))
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.instance").value("/upload"))
+                .andExpect(jsonPath("$.correlationId").value("upload-789"));
+    }
+
     @RestController
     static class FailingController {
 
@@ -200,6 +257,16 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/verification-input/{id}/approve")
         void approve(@PathVariable Long id) {
+        }
+
+        @PostMapping("/oversized-upload")
+        void oversizedUpload() {
+            // Standalone MockMvc does not enforce the servlet multipart size limit.
+            throw new MaxUploadSizeExceededException(10 * 1024 * 1024);
+        }
+
+        @PostMapping("/upload")
+        void upload(@RequestPart MultipartFile file, @RequestParam String purpose) {
         }
     }
 

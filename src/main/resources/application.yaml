@@ -1,8 +1,16 @@
 spring:
+  jpa:
+    properties:
+      # Return the committed intake connection before AFTER_COMMIT starts REQUIRES_NEW detection.
+      hibernate.connection.handling_mode: DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION
   application:
     name: crowdtrace-backend
   profiles:
     active: dev
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
 
 # Rate limiting. IP limits are deliberately coarser than identity limits:
 # offices, universities and carrier NAT share one address, so a tight IP limit
@@ -25,6 +33,17 @@ rate-limit:
     identity-login:    { limit: 5,  window: 5m }
     identity-otp-send: { limit: 3,  window: 1h }
     identity-otp-attempt: { limit: 5, window: 10m }
+    user-case-upload: { limit: 20, window: 24h }
+
+crowdtrace:
+  duplicates:
+    date-window-days: 7
+    name-threshold-permille: 900
+  consent:
+    sensitive-data-version: ${CROWDTRACE_CONSENT_SENSITIVE_DATA_VERSION:v1}
+  case-files:
+    max-size-bytes: 10485760
+    max-photos-per-case: 5
 
 management:
   endpoints:

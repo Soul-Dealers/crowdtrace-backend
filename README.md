@@ -18,7 +18,13 @@ Copy `example.env` to `.env` and set the required `SPRING_DATASOURCE_USERNAME` a
 docker compose --env-file .env up --build
 ```
 
-The application is available on port 8080. The test suite uses the H2-backed `test` profile, so it
+The application is available on port 8080. Docker Compose also loads dummy data from
+`src/main/resources/db/dev-seed` (200 users, 400 cases, all ids >= 1000000). Every seeded
+user's password is `Password123!`; try `dewaynebosco0200_102@example.com` (super admin),
+`mayraschinner6147_21@example.com` (moderator) or `krystalorn7363_0@example.com` (user).
+The seed only loads through Compose, never from a Spring profile.
+
+The test suite uses the H2-backed `test` profile, so it
 does not require PostgreSQL:
 
 ```bash

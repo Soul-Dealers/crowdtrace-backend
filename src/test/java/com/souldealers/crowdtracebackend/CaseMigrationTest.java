@@ -97,7 +97,9 @@ class CaseMigrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
         // approval sets both; takedown may keep the outcome
         jdbc.update("UPDATE cases SET review_status = 'APPROVED', case_status = 'MISSING' WHERE id = ?", id);
-        jdbc.update("UPDATE cases SET review_status = 'TAKEN_DOWN' WHERE id = ?", id);
+        long moderator = user("takedown@x.com");
+        jdbc.update("UPDATE cases SET review_status = 'TAKEN_DOWN', takedown_reason = 'Verified hoax', " +
+                "taken_down_by = ?, taken_down_at = CURRENT_TIMESTAMP WHERE id = ?", moderator, id);
     }
 
     @Test
@@ -160,7 +162,7 @@ class CaseMigrationTest {
     @Test
     void createsTheQueryIndexes() {
         assertThat(indexesOn("cases")).contains(
-                "idx_cases_reporter", "idx_cases_review_queue", "idx_cases_public_status");
+                "idx_cases_reporter", "idx_cases_review_queue", "idx_cases_public_outcome");
         assertThat(indexesOn("case_files")).contains(
                 "uq_case_files_storage_key", "idx_case_files_case", "idx_case_files_unattached");
         assertThat(indexesOn("case_consents")).contains("idx_case_consents_case", "idx_case_consents_user");
