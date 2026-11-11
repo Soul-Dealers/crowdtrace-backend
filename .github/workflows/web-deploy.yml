@@ -1,0 +1,67 @@
+name: Web deploy
+
+# Deploys apps/web to Vercel: main -> production, dev -> preview (the dev environment).
+# Runs only when the frontend or the workspace files it builds from change.
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'apps/web/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'eslint.config.mjs'
+      - '.github/workflows/web-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: web-deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    if: github.ref_name == 'main' || github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'dev' }}
+    env:
+      VERCEL_ENV: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
+      PROD_FLAG: ${{ github.ref_name == 'main' && '--prod' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # version comes from packageManager in package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint and typecheck
+        run: |
+          pnpm lint
+          pnpm --filter web typecheck
+
+      - run: pnpm add --global vercel@latest
+
+      # Run from the repo root: the Vercel project's Root Directory (apps/web) is applied by the CLI.
+      - name: Pull Vercel settings and env vars
+        run: vercel pull --yes --environment=$VERCEL_ENV --git-branch=${{ github.ref_name }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build $PROD_FLAG --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        id: deploy
+        run: echo "url=$(vercel deploy --prebuilt $PROD_FLAG --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
+
+      # Optional stable URL for dev, e.g. crowdtrace-dev.vercel.app (set repo variable VERCEL_DEV_DOMAIN).
+      - name: Alias dev deployment
+        if: github.ref_name == 'dev' && vars.VERCEL_DEV_DOMAIN != ''
+        run: vercel alias set ${{ steps.deploy.outputs.url }} ${{ vars.VERCEL_DEV_DOMAIN }} --token=${{ secrets.VERCEL_TOKEN }}

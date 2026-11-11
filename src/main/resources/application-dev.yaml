@@ -74,11 +74,8 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId}] %logger{36} - %msg%n"
 
 cors:
-  allowed-origins:
-    - "https://crowdtrace.com"
-    - "https://www.crowdtrace.com"
-    - "http://localhost:3000"
-    # Vercel deployments of this project (production alias, branch and preview URLs).
-    - "https://crowdtrace*.vercel.app"
+  # Comma-separated origins; * wildcards allowed. Override with CORS_ALLOWED_ORIGINS and restart.
+  # Defaults: local Next, the dev domain, and the Vercel project's deployment URLs.
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,https://dev.ovrhr.akato.dev,https://ovrhr*.vercel.app}
 
 secret-key: ${JWT_SECRET:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
