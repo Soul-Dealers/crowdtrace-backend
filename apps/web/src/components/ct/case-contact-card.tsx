@@ -36,7 +36,7 @@ export function CaseContactCard({ phone, gender, sharePath, onFollow, className 
   const { flashed, copy } = useFlash();
   const icon = (key: string, Icon: typeof Copy) => flashed === key ? <Check className="text-success" /> : <Icon />;
   return (
-    <section className={cn('overflow-hidden rounded-2xl border border-[#3a2a20] bg-gradient-to-b from-black from-40% to-[#531c01]', className)}>
+    <section className={cn('overflow-hidden rounded-2xl border border-border bg-panel', className)}>
       <div className="px-4 pb-3 pt-4">
         <p className="text-sm text-warning">If you have seen {pronoun[gender]}, call</p>
         <p className="mt-1 select-all font-mono text-2xl font-semibold tracking-wide">{formatPhone(phone)}</p>

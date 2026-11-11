@@ -26,11 +26,11 @@ export function FlipClock({ since, className }: { since: string; className?: str
   const tiles = now == null ? ['--', '--', '--', '--'] : parts(start, now);
   return (
     <div role="timer" aria-label="Time since last seen"
-      className={cn('inline-flex rounded-xl bg-gradient-to-r from-[#e0484c] to-brand-strong p-[3px] shadow-[0_6px_20px_-8px_rgb(244_115_50/0.6)]', className)}>
-      <div className="flex gap-1 rounded-[9px] bg-[#1d1d20] p-1">
+      className={cn('inline-flex rounded-xl border border-brand-strong/40 p-px', className)}>
+      <div className="flex gap-1 rounded-[11px] bg-[#1d1d20] p-1">
         {tiles.map((tile, index) => (
           <span key={index}
-            className="relative min-w-9 rounded-md bg-gradient-to-b from-[#3d3e42] to-[#2a2b2f] px-1.5 py-1 text-center font-mono text-lg tabular-nums text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] after:absolute after:inset-x-0 after:top-1/2 after:h-px after:bg-black/50">
+            className="relative min-w-9 rounded-md bg-[#2a2b2f] px-1.5 py-1 text-center font-mono text-lg tabular-nums text-white/85 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] after:absolute after:inset-x-0 after:top-1/2 after:h-px after:bg-black/50">
             {tile}
           </span>
         ))}

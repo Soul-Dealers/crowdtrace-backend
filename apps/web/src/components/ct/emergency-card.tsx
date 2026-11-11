@@ -10,7 +10,7 @@ export function EmergencyCard() {
   const [copied, setCopied] = useState<string | null>(null);
   return (
     <section aria-label="Emergency numbers"
-      className="overflow-hidden rounded-2xl border border-[#3a1416] bg-gradient-to-b from-danger-deep via-[#2a0d0e] to-black">
+      className="overflow-hidden rounded-2xl border border-border bg-panel">
       <div className="px-3.5 pb-3 pt-3.5">
         <h2 className="font-mono text-sm font-semibold">Someone in danger now</h2>
         <p className="mt-1 text-xs text-[#d8b4b5]">Call before you post. Tap a line to copy it.</p>

@@ -49,7 +49,7 @@ function Profile({ c }: { c: PublicCase }) {
 function Discussion({ name }: { name: string }) {
   return (
     <div>
-      <div className="space-y-2 border-b border-border bg-gradient-to-b from-panel to-[#372f14]/60 p-4">
+      <div className="space-y-2 border-b border-border bg-panel p-4">
         <label htmlFor="sighting" className="text-sm text-muted-foreground">Share what you saw</label>
         <textarea id="sighting" disabled rows={3}
           placeholder={`Where and when did you see ${name.split(' ')[0]}? What were they doing, and who were they with?`}

@@ -44,7 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {pathname !== '/report' && (
         <Link href="/report" aria-label="Report a missing person"
-          className="fixed bottom-6 right-5 z-30 flex size-14 items-center justify-center rounded-full bg-gradient-to-b from-[#ff8a4c] to-brand-strong text-white shadow-[0_8px_30px_rgb(244_115_50/0.45)] lg:hidden">
+          className="fixed bottom-6 right-5 z-30 flex size-14 items-center justify-center rounded-full bg-brand-strong text-white shadow-[0_8px_30px_rgb(244_115_50/0.45)] lg:hidden">
           <Plus className="size-6" />
         </Link>
       )}
