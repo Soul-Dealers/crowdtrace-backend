@@ -6,6 +6,7 @@ import { Field, FormMessage, NativeSelect, formValues } from '@/components/app/f
 import { RequireAuth } from '@/components/app/require-auth';
 import { Button } from '@/components/ui/button';
 import { WithRail } from '@/components/ct/app-shell';
+import { EmergencyCard } from '@/components/ct/emergency-card';
 import { Panel } from '@/components/ct/panel';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -251,7 +252,8 @@ export default function ReportPage() {
         </p>
       </header>
       <WithRail
-        rail={
+        rail={<>
+          <EmergencyCard />
           <Panel title="What happens next" mono bodyClassName="p-4">
             <ol className="space-y-4">
               {NEXT_STEPS.map(([label, text], i) => (
@@ -267,7 +269,7 @@ export default function ReportPage() {
               ))}
             </ol>
           </Panel>
-        }
+        </>}
       >
         <RequireAuth>
           <ReportForm />

@@ -4,20 +4,18 @@ import Link from 'next/link';
 import { Plus, X } from 'lucide-react';
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { EmergencyCard } from './emergency-card';
 import { SideNav } from './side-nav';
 import { TopBar } from './top-bar';
 
-/** Top bar, left navigation with the emergency card, and the page. Below lg the nav moves into a drawer. */
+/** Top bar, left navigation and the page. Below lg the nav moves into a drawer. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   useEffect(() => setOpen(false), [pathname]);
 
   const sidebar = (
-    <div className="flex h-full flex-col justify-between gap-6 p-4">
+    <div className="p-4">
       <Suspense><SideNav onNavigate={() => setOpen(false)} /></Suspense>
-      <EmergencyCard />
     </div>
   );
 
