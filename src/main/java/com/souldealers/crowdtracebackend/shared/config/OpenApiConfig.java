@@ -563,6 +563,7 @@ public class OpenApiConfig {
         return new ObjectSchema()
                 .description("User projection returned by the current user listing endpoint.")
                 .addProperties("displayName", new StringSchema())
+                .addProperties("avatarSeed", new StringSchema().format("uuid"))
                 .addProperties("email", new StringSchema().format("email"))
                 .addProperties("role", new StringSchema())
                 .addProperties("accountStatus", new StringSchema())
