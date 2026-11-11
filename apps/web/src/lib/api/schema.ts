@@ -602,6 +602,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/user/cases/{caseId}/comments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Post a case comment
+     * @description Posts a comment to an approved case's discussion under the caller's display name. Requires a registered user. The body is trimmed and must be 1–2000 characters.
+     */
+    post: operations['create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/auth/profile-settings': {
     parameters: {
       query?: never;
@@ -767,6 +787,26 @@ export interface paths {
      * @description Redirects to the photo. Only photos of approved cases are served; location, time and device metadata were removed at upload. Use this path as the image source; the redirect itself is not cacheable.
      */
     get: operations['photo'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/public/cases/{caseId}/comments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List case comments
+     * @description Returns an approved case's visible comments, newest first, under each author's display name and badge only. Removed comments are never returned. Use nextCursor to load older comments.
+     */
+    get: operations['list_1'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1319,6 +1359,44 @@ export interface components {
       data?: components['schemas']['PublicCaseCursorResponse'];
       errors?: Record<string, never>;
     };
+    /** @description Pseudonymous author: display name, avatar seed and verification badge only. */
+    PublicUserResponse: {
+      displayName: string;
+      /** Format: uuid */
+      avatarSeed: string;
+      verified: boolean;
+      /** @description POLICE, NGO or SUBJECT_MATTER_EXPERT; null when not verified */
+      badgeType?: string | null;
+    };
+    CommentResponse: {
+      /** Format: int64 */
+      id: number;
+      author: components['schemas']['PublicUserResponse'];
+      body: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    CommentCursorResponse: {
+      content?: components['schemas']['CommentResponse'][];
+      /** Format: int32 */
+      size?: number;
+      hasNext?: boolean;
+      nextCursor?: string | null;
+    };
+    /** @description Case comment cursor page */
+    CommentListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentCursorResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Posted comment */
+    CommentApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentResponse'];
+      errors?: Record<string, never>;
+    };
     /** @description Public case detail */
     PublicCaseApiResponse: {
       success?: boolean;
@@ -1497,6 +1575,9 @@ export interface components {
       /** Format: int64 */
       expectedCaseVersion: number;
       photoFileIds: number[];
+    };
+    CreateCommentRequest: {
+      body: string;
     };
     UpdateUserProfileRequest: {
       displayName: string;
@@ -2886,6 +2967,59 @@ export interface operations {
       };
     };
   };
+  create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateCommentRequest'];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentApiResponse'];
+        };
+      };
+      /** @description Invalid body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No approved case with this id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   updateProfile: {
     parameters: {
       query?: never;
@@ -3212,6 +3346,51 @@ export interface operations {
       };
       /** @description File storage cannot issue download links */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  list_1: {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor returned as nextCursor */
+        cursor?: string;
+        /** @description Page size (1–50) */
+        size?: number;
+      };
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentListResponse'];
+        };
+      };
+      /** @description Invalid size or cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No approved case with this id */
+      404: {
         headers: {
           [name: string]: unknown;
         };

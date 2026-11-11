@@ -11,6 +11,9 @@ public interface CaseQueryService {
     /** Approved cases only; anything else is not found. */
     PublicCaseResponse getPublicCase(Long caseId);
 
+    /** Whether the case is approved and so publicly visible. */
+    boolean isPublicCase(Long caseId);
+
     /** Approved cases matching the query, newest approval first, then id; client sorting is ignored. */
     CursorResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, String cursor, int size);
 

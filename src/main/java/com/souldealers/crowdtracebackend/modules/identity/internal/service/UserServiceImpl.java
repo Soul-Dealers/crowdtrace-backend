@@ -15,7 +15,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.USER_NOT_FOUND_MSG;
 
@@ -53,6 +57,19 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND_MSG));
 
+        return toPublic(user);
+    }
+
+    @Override
+    public Map<Long, PublicUserResponse> getPublicProfiles(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllById(Set.copyOf(userIds)).stream()
+                .collect(Collectors.toMap(User::getId, UserServiceImpl::toPublic));
+    }
+
+    private static PublicUserResponse toPublic(User user) {
         return new PublicUserResponse(user.getDisplayName(), user.getAvatarSeed(), user.getBadgeType() != null, user.getBadgeType());
     }
 

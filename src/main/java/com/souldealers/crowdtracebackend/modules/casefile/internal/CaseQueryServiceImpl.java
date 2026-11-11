@@ -57,6 +57,11 @@ public class CaseQueryServiceImpl implements CaseQueryService {
     }
 
     @Override
+    public boolean isPublicCase(Long caseId) {
+        return caseRepository.existsByIdAndReviewStatus(caseId, ReviewStatus.APPROVED);
+    }
+
+    @Override
     public CursorResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, String token, int size) {
         if (size < 1 || size > 50) {
             throw new ValidationException("size must be between 1 and 50");

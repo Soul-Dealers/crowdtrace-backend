@@ -3,6 +3,8 @@ package com.souldealers.crowdtracebackend.modules.identity;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 public interface UserService {
@@ -18,6 +20,9 @@ public interface UserService {
      * Never returns private identity fields — see {@link PublicUserResponse}.
      */
     PublicUserResponse getPublicProfile(Long userId);
+
+    /** Public profiles keyed by user id, in one query; ids with no account are left out. */
+    Map<Long, PublicUserResponse> getPublicProfiles(Collection<Long> userIds);
 
     /** Private account email for admin case views; empty when the account no longer exists. */
     @RequiresModerator

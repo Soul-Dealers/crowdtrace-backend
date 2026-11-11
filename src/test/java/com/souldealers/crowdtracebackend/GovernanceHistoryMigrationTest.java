@@ -145,6 +145,7 @@ class GovernanceHistoryMigrationTest {
     @Test
     void defaultTimestampsAreUtcWhateverTheSessionTimeZone() {
         long reporter = user();
+        comment(9105);
         Duration skew = jdbc.execute((ConnectionCallback<Duration>) connection -> {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SET TIME ZONE 'Pacific/Kiritimati'");
@@ -185,6 +186,7 @@ class GovernanceHistoryMigrationTest {
     }
 
     private long openReport(long commentId) {
+        comment(commentId);
         return jdbc.queryForObject("""
                 INSERT INTO content_reports (comment_id, reporter_id, reason)
                 VALUES (?, ?, 'SPAM') RETURNING id""", Long.class, commentId, user());
@@ -205,5 +207,12 @@ class GovernanceHistoryMigrationTest {
                 VALUES (?, 'Kofi Mensah', 12, 'MALE', DATE '2026-09-30', 'GREATER_ACCRA',
                     'Madina market', 'Slim, 1.4m', 'Blue school uniform', 'Did not return from school',
                     '+233200000000', 'SUBMITTED', CURRENT_TIMESTAMP) RETURNING id""", Long.class, reporterId);
+    }
+    /** content_reports.comment_id references comments (V22); give each fixture id a real comment. */
+    private void comment(long id) {
+        long author = user();
+        jdbc.update("""
+                INSERT INTO comments (id, case_id, author_id, body) VALUES (?, ?, ?, 'Fixture comment')
+                ON CONFLICT (id) DO NOTHING""", id, caseFor(author), author);
     }
 }

@@ -71,6 +71,7 @@ class GovernanceQueryTest {
     }
 
     private long report(long commentId, long reporterId, LocalDateTime createdAt) {
+        comment(commentId);
         return jdbc.queryForObject("""
                 INSERT INTO content_reports (comment_id, reporter_id, reason, created_at)
                 VALUES (?, ?, 'SPAM', ?) RETURNING id""", Long.class, commentId, reporterId, createdAt);
@@ -78,6 +79,7 @@ class GovernanceQueryTest {
 
     private long resolvedReport(long commentId, long reporterId, long moderatorId,
                                 LocalDateTime createdAt, LocalDateTime resolvedAt) {
+        comment(commentId);
         return jdbc.queryForObject("""
                 INSERT INTO content_reports (comment_id, reporter_id, reason, status, resolution,
                     moderator_id, created_at, resolved_at)
@@ -247,5 +249,12 @@ class GovernanceQueryTest {
 
         assertThat(String.join("\n", queuePlan)).contains("idx_content_reports_open_queue");
         assertThat(String.join("\n", targetPlan)).contains("idx_audit_events_target");
+    }
+    /** content_reports.comment_id references comments (V22); give each fixture id a real comment. */
+    private void comment(long id) {
+        long author = user("comment-author-" + java.util.UUID.randomUUID() + "@x.com");
+        jdbc.update("""
+                INSERT INTO comments (id, case_id, author_id, body) VALUES (?, ?, ?, 'Fixture comment')
+                ON CONFLICT (id) DO NOTHING""", id, caseFor(author), author);
     }
 }
