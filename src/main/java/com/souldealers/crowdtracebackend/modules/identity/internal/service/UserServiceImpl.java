@@ -53,12 +53,13 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND_MSG));
 
-        return new PublicUserResponse(user.getDisplayName(), user.getBadgeType() != null, user.getBadgeType());
+        return new PublicUserResponse(user.getDisplayName(), user.getAvatarSeed(), user.getBadgeType() != null, user.getBadgeType());
     }
 
     private UserResponse buildUserResponse(User user) {
         return UserResponse.builder()
                 .displayName(user.getDisplayName())
+                .avatarSeed(user.getAvatarSeed())
                 .email(user.getEmail())
                 .accountStatus(user.getAccountStatus())
                 .createdAt(user.getCreatedAt())

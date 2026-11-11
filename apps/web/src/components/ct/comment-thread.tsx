@@ -2,12 +2,14 @@
 
 import { House, Lightbulb, Pin } from 'lucide-react';
 import { useState } from 'react';
-import { AvatarInitials } from './avatar-initials';
 import { Pill } from './pill';
+import { UserAvatar } from './user-avatar';
 
 export type CaseComment = {
   id: string;
   author: string;
+  /** The author's public avatar seed; it stays the same when they rename. */
+  avatarSeed: string;
   role?: 'FAMILY' | 'EXPERT';
   pinned?: boolean;
   ago: string;
@@ -24,7 +26,7 @@ function Comment({ comment, depth, actions }: { comment: CaseComment; depth: num
   const action = 'text-sm text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:hover:text-muted-foreground';
   return (
     <div className="flex gap-3">
-      <AvatarInitials name={comment.author} size={depth === 0 ? 'lg' : depth === 1 ? 'md' : 'sm'}
+      <UserAvatar seed={comment.avatarSeed} size={depth === 0 ? 'lg' : depth === 1 ? 'md' : 'sm'}
         tone={comment.role === 'EXPERT' ? 'expert' : 'brand'} />
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2 text-sm">

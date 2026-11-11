@@ -41,6 +41,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.7
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
+      '@usenavii/react':
+        specifier: ^0.10.0
+        version: 0.10.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -358,6 +361,51 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@mhaadi/svg@0.4.0':
+    resolution: {integrity: sha512-Gom/e//ogVyF3k1aPoDph57y6EQXd9xe1WGlu18uujFteEZ201MdeP+01zaAe3mjhPLmS1T9/eUhzbGGlo8xCg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@angular/common': '>=20'
+      '@angular/core': '>=20'
+      '@angular/platform-browser': '>=20'
+      astro: '>=5'
+      react: '>=18'
+      react-dom: '>=18'
+      react-native: '*'
+      react-native-svg: '*'
+      solid-js: '>=1.9 <2'
+      svelte: '>=5'
+      svgo: '>=4'
+      vite: '>=5'
+      vue: '>=3'
+    peerDependenciesMeta:
+      '@angular/common':
+        optional: true
+      '@angular/core':
+        optional: true
+      '@angular/platform-browser':
+        optional: true
+      astro:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+      react-native-svg:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      svgo:
+        optional: true
+      vite:
+        optional: true
+      vue:
+        optional: true
 
   '@next/env@16.4.5':
     resolution: {integrity: sha512-JwSPwpdkZL5VMl2jA/q+JI8MZdweAL3xmw5/tb9y/TLtmS0YXZnmYDzSihwk8xTj1OL+WM53gTqaj96yuLp6Xw==}
@@ -865,6 +913,24 @@ packages:
   '@typescript-eslint/visitor-keys@8.72.1':
     resolution: {integrity: sha512-SB8xqipSzZHUePCCLNeYxqnxq83X61/qzNhjQGbTfjxGZIeOEP7tBgWYX05Tcd6CgE02WdTJnh5b8kMZJ/+bnQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@usenavii/core@0.10.0':
+    resolution: {integrity: sha512-Ql09J8H/EAMkof82/vmbaA45y72PawneG+HUjWimY5yaXug60J37fpVS3Kn0xz+P9R4ZkyXRxN0gqJYIOuCNmg==}
+    engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
+
+  '@usenavii/react@0.10.0':
+    resolution: {integrity: sha512-G4gmzVwIo50dkpnk57m69sEcdF2DOrKaFeWgtgpxyfUTQNwxDy7I49IHicPmwFCqpGery35aIcic+LVPVb0asg==}
+    engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
+    peerDependencies:
+      react: '>=18'
+      react-dom: '>=18'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+
+  '@xmldom/xmldom@0.9.12':
+    resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
+    engines: {node: '>=14.6'}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1789,6 +1855,13 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
+  '@mhaadi/svg@0.4.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@xmldom/xmldom': 0.9.12
+    optionalDependencies:
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+
   '@next/env@16.4.5': {}
 
   '@next/swc-darwin-arm64@16.4.5':
@@ -2252,6 +2325,30 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.72.1
       eslint-visitor-keys: 5.0.1
+
+  '@usenavii/core@0.10.0': {}
+
+  '@usenavii/react@0.10.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@mhaadi/svg': 0.4.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@usenavii/core': 0.10.0
+      react: 19.3.1
+    optionalDependencies:
+      react-dom: 19.3.1(react@19.3.1)
+    transitivePeerDependencies:
+      - '@angular/common'
+      - '@angular/core'
+      - '@angular/platform-browser'
+      - astro
+      - react-native
+      - react-native-svg
+      - solid-js
+      - svelte
+      - svgo
+      - vite
+      - vue
+
+  '@xmldom/xmldom@0.9.12': {}
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:

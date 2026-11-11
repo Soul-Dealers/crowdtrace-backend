@@ -4,3219 +4,3171 @@
  */
 
 export interface paths {
-  '/actuator/health/liveness': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Liveness probe
-     * @description Returns the current liveness status.
-     */
-    get: {
-      parameters: {
-        query?: never;
-        header?: never;
-        path?: never;
-        cookie?: never;
-      };
-      requestBody?: never;
-      responses: {
-        /** @description Health status */
-        200: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['HealthResponse'];
-          };
+    "/actuator/health/liveness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        /** @description Problem details */
-        default: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['ProblemDetail'];
-          };
+        /**
+         * Liveness probe
+         * @description Returns the current liveness status.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Health status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HealthResponse"];
+                    };
+                };
+                /** @description Problem details */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
         };
-      };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/actuator/health/readiness': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Readiness probe
-     * @description Returns the current readiness status, including database health.
-     */
-    get: {
-      parameters: {
-        query?: never;
-        header?: never;
-        path?: never;
-        cookie?: never;
-      };
-      requestBody?: never;
-      responses: {
-        /** @description Health status */
-        200: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['HealthResponse'];
-          };
+    "/actuator/health/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        /** @description Problem details */
-        default: {
-          headers: {
-            [name: string]: unknown;
-          };
-          content: {
-            'application/json': components['schemas']['ProblemDetail'];
-          };
+        /**
+         * Readiness probe
+         * @description Returns the current readiness status, including database health.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Health status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HealthResponse"];
+                    };
+                };
+                /** @description Problem details */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetail"];
+                    };
+                };
+            };
         };
-      };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/user/case-files': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/user/case-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload case evidence
+         * @description Requires a registered-user JWT. Upload a private REPORT or public PHOTO before submitting a case. The per-user limit is 20 successful uploads per 24-hour window; validation-rejected uploads are refunded. Keep the returned file id for its submission slot.
+         */
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Upload case evidence
-     * @description Requires a registered-user JWT. Upload a private REPORT or public PHOTO before submitting a case. The per-user limit is 20 successful uploads per 24-hour window; validation-rejected uploads are refunded. Keep the returned file id for its submission slot.
-     */
-    post: operations['upload'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/user/cases': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/user/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my cases
+         * @description Returns the authenticated reporter's own cases across every review outcome, newest submission first. Client sort parameters are ignored; size is clamped to 1–50.
+         */
+        get: operations["listOwn"];
+        put?: never;
+        /**
+         * Submit a case for review
+         * @description Requires a registered-user JWT. Atomically records the case as SUBMITTED, sensitive details, current-version consent and owned unattached reports/photos. Duplicates never block submission: CaseSubmittedEvent is published inside the transaction for best-effort AFTER_COMMIT detection. There is no replay; the consumer writes duplicate metadata in REQUIRES_NEW. Minor priority is set immediately from age at disappearance.
+         */
+        post: operations["submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List my cases
-     * @description Returns the authenticated reporter's own cases across every review outcome, newest submission first. Client sort parameters are ignored; size is clamped to 1–50.
-     */
-    get: operations['listOwn'];
-    put?: never;
-    /**
-     * Submit a case for review
-     * @description Requires a registered-user JWT. Atomically records the case as SUBMITTED, sensitive details, current-version consent and owned unattached reports/photos. Duplicates never block submission: CaseSubmittedEvent is published inside the transaction for best-effort AFTER_COMMIT detection. There is no replay; the consumer writes duplicate metadata in REQUIRES_NEW. Minor priority is set immediately from age at disappearance.
-     */
-    post: operations['submit'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/user/cases/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/user/cases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a reporter case
+         * @description Returns the authenticated reporter's case detail and current case version.
+         */
+        get: operations["getOwnCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get a reporter case
-     * @description Returns the authenticated reporter's case detail and current case version.
-     */
-    get: operations['getOwnCase'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/user/cases/{id}/status': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/user/cases/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a case outcome
+         * @description Changes the outcome of an approved case. The reporter may resolve a missing case; moderator corrections require the admin endpoint.
+         */
+        patch: operations["updateStatus"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Change a case outcome
-     * @description Changes the outcome of an approved case. The reporter may resolve a missing case; moderator corrections require the admin endpoint.
-     */
-    patch: operations['updateStatus'];
-    trace?: never;
-  };
-  '/api/user/cases/{id}/closing-statement': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/user/cases/{id}/closing-statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a closing statement
+         * @description Sets or replaces the stripped public statement for a resolved approved case.
+         */
+        put: operations["setClosingStatement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /**
-     * Set a closing statement
-     * @description Sets or replaces the stripped public statement for a resolved approved case.
-     */
-    put: operations['setClosingStatement'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/cases/{id}/status': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/cases/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct a case outcome
+         * @description Moderator or Super Admin can correct any outcome of an approved case.
+         */
+        patch: operations["updateStatus_1"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Correct a case outcome
-     * @description Moderator or Super Admin can correct any outcome of an approved case.
-     */
-    patch: operations['updateStatus_1'];
-    trace?: never;
-  };
-  '/api/v1/admin/cases/{id}/closing-statement': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/cases/{id}/closing-statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a closing statement
+         * @description Sets or replaces the stripped public statement for a resolved approved case.
+         */
+        put: operations["setClosingStatement_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /**
-     * Set a closing statement
-     * @description Sets or replaces the stripped public statement for a resolved approved case.
-     */
-    put: operations['setClosingStatement_1'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/cases/{id}/takedown': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/cases/{id}/takedown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take down an approved case
+         * @description Hides an approved case while preserving its outcome and lifecycle data.
+         */
+        post: operations["takeDown"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Take down an approved case
-     * @description Hides an approved case while preserving its outcome and lifecycle data.
-     */
-    post: operations['takeDown'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/cases/{id}/restore': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/cases/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a taken-down case
+         * @description Restores a taken-down case without changing its outcome or takedown details.
+         */
+        post: operations["restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Restore a taken-down case
-     * @description Restores a taken-down case without changing its outcome or takedown details.
-     */
-    post: operations['restore'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/public/cases': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/public/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List public cases
+         * @description Returns approved public case summaries ordered by approval time descending, then case id descending; client sort parameters are ignored. Name searches call Java String.trim() (removing leading and trailing characters at or below U+0020) and perform a case-insensitive literal substring match; names must contain 3–100 UTF-16 code units after trimming. Status values may be repeated to form a union; an explicitly empty status value is invalid, while an omitted status filter includes all outcomes. Date filters are inclusive calendar dates in UTC, and all dates must be between 0001-01-01 and 9999-12-31. Results use a forward-only opaque cursor; repeat the same filters with nextCursor to continue. New approvals ahead of the cursor do not shift later results, while filter changes start a different search.
+         */
+        get: operations["list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List public cases
-     * @description Returns approved public case summaries ordered by approval time descending, then case id descending; client sort parameters are ignored. Name searches call Java String.trim() (removing leading and trailing characters at or below U+0020) and perform a case-insensitive literal substring match; names must contain 3–100 UTF-16 code units after trimming. Status values may be repeated to form a union; an explicitly empty status value is invalid, while an omitted status filter includes all outcomes. Date filters are inclusive calendar dates in UTC, and all dates must be between 0001-01-01 and 9999-12-31. Results use a forward-only opaque cursor; repeat the same filters with nextCursor to continue. New approvals ahead of the cursor do not shift later results, while filter changes start a different search.
-     */
-    get: operations['list'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/public/cases/{caseId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/public/cases/{caseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get public case
+         * @description Returns an approved case's public fields.
+         */
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get public case
-     * @description Returns an approved case's public fields.
-     */
-    get: operations['get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/verification-requests': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/verification-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit verification request
+         * @description Submits private evidence for administrator review.
+         */
+        post: operations["submit_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Submit verification request
-     * @description Submits private evidence for administrator review.
-     */
-    post: operations['submit_1'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/verify-otp': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/verify-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["verifyOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post: operations['verifyOtp'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/signup': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Creates a pending account and sends an email verification OTP.
+         */
+        post: operations["signUpUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Register
-     * @description Creates a pending account and sends an email verification OTP.
-     */
-    post: operations['signUpUser'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/reset-password': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** reset password with email code and new password */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** reset password with email code and new password */
-    post: operations['resetPassword'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/resend-otp': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/resend-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** request for otp resend */
+        post: operations["resendOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** request for otp resend */
-    post: operations['resendOtp'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/request-password-reset': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/request-password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** request to reset password */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** request to reset password */
-    post: operations['requestPasswordReset'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/logout': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Revokes the presented access token for the remainder of its lifetime.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Logout
-     * @description Revokes the presented access token for the remainder of its lifetime.
-     */
-    post: operations['logout'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/login': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Exchanges credentials for a short-lived access token
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Login
-     * @description Exchanges credentials for a short-lived access token
-     */
-    post: operations['login'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/verification-requests/{id}/revoke': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/verification-requests/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke verification badge */
+        post: operations["revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Revoke verification badge */
-    post: operations['revoke'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/verification-requests/{id}/reject': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/verification-requests/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject verification request */
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Reject verification request */
-    post: operations['reject'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/verification-requests/{id}/approve': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/verification-requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve verification request */
+        post: operations["approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** Approve verification request */
-    post: operations['approve'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/verification-grants': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/verification-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant verification badge
+         * @description Grants a badge directly. The badge holder can read the submitted justification; internal reasoning belongs in reviewNotes.
+         */
+        post: operations["grant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Grant verification badge
-     * @description Grants a badge directly. The badge holder can read the submitted justification; internal reasoning belongs in reviewNotes.
-     */
-    post: operations['grant'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/review/cases/{id}/reject': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/review/cases/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a case
+         * @description Keeps the case private; notes are required and admin-only. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
+         */
+        post: operations["reject_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Reject a case
-     * @description Keeps the case private; notes are required and admin-only. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
-     */
-    post: operations['reject_1'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/review/cases/{id}/approve': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/review/cases/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a case
+         * @description Publishes the case's public projection. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
+         */
+        post: operations["approve_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Approve a case
-     * @description Publishes the case's public projection. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
-     */
-    post: operations['approve_1'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/user/cases/{id}/photos': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/user/cases/{id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add photos to a case
+         * @description Adds owned, unattached photo uploads to an approved reporter-owned case. The expected case version is checked under the case lock.
+         */
+        post: operations["addPhotos"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Add photos to a case
-     * @description Adds owned, unattached photo uploads to an approved reporter-owned case. The expected case version is checked under the case lock.
-     */
-    post: operations['addPhotos'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/profile-settings': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/profile-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateProfile"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch: operations['updateProfile'];
-    trace?: never;
-  };
-  '/api/v1/verification-requests/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/verification-requests/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List own verification requests */
+        get: operations["getOwnRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** List own verification requests */
-    get: operations['getOwnRequests'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/users': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users
+         * @description Returns the current paginated user projection. Requires a Super Admin JWT.
+         */
+        get: operations["getUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List users
-     * @description Returns the current paginated user projection. Requires a Super Admin JWT.
-     */
-    get: operations['getUsers'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current user
+         * @description Returns the authenticated user's own profile. Never exposes credentials.
+         */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Current user
-     * @description Returns the authenticated user's own profile. Never exposes credentials.
-     */
-    get: operations['getCurrentUser'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/verification-requests': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/verification-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List verification requests by status
+         * @description Defaults to PENDING. Use status=APPROVED to find badges a Super Admin can revoke.
+         */
+        get: operations["getQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List verification requests by status
-     * @description Defaults to PENDING. Use status=APPROVED to find badges a Super Admin can revoke.
-     */
-    get: operations['getQueue'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/review/cases': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/review/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the review queue
+         * @description Pending cases, minors first, then oldest submission. Offset pages can shift when cases are decided between requests. Dates are ISO date-times in UTC, window [submittedFrom, submittedTo). Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
+         */
+        get: operations["queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List the review queue
-     * @description Pending cases, minors first, then oldest submission. Offset pages can shift when cases are decided between requests. Dates are ISO date-times in UTC, window [submittedFrom, submittedTo). Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
-     */
-    get: operations['queue'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/review/cases/{id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/review/cases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open a case for review
+         * @description Case, version, evidence metadata, duplicate matches and review history in one snapshot. Send caseDetails.version as expectedCaseVersion. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
+         */
+        get: operations["detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Open a case for review
-     * @description Case, version, evidence metadata, duplicate matches and review history in one snapshot. Send caseDetails.version as expectedCaseVersion. Errors use ProblemDetail: 401 unauthenticated, 403 not a moderator or self-review, 404 unknown case, 409 stale version, already decided or no report, 500 audit failure.
-     */
-    get: operations['detail'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/review/cases/{id}/files/{fileId}/url': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/review/cases/{id}/files/{fileId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a download link for case evidence
+         * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
+         */
+        get: operations["fileUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get a download link for case evidence
-     * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
-     */
-    get: operations['fileUrl'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/public/cases/{caseId}/photos/{fileId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/public/cases/{caseId}/photos/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a public case photo
+         * @description Redirects to the photo. Only photos of approved cases are served; location, time and device metadata were removed at upload. Use this path as the image source; the redirect itself is not cacheable.
+         */
+        get: operations["photo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get a public case photo
-     * @description Redirects to the photo. Only photos of approved cases are served; location, time and device metadata were removed at upload. Use this path as the image source; the redirect itself is not cacheable.
-     */
-    get: operations['photo'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** @description RFC 9457 problem details returned for API errors. */
-    ProblemDetail: {
-      /** Format: uri */
-      type?: string;
-      title?: string;
-      /** Format: int32 */
-      status?: number;
-      detail?: string;
-      /** Format: uri */
-      instance?: string;
-      code?: string;
-      correlationId?: string;
-      errors?: Record<string, never>;
-    };
-    /** @description Standard successful CrowdTrace response envelope. */
-    ApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['PagedResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Page metadata and content returned by list endpoints. */
-    PagedResponse: {
-      content?: Record<string, never>[];
-      /** Format: int32 */
-      page?: number;
-      /** Format: int32 */
-      size?: number;
-      /** Format: int64 */
-      totalElements?: number;
-      /** Format: int32 */
-      totalPages?: number;
-      last?: boolean;
-    };
-    /** @description User projection returned by the current user listing endpoint. */
-    UserResponse: {
-      displayName?: string;
-      /** Format: email */
-      email?: string;
-      role?: string;
-      accountStatus?: string;
-      /** Format: date-time */
-      createdAt?: string;
-      verified?: boolean;
-      badgeType?: string;
-    };
-    /** @description Single user profile */
-    UserApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['UserResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Identity and short-lived bearer token returned by a successful login. */
-    LoginResponse: {
-      displayName: string;
-      /** Format: email */
-      email: string;
-      /** @enum {string} */
-      role: 'REGISTERED_USER' | 'MODERATOR' | 'SUPER_ADMIN';
-      /** @description JWT access token for the bearerAuth scheme. */
-      token: string;
-    };
-    /** @description Issued access token and identity */
-    LoginApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['LoginResponse'];
-      errors?: Record<string, never>;
-    };
-    GenericResponseMessage: {
-      message?: string;
-    };
-    /** @description Confirmation message */
-    GenericMessageApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['GenericResponseMessage'];
-      errors?: Record<string, never>;
-    };
-    /** @description Concrete page shape returned by the current user listing endpoint. */
-    UserPageResponse: {
-      content?: components['schemas']['UserResponse'][];
-      /** Format: int32 */
-      page?: number;
-      /** Format: int32 */
-      size?: number;
-      /** Format: int64 */
-      totalElements?: number;
-      /** Format: int32 */
-      totalPages?: number;
-      last?: boolean;
-    };
-    /** @description Concrete response envelope returned by the current user listing endpoint. */
-    UserListResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['UserPageResponse'];
-      errors?: Record<string, never>;
-    };
-    VerificationRequestResponse: {
-      /** Format: int64 */
-      id?: number;
-      verificationType?: string;
-      evidenceReference?: string;
-      status?: string;
-      /** Format: date-time */
-      createdAt?: string;
-      /** Format: date-time */
-      reviewedAt?: string;
-    };
-    AdminVerificationRequestResponse: {
-      /** Format: int64 */
-      id?: number;
-      /** Format: int64 */
-      userId?: number;
-      displayName?: string;
-      verificationType?: string;
-      evidenceReference?: string;
-      status?: string;
-      reviewNotes?: string;
-      /** Format: date-time */
-      createdAt?: string;
-      /** Format: date-time */
-      reviewedAt?: string;
-      /** Format: date-time */
-      revokedAt?: string;
-      revocationNotes?: string;
-    };
-    VerificationRequestListResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['VerificationRequestResponse'][];
-      errors?: Record<string, never>;
-    };
-    AdminVerificationPageResponse: {
-      content?: components['schemas']['AdminVerificationRequestResponse'][];
-      /** Format: int32 */
-      page?: number;
-      /** Format: int32 */
-      size?: number;
-      /** Format: int64 */
-      totalElements?: number;
-      /** Format: int32 */
-      totalPages?: number;
-      last?: boolean;
-    };
-    AdminVerificationListResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['AdminVerificationPageResponse'];
-      errors?: Record<string, never>;
-    };
-    AdminVerificationDecisionResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['AdminVerificationRequestResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Spring Boot health probe response. */
-    HealthResponse: {
-      status?: string;
-      components?: Record<string, never>;
-    };
-    /** @description Upload one file before submission. Reports accept PDF, JPEG or PNG; photos accept JPEG or PNG. The maximum file size is 10 MB. */
-    CaseFileUploadRequest: {
-      /** Format: binary */
-      file: string;
-      /** @enum {string} */
-      purpose: 'REPORT' | 'PHOTO';
-      /** @description Optional SHA-256 checksum checked against the uploaded content. */
-      sha256?: string;
-    };
-    /** @description Safe file metadata; storage keys and checksums are never returned. */
-    CaseFileMetadataResponse: {
-      /** Format: int64 */
-      id: number;
-      /** @enum {string} */
-      purpose: 'REPORT' | 'PHOTO';
-      /** @enum {string} */
-      visibility: 'PRIVATE' | 'PUBLIC';
-      contentType: string;
-      /** Format: int64 */
-      sizeBytes: number;
-      /** Format: date-time */
-      uploadedAt: string;
-    };
-    /** @description Safe uploaded-file metadata */
-    CaseFileUploadResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['CaseFileMetadataResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Public case details, private sensitive details, explicit consent and owned upload ids. File ids must be distinct across both slots and match the slot's REPORT or PHOTO purpose. */
-    CaseSubmissionRequest: {
-      fullName: string;
-      /**
-       * Format: int32
-       * @description Age at disappearance. Cases under 18 receive minor priority at submission.
-       */
-      age: number;
-      /** @enum {string} */
-      gender: 'MALE' | 'FEMALE' | 'UNKNOWN';
-      /**
-       * Format: date
-       * @description From 1900-01-01 through today's date in the server's UTC clock, inclusive.
-       */
-      lastSeenDate: string;
-      /** @enum {string} */
-      region:
-        | 'AHAFO'
-        | 'ASHANTI'
-        | 'BONO'
-        | 'BONO_EAST'
-        | 'CENTRAL'
-        | 'EASTERN'
-        | 'GREATER_ACCRA'
-        | 'NORTH_EAST'
-        | 'NORTHERN'
-        | 'OTI'
-        | 'SAVANNAH'
-        | 'UPPER_EAST'
-        | 'UPPER_WEST'
-        | 'VOLTA'
-        | 'WESTERN'
-        | 'WESTERN_NORTH';
-      lastSeenLocation: string;
-      physicalDescription: string;
-      clothing: string;
-      circumstances: string;
-      publicContactNumber: string;
-      sensitiveDetails: components['schemas']['SensitiveDetailsInput'];
-      consent: components['schemas']['ConsentInput'];
-      reportFileIds: number[];
-      photoFileIds?: number[];
-    };
-    /** @description Private sensitive details, excluded from public responses. */
-    SensitiveDetailsInput: {
-      reporterRelationship: string;
-      medicalConditions?: string;
-      knownAssociates?: string;
-      vehicleInfo?: string;
-      socialMediaHandles?: string;
-    };
-    /** @description Explicit consent to sensitive-data collection. The server stores the authenticated user, current policy version, source and acceptance time. */
-    ConsentInput: {
-      /** @enum {boolean} */
-      accepted: true;
-      /** @description Must match crowdtrace.consent.sensitive-data-version; an outdated version returns 400. */
-      version: string;
-      /** @enum {string} */
-      source: 'WEB' | 'MOBILE' | 'API';
-    };
-    /** @description Submission confirmation containing only the numeric case reference, review status and time. */
-    CaseSubmissionResponse: {
-      /** Format: int64 */
-      caseId: number;
-      /** @enum {string} */
-      reviewStatus: 'SUBMITTED';
-      /** Format: date-time */
-      submittedAt: string;
-    };
-    /** @description Case submission confirmation */
-    CaseSubmissionApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['CaseSubmissionResponse'];
-      errors?: Record<string, never>;
-    };
-    AdminCaseSummaryResponse: {
-      /** Format: int64 */
-      id?: number;
-      fullName?: string;
-      /** Format: int32 */
-      age?: number;
-      region?: string;
-      /** @enum {string} */
-      reviewStatus?: 'SUBMITTED' | 'UNDER_REVIEW';
-      priorityMinor?: boolean;
-      duplicateFlag?: boolean;
-      /** Format: date-time */
-      submittedAt?: string;
-    };
-    ReviewQueuePageResponse: {
-      content?: components['schemas']['AdminCaseSummaryResponse'][];
-      /** Format: int32 */
-      page?: number;
-      /** Format: int32 */
-      size?: number;
-      /** Format: int64 */
-      totalElements?: number;
-      /** Format: int32 */
-      totalPages?: number;
-      last?: boolean;
-    };
-    /** @description Review queue page */
-    ReviewQueueListResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['ReviewQueuePageResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description File metadata only. When accessAvailable is true, request a download link from /api/v1/admin/review/cases/{id}/files/{fileId}/url. No URL or storage key is returned. */
-    ReviewEvidenceResponse: {
-      file?: components['schemas']['CaseFileMetadataResponse'];
-      accessAvailable?: boolean;
-    };
-    DuplicateMatchResponse: {
-      /** Format: int64 */
-      matchedCaseId?: number;
-      /** Format: int32 */
-      confidence?: number;
-      /**
-       * Format: int32
-       * @description Per mille.
-       */
-      nameSimilarity?: number;
-      /** Format: int32 */
-      dayDifference?: number;
-      reasons?: string[];
-      algorithmVersion?: string;
-      /** Format: date-time */
-      detectedAt?: string;
-    };
-    /** @description A past decision. Notes are admin-only. */
-    CaseReviewHistoryResponse: {
-      /** Format: int64 */
-      reviewId?: number;
-      /** @enum {string} */
-      decision?: 'APPROVED' | 'REJECTED';
-      /** Format: int64 */
-      reviewerId?: number;
-      reviewSource?: string;
-      reviewNotes?: string;
-      /** Format: date-time */
-      decidedAt?: string;
-    };
-    ReviewCaseDetailResponse: {
-      /** @description Admin projection. Files are listed once, as evidence; there is no files property. */
-      caseDetails?: {
-        /** Format: int64 */
-        id?: number;
-        /** Format: int64 */
-        reporterId?: number;
-        reporterAccountEmail?: string;
-        fullName?: string;
-        /** Format: int32 */
-        age?: number;
-        gender?: string;
-        /** Format: date */
-        lastSeenDate?: string;
-        region?: string;
-        lastSeenLocation?: string;
-        physicalDescription?: string;
-        clothing?: string;
-        circumstances?: string;
-        publicContactNumber?: string;
-        reviewStatus?: string;
-        caseStatus?: string | null;
-        closingStatement?: string | null;
-        priorityMinor?: boolean;
-        duplicateFlag?: boolean;
-        /**
-         * Format: int64
-         * @description Send as expectedCaseVersion when deciding.
-         */
-        version?: number;
-        /** Format: date-time */
-        submittedAt?: string;
-        /** Format: date-time */
-        approvedAt?: string | null;
-        /** Format: date-time */
-        resolvedAt?: string | null;
-        /** Format: date-time */
-        closedAt?: string | null;
-        takedownReason?: string | null;
-        /** Format: int64 */
-        takenDownBy?: null | number;
-        /** Format: date-time */
-        takenDownAt?: string | null;
-        sensitiveDetails?: Record<string, never>;
-        consents?: Record<string, never>[];
-      };
-      evidence?: components['schemas']['ReviewEvidenceResponse'][];
-      duplicateMatches?: components['schemas']['DuplicateMatchResponse'][];
-      reviewHistory?: components['schemas']['CaseReviewHistoryResponse'][];
-    };
-    /** @description Case with evidence, matches and history */
-    ReviewCaseDetailApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['ReviewCaseDetailResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Short-lived download link; whoever holds it can download the file until expiresAt. */
-    SignedFileUrl: {
-      /** Format: uri */
-      url: string;
-      /** Format: date-time */
-      expiresAt: string;
-    };
-    /** @description Download link */
-    SignedFileUrlApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['SignedFileUrl'];
-      errors?: Record<string, never>;
-    };
-    CaseReviewDecisionResponse: {
-      /** Format: int64 */
-      reviewId?: number;
-      /** Format: int64 */
-      caseId?: number;
-      /** @enum {string} */
-      reviewStatus?: 'APPROVED' | 'REJECTED';
-      /** Format: int64 */
-      caseVersion?: number;
-      /** Format: int64 */
-      reviewerId?: number;
-      reviewNotes?: string;
-      /** Format: date-time */
-      decidedAt?: string;
-    };
-    /** @description Recorded review decision */
-    CaseReviewDecisionApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['CaseReviewDecisionResponse'];
-      errors?: Record<string, never>;
-    };
-    UpdateCaseStatusRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-      /** @enum {string} */
-      caseStatus: 'MISSING' | 'FOUND_SAFE' | 'FOUND_DECEASED' | 'CLOSED';
-    };
-    SetClosingStatementRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-      /** @description Unicode-stripped, non-blank public statement. */
-      closingStatement: string;
-    };
-    TakeDownCaseRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-      reason: string;
-    };
-    RestoreCaseRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-    };
-    SensitiveDetailsResponse: {
-      reporterRelationship?: string | null;
-      medicalConditions?: string | null;
-      knownAssociates?: string | null;
-      vehicleInfo?: string | null;
-      socialMediaHandles?: string | null;
-    };
-    PublicCaseResponse: {
-      /** Format: int64 */
-      id?: number;
-      fullName?: string;
-      /** Format: int32 */
-      age?: number;
-      gender?: string;
-      /** Format: date */
-      lastSeenDate?: string;
-      region?: string;
-      lastSeenLocation?: string | null;
-      physicalDescription?: string | null;
-      clothing?: string | null;
-      circumstances?: string | null;
-      caseStatus?: string;
-      closingStatement?: string | null;
-      publicContactNumber?: string | null;
-      /** Format: date-time */
-      approvedAt?: string;
-      /** Format: date-time */
-      resolvedAt?: string | null;
-      /** @enum {string} */
-      presentation?: 'STANDARD' | 'DECEASED_NOTICE';
-      /** @description Public photo file IDs, oldest first. Fetch each from /api/public/cases/{caseId}/photos/{fileId}. */
-      photoIds?: number[];
-    };
-    PublicCaseSummaryResponse: {
-      /** Format: int64 */
-      id?: number;
-      fullName?: string;
-      /** Format: int32 */
-      age?: number;
-      /** @enum {string} */
-      gender?: 'MALE' | 'FEMALE' | 'UNKNOWN';
-      /** @enum {string} */
-      region?:
-        | 'AHAFO'
-        | 'ASHANTI'
-        | 'BONO'
-        | 'BONO_EAST'
-        | 'CENTRAL'
-        | 'EASTERN'
-        | 'GREATER_ACCRA'
-        | 'NORTH_EAST'
-        | 'NORTHERN'
-        | 'OTI'
-        | 'SAVANNAH'
-        | 'UPPER_EAST'
-        | 'UPPER_WEST'
-        | 'VOLTA'
-        | 'WESTERN'
-        | 'WESTERN_NORTH';
-      /** Format: date */
-      lastSeenDate?: string;
-      /** @enum {string} */
-      caseStatus?: 'MISSING' | 'FOUND_SAFE' | 'FOUND_DECEASED' | 'CLOSED';
-      /** @enum {string} */
-      presentation?: 'STANDARD' | 'DECEASED_NOTICE';
-      /** Format: date-time */
-      approvedAt?: string | null;
-      /** Format: date-time */
-      resolvedAt?: string | null;
-      /** Format: int64 */
-      thumbnailPhotoId?: null | number;
-    };
-    PublicCaseCursorResponse: {
-      content?: components['schemas']['PublicCaseSummaryResponse'][];
-      /** Format: int32 */
-      size?: number;
-      hasNext?: boolean;
-      nextCursor?: string | null;
-    };
-    /** @description Public case cursor page */
-    PublicCaseListResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['PublicCaseCursorResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Public case detail */
-    PublicCaseApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['PublicCaseResponse'];
-      errors?: Record<string, never>;
-    };
-    ReporterCaseResponse: {
-      /** Format: int64 */
-      id?: number;
-      fullName?: string;
-      /** Format: int32 */
-      age?: number;
-      gender?: string;
-      /** Format: date */
-      lastSeenDate?: string;
-      region?: string;
-      lastSeenLocation?: string | null;
-      physicalDescription?: string | null;
-      clothing?: string | null;
-      circumstances?: string | null;
-      publicContactNumber?: string | null;
-      reviewStatus?: string;
-      caseStatus?: string | null;
-      closingStatement?: string | null;
-      /** Format: date-time */
-      submittedAt?: string;
-      /** Format: date-time */
-      approvedAt?: string | null;
-      sensitiveDetails?: components['schemas']['SensitiveDetailsResponse'] | null;
-      /** Format: int64 */
-      version?: number;
-      /** Format: date-time */
-      resolvedAt?: string | null;
-      /** Format: date-time */
-      closedAt?: string | null;
-    };
-    /** @description Reporter-owned case detail */
-    ReporterCaseApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['ReporterCaseResponse'];
-      errors?: Record<string, never>;
-    };
-    /** @description Reporter-owned list summary; no sensitive details or admin-only flags. */
-    ReporterCaseSummaryResponse: {
-      /** Format: int64 */
-      id?: number;
-      fullName?: string;
-      /** @enum {string} */
-      reviewStatus?: 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'TAKEN_DOWN';
-      caseStatus?: string | null;
-      /** Format: date-time */
-      submittedAt?: string;
-    };
-    ReporterCasePageResponse: {
-      content?: components['schemas']['ReporterCaseSummaryResponse'][];
-      /** Format: int32 */
-      page?: number;
-      /** Format: int32 */
-      size?: number;
-      /** Format: int64 */
-      totalElements?: number;
-      /** Format: int32 */
-      totalPages?: number;
-      last?: boolean;
-    };
-    /** @description Reporter-owned case page */
-    ReporterCaseListResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['ReporterCasePageResponse'];
-      errors?: Record<string, never>;
-    };
-    CaseLifecycleResponse: {
-      /** Format: int64 */
-      caseId: number;
-      /** Format: int64 */
-      caseVersion: number;
-      reviewStatus: string;
-      caseStatus: string;
-      closingStatement?: string | null;
-      /** Format: date-time */
-      resolvedAt?: string | null;
-      /** Format: date-time */
-      closedAt?: string | null;
-      /** Format: date-time */
-      occurredAt: string;
-    };
-    /** @description Case lifecycle mutation result */
-    CaseLifecycleApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['CaseLifecycleResponse'];
-      errors?: Record<string, never>;
-    };
-    CasePhotosAddedResponse: {
-      /** Format: int64 */
-      caseId: number;
-      /** Format: int64 */
-      caseVersion: number;
-      photos: components['schemas']['CaseFileMetadataResponse'][];
-      /** Format: date-time */
-      addedAt: string;
-    };
-    /** @description Photos added to a live case */
-    CasePhotosAddedApiResponse: {
-      success?: boolean;
-      message?: string;
-      data?: components['schemas']['CasePhotosAddedResponse'];
-      errors?: Record<string, never>;
-    };
-    SubmitVerificationRequest: {
-      /** @enum {string} */
-      verificationType: 'POLICE' | 'NGO' | 'SUBJECT_MATTER_EXPERT';
-      evidenceReference: string;
-    };
-    VerifyOtpDto: {
-      code: string;
-      /** Format: email */
-      email: string;
-    };
-    SignUpRequest: {
-      /** Format: email */
-      email: string;
-      password: string;
-      displayName: string;
-    };
-    PasswordReset: {
-      /** Format: email */
-      email: string;
-      password: string;
-      confirmPassword: string;
-      code: string;
-    };
-    /** @description Request object for resending OTP */
-    ResendOtpRequest: {
-      /** Format: email */
-      email: string;
-      /**
-       * @description Type of OTP request. Can be either 'create' or 'reset'
-       * @enum {string}
-       */
-      type?: 'create' | 'reset';
-    };
-    PasswordResetRequest: {
-      /** Format: email */
-      email: string;
-    };
-    LoginRequest: {
-      email: string;
-      password: string;
-    };
-    VerificationDecisionRequest: {
-      reviewNotes?: string;
-    };
-    GrantVerificationRequest: {
-      /** Format: email */
-      email: string;
-      /** @enum {string} */
-      verificationType: 'POLICE' | 'NGO' | 'SUBJECT_MATTER_EXPERT';
-      evidenceReference: string;
-      reviewNotes?: string;
-    };
-    RejectCaseRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-      reviewNotes: string;
-    };
-    ApproveCaseRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-      reviewNotes?: string;
-    };
-    AddCasePhotosRequest: {
-      /** Format: int64 */
-      expectedCaseVersion: number;
-      photoFileIds: number[];
-    };
-    UpdateUserProfileRequest: {
-      displayName: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    schemas: {
+        /** @description RFC 9457 problem details returned for API errors. */
+        ProblemDetail: {
+            /** Format: uri */
+            type?: string;
+            title?: string;
+            /** Format: int32 */
+            status?: number;
+            detail?: string;
+            /** Format: uri */
+            instance?: string;
+            code?: string;
+            correlationId?: string;
+            errors?: Record<string, never>;
+        };
+        /** @description Standard successful CrowdTrace response envelope. */
+        ApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Page metadata and content returned by list endpoints. */
+        PagedResponse: {
+            content?: Record<string, never>[];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        /** @description User projection returned by the current user listing endpoint. */
+        UserResponse: {
+            displayName?: string;
+            /** Format: email */
+            email?: string;
+            role?: string;
+            accountStatus?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            verified?: boolean;
+            badgeType?: string;
+        };
+        /** @description Single user profile */
+        UserApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["UserResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Identity and short-lived bearer token returned by a successful login. */
+        LoginResponse: {
+            displayName: string;
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "REGISTERED_USER" | "MODERATOR" | "SUPER_ADMIN";
+            /** @description JWT access token for the bearerAuth scheme. */
+            token: string;
+        };
+        /** @description Issued access token and identity */
+        LoginApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["LoginResponse"];
+            errors?: Record<string, never>;
+        };
+        GenericResponseMessage: {
+            message?: string;
+        };
+        /** @description Confirmation message */
+        GenericMessageApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["GenericResponseMessage"];
+            errors?: Record<string, never>;
+        };
+        /** @description Concrete page shape returned by the current user listing endpoint. */
+        UserPageResponse: {
+            content?: components["schemas"]["UserResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        /** @description Concrete response envelope returned by the current user listing endpoint. */
+        UserListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["UserPageResponse"];
+            errors?: Record<string, never>;
+        };
+        VerificationRequestResponse: {
+            /** Format: int64 */
+            id?: number;
+            verificationType?: string;
+            evidenceReference?: string;
+            status?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            reviewedAt?: string;
+        };
+        AdminVerificationRequestResponse: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            userId?: number;
+            displayName?: string;
+            verificationType?: string;
+            evidenceReference?: string;
+            status?: string;
+            reviewNotes?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            reviewedAt?: string;
+            /** Format: date-time */
+            revokedAt?: string;
+            revocationNotes?: string;
+        };
+        VerificationRequestListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["VerificationRequestResponse"][];
+            errors?: Record<string, never>;
+        };
+        AdminVerificationPageResponse: {
+            content?: components["schemas"]["AdminVerificationRequestResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        AdminVerificationListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["AdminVerificationPageResponse"];
+            errors?: Record<string, never>;
+        };
+        AdminVerificationDecisionResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["AdminVerificationRequestResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Spring Boot health probe response. */
+        HealthResponse: {
+            status?: string;
+            components?: Record<string, never>;
+        };
+        /** @description Upload one file before submission. Reports accept PDF, JPEG or PNG; photos accept JPEG or PNG. The maximum file size is 10 MB. */
+        CaseFileUploadRequest: {
+            /** Format: binary */
+            file: string;
+            /** @enum {string} */
+            purpose: "REPORT" | "PHOTO";
+            /** @description Optional SHA-256 checksum checked against the uploaded content. */
+            sha256?: string;
+        };
+        /** @description Safe file metadata; storage keys and checksums are never returned. */
+        CaseFileMetadataResponse: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            purpose: "REPORT" | "PHOTO";
+            /** @enum {string} */
+            visibility: "PRIVATE" | "PUBLIC";
+            contentType: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: date-time */
+            uploadedAt: string;
+        };
+        /** @description Safe uploaded-file metadata */
+        CaseFileUploadResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["CaseFileMetadataResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Public case details, private sensitive details, explicit consent and owned upload ids. File ids must be distinct across both slots and match the slot's REPORT or PHOTO purpose. */
+        CaseSubmissionRequest: {
+            fullName: string;
+            /**
+             * Format: int32
+             * @description Age at disappearance. Cases under 18 receive minor priority at submission.
+             */
+            age: number;
+            /** @enum {string} */
+            gender: "MALE" | "FEMALE" | "UNKNOWN";
+            /**
+             * Format: date
+             * @description From 1900-01-01 through today's date in the server's UTC clock, inclusive.
+             */
+            lastSeenDate: string;
+            /** @enum {string} */
+            region: "AHAFO" | "ASHANTI" | "BONO" | "BONO_EAST" | "CENTRAL" | "EASTERN" | "GREATER_ACCRA" | "NORTH_EAST" | "NORTHERN" | "OTI" | "SAVANNAH" | "UPPER_EAST" | "UPPER_WEST" | "VOLTA" | "WESTERN" | "WESTERN_NORTH";
+            lastSeenLocation: string;
+            physicalDescription: string;
+            clothing: string;
+            circumstances: string;
+            publicContactNumber: string;
+            sensitiveDetails: components["schemas"]["SensitiveDetailsInput"];
+            consent: components["schemas"]["ConsentInput"];
+            reportFileIds: number[];
+            photoFileIds?: number[];
+        };
+        /** @description Private sensitive details, excluded from public responses. */
+        SensitiveDetailsInput: {
+            reporterRelationship: string;
+            medicalConditions?: string;
+            knownAssociates?: string;
+            vehicleInfo?: string;
+            socialMediaHandles?: string;
+        };
+        /** @description Explicit consent to sensitive-data collection. The server stores the authenticated user, current policy version, source and acceptance time. */
+        ConsentInput: {
+            /** @enum {boolean} */
+            accepted: true;
+            /** @description Must match crowdtrace.consent.sensitive-data-version; an outdated version returns 400. */
+            version: string;
+            /** @enum {string} */
+            source: "WEB" | "MOBILE" | "API";
+        };
+        /** @description Submission confirmation containing only the numeric case reference, review status and time. */
+        CaseSubmissionResponse: {
+            /** Format: int64 */
+            caseId: number;
+            /** @enum {string} */
+            reviewStatus: "SUBMITTED";
+            /** Format: date-time */
+            submittedAt: string;
+        };
+        /** @description Case submission confirmation */
+        CaseSubmissionApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["CaseSubmissionResponse"];
+            errors?: Record<string, never>;
+        };
+        AdminCaseSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            fullName?: string;
+            /** Format: int32 */
+            age?: number;
+            region?: string;
+            /** @enum {string} */
+            reviewStatus?: "SUBMITTED" | "UNDER_REVIEW";
+            priorityMinor?: boolean;
+            duplicateFlag?: boolean;
+            /** Format: date-time */
+            submittedAt?: string;
+        };
+        ReviewQueuePageResponse: {
+            content?: components["schemas"]["AdminCaseSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        /** @description Review queue page */
+        ReviewQueueListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["ReviewQueuePageResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description File metadata only. When accessAvailable is true, request a download link from /api/v1/admin/review/cases/{id}/files/{fileId}/url. No URL or storage key is returned. */
+        ReviewEvidenceResponse: {
+            file?: components["schemas"]["CaseFileMetadataResponse"];
+            accessAvailable?: boolean;
+        };
+        DuplicateMatchResponse: {
+            /** Format: int64 */
+            matchedCaseId?: number;
+            /** Format: int32 */
+            confidence?: number;
+            /**
+             * Format: int32
+             * @description Per mille.
+             */
+            nameSimilarity?: number;
+            /** Format: int32 */
+            dayDifference?: number;
+            reasons?: string[];
+            algorithmVersion?: string;
+            /** Format: date-time */
+            detectedAt?: string;
+        };
+        /** @description A past decision. Notes are admin-only. */
+        CaseReviewHistoryResponse: {
+            /** Format: int64 */
+            reviewId?: number;
+            /** @enum {string} */
+            decision?: "APPROVED" | "REJECTED";
+            /** Format: int64 */
+            reviewerId?: number;
+            reviewSource?: string;
+            reviewNotes?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+        };
+        ReviewCaseDetailResponse: {
+            /** @description Admin projection. Files are listed once, as evidence; there is no files property. */
+            caseDetails?: {
+                /** Format: int64 */
+                id?: number;
+                /** Format: int64 */
+                reporterId?: number;
+                reporterAccountEmail?: string;
+                fullName?: string;
+                /** Format: int32 */
+                age?: number;
+                gender?: string;
+                /** Format: date */
+                lastSeenDate?: string;
+                region?: string;
+                lastSeenLocation?: string;
+                physicalDescription?: string;
+                clothing?: string;
+                circumstances?: string;
+                publicContactNumber?: string;
+                reviewStatus?: string;
+                caseStatus?: string | null;
+                closingStatement?: string | null;
+                priorityMinor?: boolean;
+                duplicateFlag?: boolean;
+                /**
+                 * Format: int64
+                 * @description Send as expectedCaseVersion when deciding.
+                 */
+                version?: number;
+                /** Format: date-time */
+                submittedAt?: string;
+                /** Format: date-time */
+                approvedAt?: string | null;
+                /** Format: date-time */
+                resolvedAt?: string | null;
+                /** Format: date-time */
+                closedAt?: string | null;
+                takedownReason?: string | null;
+                /** Format: int64 */
+                takenDownBy?: null | number;
+                /** Format: date-time */
+                takenDownAt?: string | null;
+                sensitiveDetails?: Record<string, never>;
+                consents?: Record<string, never>[];
+            };
+            evidence?: components["schemas"]["ReviewEvidenceResponse"][];
+            duplicateMatches?: components["schemas"]["DuplicateMatchResponse"][];
+            reviewHistory?: components["schemas"]["CaseReviewHistoryResponse"][];
+        };
+        /** @description Case with evidence, matches and history */
+        ReviewCaseDetailApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["ReviewCaseDetailResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Short-lived download link; whoever holds it can download the file until expiresAt. */
+        SignedFileUrl: {
+            /** Format: uri */
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        /** @description Download link */
+        SignedFileUrlApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["SignedFileUrl"];
+            errors?: Record<string, never>;
+        };
+        CaseReviewDecisionResponse: {
+            /** Format: int64 */
+            reviewId?: number;
+            /** Format: int64 */
+            caseId?: number;
+            /** @enum {string} */
+            reviewStatus?: "APPROVED" | "REJECTED";
+            /** Format: int64 */
+            caseVersion?: number;
+            /** Format: int64 */
+            reviewerId?: number;
+            reviewNotes?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+        };
+        /** @description Recorded review decision */
+        CaseReviewDecisionApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["CaseReviewDecisionResponse"];
+            errors?: Record<string, never>;
+        };
+        UpdateCaseStatusRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+            /** @enum {string} */
+            caseStatus: "MISSING" | "FOUND_SAFE" | "FOUND_DECEASED" | "CLOSED";
+        };
+        SetClosingStatementRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+            /** @description Unicode-stripped, non-blank public statement. */
+            closingStatement: string;
+        };
+        TakeDownCaseRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+            reason: string;
+        };
+        RestoreCaseRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+        };
+        SensitiveDetailsResponse: {
+            reporterRelationship?: string | null;
+            medicalConditions?: string | null;
+            knownAssociates?: string | null;
+            vehicleInfo?: string | null;
+            socialMediaHandles?: string | null;
+        };
+        PublicCaseResponse: {
+            /** Format: int64 */
+            id?: number;
+            fullName?: string;
+            /** Format: int32 */
+            age?: number;
+            gender?: string;
+            /** Format: date */
+            lastSeenDate?: string;
+            region?: string;
+            lastSeenLocation?: string | null;
+            physicalDescription?: string | null;
+            clothing?: string | null;
+            circumstances?: string | null;
+            caseStatus?: string;
+            closingStatement?: string | null;
+            publicContactNumber?: string | null;
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            /** @enum {string} */
+            presentation?: "STANDARD" | "DECEASED_NOTICE";
+            /** @description Public photo file IDs, oldest first. Fetch each from /api/public/cases/{caseId}/photos/{fileId}. */
+            photoIds?: number[];
+        };
+        PublicCaseSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            fullName?: string;
+            /** Format: int32 */
+            age?: number;
+            /** @enum {string} */
+            gender?: "MALE" | "FEMALE" | "UNKNOWN";
+            /** @enum {string} */
+            region?: "AHAFO" | "ASHANTI" | "BONO" | "BONO_EAST" | "CENTRAL" | "EASTERN" | "GREATER_ACCRA" | "NORTH_EAST" | "NORTHERN" | "OTI" | "SAVANNAH" | "UPPER_EAST" | "UPPER_WEST" | "VOLTA" | "WESTERN" | "WESTERN_NORTH";
+            /** Format: date */
+            lastSeenDate?: string;
+            /** @enum {string} */
+            caseStatus?: "MISSING" | "FOUND_SAFE" | "FOUND_DECEASED" | "CLOSED";
+            /** @enum {string} */
+            presentation?: "STANDARD" | "DECEASED_NOTICE";
+            /** Format: date-time */
+            approvedAt?: string | null;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            /** Format: int64 */
+            thumbnailPhotoId?: null | number;
+        };
+        PublicCaseCursorResponse: {
+            content?: components["schemas"]["PublicCaseSummaryResponse"][];
+            /** Format: int32 */
+            size?: number;
+            hasNext?: boolean;
+            nextCursor?: string | null;
+        };
+        /** @description Public case cursor page */
+        PublicCaseListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PublicCaseCursorResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Public case detail */
+        PublicCaseApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PublicCaseResponse"];
+            errors?: Record<string, never>;
+        };
+        ReporterCaseResponse: {
+            /** Format: int64 */
+            id?: number;
+            fullName?: string;
+            /** Format: int32 */
+            age?: number;
+            gender?: string;
+            /** Format: date */
+            lastSeenDate?: string;
+            region?: string;
+            lastSeenLocation?: string | null;
+            physicalDescription?: string | null;
+            clothing?: string | null;
+            circumstances?: string | null;
+            publicContactNumber?: string | null;
+            reviewStatus?: string;
+            caseStatus?: string | null;
+            closingStatement?: string | null;
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: date-time */
+            approvedAt?: string | null;
+            sensitiveDetails?: components["schemas"]["SensitiveDetailsResponse"] | null;
+            /** Format: int64 */
+            version?: number;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            /** Format: date-time */
+            closedAt?: string | null;
+        };
+        /** @description Reporter-owned case detail */
+        ReporterCaseApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["ReporterCaseResponse"];
+            errors?: Record<string, never>;
+        };
+        /** @description Reporter-owned list summary; no sensitive details or admin-only flags. */
+        ReporterCaseSummaryResponse: {
+            /** Format: int64 */
+            id?: number;
+            fullName?: string;
+            /** @enum {string} */
+            reviewStatus?: "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "TAKEN_DOWN";
+            caseStatus?: string | null;
+            /** Format: date-time */
+            submittedAt?: string;
+        };
+        ReporterCasePageResponse: {
+            content?: components["schemas"]["ReporterCaseSummaryResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        /** @description Reporter-owned case page */
+        ReporterCaseListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["ReporterCasePageResponse"];
+            errors?: Record<string, never>;
+        };
+        CaseLifecycleResponse: {
+            /** Format: int64 */
+            caseId: number;
+            /** Format: int64 */
+            caseVersion: number;
+            reviewStatus: string;
+            caseStatus: string;
+            closingStatement?: string | null;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            /** Format: date-time */
+            closedAt?: string | null;
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        /** @description Case lifecycle mutation result */
+        CaseLifecycleApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["CaseLifecycleResponse"];
+            errors?: Record<string, never>;
+        };
+        CasePhotosAddedResponse: {
+            /** Format: int64 */
+            caseId: number;
+            /** Format: int64 */
+            caseVersion: number;
+            photos: components["schemas"]["CaseFileMetadataResponse"][];
+            /** Format: date-time */
+            addedAt: string;
+        };
+        /** @description Photos added to a live case */
+        CasePhotosAddedApiResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["CasePhotosAddedResponse"];
+            errors?: Record<string, never>;
+        };
+        SubmitVerificationRequest: {
+            /** @enum {string} */
+            verificationType: "POLICE" | "NGO" | "SUBJECT_MATTER_EXPERT";
+            evidenceReference: string;
+        };
+        VerifyOtpDto: {
+            code: string;
+            /** Format: email */
+            email: string;
+        };
+        SignUpRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            displayName: string;
+        };
+        PasswordReset: {
+            /** Format: email */
+            email: string;
+            password: string;
+            confirmPassword: string;
+            code: string;
+        };
+        /** @description Request object for resending OTP */
+        ResendOtpRequest: {
+            /** Format: email */
+            email: string;
+            /**
+             * @description Type of OTP request. Can be either 'create' or 'reset'
+             * @enum {string}
+             */
+            type?: "create" | "reset";
+        };
+        PasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        LoginRequest: {
+            email: string;
+            password: string;
+        };
+        VerificationDecisionRequest: {
+            reviewNotes?: string;
+        };
+        GrantVerificationRequest: {
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            verificationType: "POLICE" | "NGO" | "SUBJECT_MATTER_EXPERT";
+            evidenceReference: string;
+            reviewNotes?: string;
+        };
+        RejectCaseRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+            reviewNotes: string;
+        };
+        ApproveCaseRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+            reviewNotes?: string;
+        };
+        AddCasePhotosRequest: {
+            /** Format: int64 */
+            expectedCaseVersion: number;
+            photoFileIds: number[];
+        };
+        UpdateUserProfileRequest: {
+            displayName: string;
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  upload: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['CaseFileUploadRequest'];
-      };
-    };
-    responses: {
-      /** @description File uploaded */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseFileUploadResponse'];
-          '*/*': components['schemas']['ApiResponse'];
-        };
-      };
-      /** @description Missing part, invalid purpose, file content or checksum */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user authorization required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description File exceeds the multipart upload limit */
-      413: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Per-user upload quota exhausted */
-      429: {
-        headers: {
-          /** @description Seconds until the request may be retried. */
-          'Retry-After'?: number;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Upload quota store unavailable */
-      503: {
-        headers: {
-          /** @description Seconds until the request may be retried. */
-          'Retry-After'?: number;
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  listOwn: {
-    parameters: {
-      query?: {
-        /** @description Zero-based page. */
-        page?: number;
-        /** @description Page size (1–50). */
-        size?: number;
-        /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
-        sort?: string[];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Reporter-owned case page */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReporterCaseListResponse'];
-          '*/*': components['schemas']['ApiResponse'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  submit: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CaseSubmissionRequest'];
-      };
-    };
-    responses: {
-      /** @description Case submitted */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseSubmissionApiResponse'];
-          '*/*': components['schemas']['ApiResponse'];
-        };
-      };
-      /** @description Invalid fields, missing report or consent, outdated consent version, duplicate ids, wrong file purpose or photo cap exceeded */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user authorization required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description A referenced file is missing, deleted or belongs to another user */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description A referenced file is already attached */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  getOwnCase: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Reporter case detail */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReporterCaseApiResponse'];
-          '*/*': components['schemas']['ReporterCaseApiResponse'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown or foreign case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  updateStatus: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateCaseStatusRequest'];
-      };
-    };
-    responses: {
-      /** @description Status changed */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseLifecycleApiResponse'];
-          '*/*': components['schemas']['CaseLifecycleApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown or foreign case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Invalid state, stale version or transition */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  setClosingStatement: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SetClosingStatementRequest'];
-      };
-    };
-    responses: {
-      /** @description Statement saved */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseLifecycleApiResponse'];
-          '*/*': components['schemas']['CaseLifecycleApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown or foreign case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Invalid state, stale version or unchanged statement */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  updateStatus_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateCaseStatusRequest'];
-      };
-    };
-    responses: {
-      /** @description Status changed */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseLifecycleApiResponse'];
-          '*/*': components['schemas']['CaseLifecycleApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Invalid state, stale version or transition */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  setClosingStatement_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SetClosingStatementRequest'];
-      };
-    };
-    responses: {
-      /** @description Statement saved */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseLifecycleApiResponse'];
-          '*/*': components['schemas']['CaseLifecycleApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Invalid state, stale version or unchanged statement */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  takeDown: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['TakeDownCaseRequest'];
-      };
-    };
-    responses: {
-      /** @description Case taken down */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseLifecycleApiResponse'];
-          '*/*': components['schemas']['CaseLifecycleApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required or moderator owns case */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Case is not approved or version is stale */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  restore: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Case identifier. */
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RestoreCaseRequest'];
-      };
-    };
-    responses: {
-      /** @description Case restored */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CaseLifecycleApiResponse'];
-          '*/*': components['schemas']['CaseLifecycleApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required or moderator owns case */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Case is not taken down or version is stale */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  list: {
-    parameters: {
-      query?: {
-        /** @description Literal case-name substring. Java String.trim() removes leading and trailing characters at or below U+0020; the resulting value must be 3–100 UTF-16 code units. */
-        name?: string;
-        /** @description Ghana region. */
-        region?:
-          | 'AHAFO'
-          | 'ASHANTI'
-          | 'BONO'
-          | 'BONO_EAST'
-          | 'CENTRAL'
-          | 'EASTERN'
-          | 'GREATER_ACCRA'
-          | 'NORTH_EAST'
-          | 'NORTHERN'
-          | 'OTI'
-          | 'SAVANNAH'
-          | 'UPPER_EAST'
-          | 'UPPER_WEST'
-          | 'VOLTA'
-          | 'WESTERN'
-          | 'WESTERN_NORTH';
-        /** @description Gender. */
-        gender?: 'MALE' | 'FEMALE' | 'UNKNOWN';
-        /** @description One or more case outcomes. Repeat the parameter to form a union; an empty value is invalid. */
-        status?: ('MISSING' | 'FOUND_SAFE' | 'FOUND_DECEASED' | 'CLOSED')[];
-        /** @description Minimum age, inclusive. */
-        ageMin?: number;
-        /** @description Maximum age, inclusive. */
-        ageMax?: number;
-        /** @description Earliest last-seen date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
-        lastSeenFrom?: string;
-        /** @description Latest last-seen date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
-        lastSeenTo?: string;
-        /** @description Earliest approval date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
-        approvedFrom?: string;
-        /** @description Latest approval date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
-        approvedTo?: string;
-        /** @description Opaque forward cursor returned as nextCursor; repeat the same filters. */
-        cursor?: string;
-        /** @description Page size (1–50). */
-        size?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PublicCaseListResponse'];
-          '*/*': components['schemas']['PublicCaseListResponse'];
-        };
-      };
-      /** @description Invalid filters, parameters or cursor */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unexpected failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Planned case identifier. */
-        caseId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Public case detail */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PublicCaseApiResponse'];
-          '*/*': components['schemas']['ApiResponse'];
-        };
-      };
-      /** @description Unknown or non-public case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  submit_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SubmitVerificationRequest'];
-      };
-    };
-    responses: {
-      /** @description Created */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['VerificationRequestResponse'];
-        };
-      };
-    };
-  };
-  verifyOtp: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['VerifyOtpDto'];
-      };
-    };
-    responses: {
-      /** @description Email verified */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['GenericMessageApiResponse'];
-        };
-      };
-    };
-  };
-  signUpUser: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SignUpRequest'];
-      };
-    };
-    responses: {
-      /** @description Account created; verification code sent */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['GenericMessageApiResponse'];
-        };
-      };
-    };
-  };
-  resetPassword: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PasswordReset'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['GenericResponseMessage'];
-        };
-      };
-    };
-  };
-  resendOtp: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ResendOtpRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['GenericResponseMessage'];
-        };
-      };
-    };
-  };
-  requestPasswordReset: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PasswordResetRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['GenericResponseMessage'];
-        };
-      };
-    };
-  };
-  logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Token revoked */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['GenericMessageApiResponse'];
-        };
-      };
-    };
-  };
-  login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LoginRequest'];
-      };
-    };
-    responses: {
-      /** @description Access token issued */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['LoginApiResponse'];
-        };
-      };
-    };
-  };
-  revoke: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['VerificationDecisionRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['AdminVerificationDecisionResponse'];
-        };
-      };
-    };
-  };
-  reject: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['VerificationDecisionRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['AdminVerificationDecisionResponse'];
-        };
-      };
-    };
-  };
-  approve: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        'application/json': components['schemas']['VerificationDecisionRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['AdminVerificationDecisionResponse'];
-        };
-      };
-    };
-  };
-  grant: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GrantVerificationRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['AdminVerificationDecisionResponse'];
-        };
-      };
-    };
-  };
-  reject_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RejectCaseRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['CaseReviewDecisionApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Stale version or already decided */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  approve_1: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ApproveCaseRequest'];
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['CaseReviewDecisionApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Stale version, already decided or no report */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Audit failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  addPhotos: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['AddCasePhotosRequest'];
-      };
-    };
-    responses: {
-      /** @description Photos added */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['CasePhotosAddedApiResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Registered-user role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown or foreign case or unavailable upload */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Case state, version or attachment conflict */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  updateProfile: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdateUserProfileRequest'];
-      };
-    };
-    responses: {
-      /** @description Updated user profile */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['UserApiResponse'];
-        };
-      };
-    };
-  };
-  getOwnRequests: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['VerificationRequestListResponse'];
-        };
-      };
-    };
-  };
-  getUsers: {
-    parameters: {
-      query?: {
-        /** @description Zero-based page index (0..N) */
-        page?: number;
-        /** @description The size of the page to be returned */
-        size?: number;
-        /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
-        sort?: string[];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Users retrieved successfully */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['UserListResponse'];
-        };
-      };
-    };
-  };
-  getCurrentUser: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Current user profile */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['UserApiResponse'];
-        };
-      };
-    };
-  };
-  getQueue: {
-    parameters: {
-      query?: {
-        status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
-        /** @description Zero-based page index (0..N) */
-        page?: number;
-        /** @description The size of the page to be returned */
-        size?: number;
-        /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
-        sort?: string[];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['AdminVerificationListResponse'];
-        };
-      };
-    };
-  };
-  queue: {
-    parameters: {
-      query?: {
-        /** @description SUBMITTED or UNDER_REVIEW; both by default */
-        status?: 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'TAKEN_DOWN';
-        priorityMinor?: boolean;
-        duplicateFlag?: boolean;
-        submittedFrom?: string;
-        submittedTo?: string;
-        /** @description Zero-based page index (0..N) */
-        page?: number;
-        /** @description The size of the page to be returned */
-        size?: number;
-        /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
-        sort?: string[];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['ReviewQueueListResponse'];
-        };
-      };
-      /** @description Invalid request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unexpected failure */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  detail: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['ReviewCaseDetailApiResponse'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  fileUrl: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: number;
-        fileId: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description OK */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          '*/*': components['schemas']['SignedFileUrlApiResponse'];
-        };
-      };
-      /** @description Authentication required */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Moderator role required */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description Unknown case, or the file is not attached to it */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description File storage cannot issue download links */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
-  photo: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        caseId: number;
-        fileId: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Redirect to a signed photo URL valid for five minutes */
-      302: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description No such public photo on an approved case */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-      /** @description File storage cannot issue download links */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['ProblemDetail'];
-        };
-      };
-    };
-  };
+    upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CaseFileUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description File uploaded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFileUploadResponse"];
+                    "*/*": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Missing part, invalid purpose, file content or checksum */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user authorization required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description File exceeds the multipart upload limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Per-user upload quota exhausted */
+            429: {
+                headers: {
+                    /** @description Seconds until the request may be retried. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Upload quota store unavailable */
+            503: {
+                headers: {
+                    /** @description Seconds until the request may be retried. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listOwn: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page. */
+                page?: number;
+                /** @description Page size (1–50). */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reporter-owned case page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReporterCaseListResponse"];
+                    "*/*": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseSubmissionRequest"];
+            };
+        };
+        responses: {
+            /** @description Case submitted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseSubmissionApiResponse"];
+                    "*/*": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Invalid fields, missing report or consent, outdated consent version, duplicate ids, wrong file purpose or photo cap exceeded */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user authorization required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A referenced file is missing, deleted or belongs to another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A referenced file is already attached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getOwnCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reporter case detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReporterCaseApiResponse"];
+                    "*/*": components["schemas"]["ReporterCaseApiResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or foreign case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCaseStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Status changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseLifecycleApiResponse"];
+                    "*/*": components["schemas"]["CaseLifecycleApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or foreign case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid state, stale version or transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    setClosingStatement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetClosingStatementRequest"];
+            };
+        };
+        responses: {
+            /** @description Statement saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseLifecycleApiResponse"];
+                    "*/*": components["schemas"]["CaseLifecycleApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or foreign case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid state, stale version or unchanged statement */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateStatus_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCaseStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Status changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseLifecycleApiResponse"];
+                    "*/*": components["schemas"]["CaseLifecycleApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid state, stale version or transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    setClosingStatement_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetClosingStatementRequest"];
+            };
+        };
+        responses: {
+            /** @description Statement saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseLifecycleApiResponse"];
+                    "*/*": components["schemas"]["CaseLifecycleApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid state, stale version or unchanged statement */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    takeDown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TakeDownCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Case taken down */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseLifecycleApiResponse"];
+                    "*/*": components["schemas"]["CaseLifecycleApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required or moderator owns case */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Case is not approved or version is stale */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Case identifier. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Case restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseLifecycleApiResponse"];
+                    "*/*": components["schemas"]["CaseLifecycleApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required or moderator owns case */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Case is not taken down or version is stale */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                /** @description Literal case-name substring. Java String.trim() removes leading and trailing characters at or below U+0020; the resulting value must be 3–100 UTF-16 code units. */
+                name?: string;
+                /** @description Ghana region. */
+                region?: "AHAFO" | "ASHANTI" | "BONO" | "BONO_EAST" | "CENTRAL" | "EASTERN" | "GREATER_ACCRA" | "NORTH_EAST" | "NORTHERN" | "OTI" | "SAVANNAH" | "UPPER_EAST" | "UPPER_WEST" | "VOLTA" | "WESTERN" | "WESTERN_NORTH";
+                /** @description Gender. */
+                gender?: "MALE" | "FEMALE" | "UNKNOWN";
+                /** @description One or more case outcomes. Repeat the parameter to form a union; an empty value is invalid. */
+                status?: ("MISSING" | "FOUND_SAFE" | "FOUND_DECEASED" | "CLOSED")[];
+                /** @description Minimum age, inclusive. */
+                ageMin?: number;
+                /** @description Maximum age, inclusive. */
+                ageMax?: number;
+                /** @description Earliest last-seen date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
+                lastSeenFrom?: string;
+                /** @description Latest last-seen date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
+                lastSeenTo?: string;
+                /** @description Earliest approval date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
+                approvedFrom?: string;
+                /** @description Latest approval date, inclusive (UTC). Date must be between 0001-01-01 and 9999-12-31. */
+                approvedTo?: string;
+                /** @description Opaque forward cursor returned as nextCursor; repeat the same filters. */
+                cursor?: string;
+                /** @description Page size (1–50). */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCaseListResponse"];
+                    "*/*": components["schemas"]["PublicCaseListResponse"];
+                };
+            };
+            /** @description Invalid filters, parameters or cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Planned case identifier. */
+                caseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public case detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCaseApiResponse"];
+                    "*/*": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Unknown or non-public case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    submit_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["VerificationRequestResponse"];
+                };
+            };
+        };
+    };
+    verifyOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyOtpDto"];
+            };
+        };
+        responses: {
+            /** @description Email verified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenericMessageApiResponse"];
+                };
+            };
+        };
+    };
+    signUpUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignUpRequest"];
+            };
+        };
+        responses: {
+            /** @description Account created; verification code sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenericMessageApiResponse"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordReset"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenericResponseMessage"];
+                };
+            };
+        };
+    };
+    resendOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendOtpRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenericResponseMessage"];
+                };
+            };
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenericResponseMessage"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Token revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GenericMessageApiResponse"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Access token issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoginApiResponse"];
+                };
+            };
+        };
+    };
+    revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VerificationDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminVerificationDecisionResponse"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VerificationDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminVerificationDecisionResponse"];
+                };
+            };
+        };
+    };
+    approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VerificationDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminVerificationDecisionResponse"];
+                };
+            };
+        };
+    };
+    grant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminVerificationDecisionResponse"];
+                };
+            };
+        };
+    };
+    reject_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CaseReviewDecisionApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale version or already decided */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    approve_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CaseReviewDecisionApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale version, already decided or no report */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Audit failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    addPhotos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCasePhotosRequest"];
+            };
+        };
+        responses: {
+            /** @description Photos added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CasePhotosAddedApiResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Registered-user role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or foreign case or unavailable upload */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Case state, version or attachment conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated user profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserApiResponse"];
+                };
+            };
+        };
+    };
+    getOwnRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["VerificationRequestListResponse"];
+                };
+            };
+        };
+    };
+    getUsers: {
+        parameters: {
+            query?: {
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Users retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserListResponse"];
+                };
+            };
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserApiResponse"];
+                };
+            };
+        };
+    };
+    getQueue: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "APPROVED" | "REJECTED" | "REVOKED";
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminVerificationListResponse"];
+                };
+            };
+        };
+    };
+    queue: {
+        parameters: {
+            query?: {
+                /** @description SUBMITTED or UNDER_REVIEW; both by default */
+                status?: "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "TAKEN_DOWN";
+                priorityMinor?: boolean;
+                duplicateFlag?: boolean;
+                submittedFrom?: string;
+                submittedTo?: string;
+                /** @description Zero-based page index (0..N) */
+                page?: number;
+                /** @description The size of the page to be returned */
+                size?: number;
+                /** @description Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
+                sort?: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReviewQueueListResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReviewCaseDetailApiResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    fileUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                fileId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SignedFileUrlApiResponse"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Moderator role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown case, or the file is not attached to it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description File storage cannot issue download links */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: number;
+                fileId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to a signed photo URL valid for five minutes */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such public photo on an approved case */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description File storage cannot issue download links */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
 }

@@ -7,6 +7,7 @@ import { Field, FormMessage, NativeSelect, formValues } from '@/components/app/f
 import { RequireAuth } from '@/components/app/require-auth';
 import { StatusBadge } from '@/components/app/status-badge';
 import { PageHeader } from '@/components/ct/page-header';
+import { UserAvatar } from '@/components/ct/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,7 +65,8 @@ function Account() {
       <FormMessage error={error} success={notice} />
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-3">
+            {u?.avatarSeed && <UserAvatar seed={u.avatarSeed} size="xl" />}
             Profile {u?.verified && <Badge>{humanize(u.badgeType) || 'Verified'}</Badge>}
           </CardTitle>
         </CardHeader>

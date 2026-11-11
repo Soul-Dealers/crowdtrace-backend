@@ -3,6 +3,7 @@ package com.souldealers.crowdtracebackend.modules.identity;
 import lombok.Builder;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * The authenticated user's own view of themselves, and the row the Super Admin
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 @Builder
 public record UserResponse(
         String displayName,
+        UUID avatarSeed,
         String email,
         UserRoles role,
         UserStatus accountStatus,
