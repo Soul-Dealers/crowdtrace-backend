@@ -283,10 +283,16 @@ public class OpenApiConfig {
     private Schema commentSchema() {
         return new ObjectSchema()
                 .addProperties("id", new IntegerSchema().format("int64"))
-                .addProperties("author", new Schema<>().$ref("#/components/schemas/PublicUserResponse"))
-                .addProperties("body", new StringSchema())
+                .addProperties("parentCommentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
+                        .format("int64").description("Null for a top-level comment"))
+                .addProperties("author", nullableRef("#/components/schemas/PublicUserResponse")
+                        .description("Null when the author deleted the comment"))
+                .addProperties("body", nullableString().description("Null when the author deleted the comment"))
                 .addProperties("createdAt", new StringSchema().format("date-time"))
-                .required(List.of("id", "author", "body", "createdAt"));
+                .addProperties("replyCount", new IntegerSchema().format("int64")
+                        .description("Visible direct replies, not all descendants"))
+                .addProperties("deleted", new BooleanSchema().description("The author deleted this comment"))
+                .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted"));
     }
 
     private Schema cursorSchema(String itemReference) {

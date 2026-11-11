@@ -20,6 +20,9 @@ public interface CaseRecordRepository extends JpaRepository<CaseRecord, Long>, J
 
     boolean existsByIdAndReviewStatus(Long id, ReviewStatus reviewStatus);
 
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    Optional<CaseRecord> findSharedByIdAndReviewStatus(Long id, ReviewStatus reviewStatus);
+
     Optional<CaseRecord> findByIdAndReporterId(Long id, Long reporterId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

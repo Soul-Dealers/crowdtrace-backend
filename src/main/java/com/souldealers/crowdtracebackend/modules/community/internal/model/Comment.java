@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "comments")
 public class Comment {
+    public static final String DELETED_BODY = "[deleted]";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,6 +29,10 @@ public class Comment {
     @Column(name = "author_id", nullable = false, updatable = false)
     private long authorId;
 
+    @Column(name = "parent_comment_id", updatable = false)
+    private Long parentCommentId;
+
+    /** Never edited. Only CommentRepository.scrubByAuthor overwrites it, with {@link #DELETED_BODY}. */
     @Column(name = "body", nullable = false, length = 2000, updatable = false)
     private String body;
 
@@ -44,15 +49,24 @@ public class Comment {
     @Column(name = "removed_at")
     private LocalDateTime removedAt;
 
+    @Column(name = "deleted_at", updatable = false)
+    private LocalDateTime deletedAt;
+
     protected Comment() { }
 
-    public static Comment post(long caseId, long authorId, String body, LocalDateTime createdAt) {
+    public static Comment post(long caseId, Long parentCommentId, long authorId, String body,
+                               LocalDateTime createdAt) {
         Comment comment = new Comment();
         comment.caseId = caseId;
+        comment.parentCommentId = parentCommentId;
         comment.authorId = authorId;
         comment.body = body;
         comment.moderationStatus = ModerationStatus.VISIBLE;
         comment.createdAt = createdAt;
         return comment;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 }

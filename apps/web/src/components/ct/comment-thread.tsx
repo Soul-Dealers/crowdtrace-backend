@@ -28,6 +28,21 @@ const BADGES: Record<string, { label: string; icon: React.ReactNode }> = {
   SUBJECT_MATTER_EXPERT: { label: 'Expert', icon: <Lightbulb /> },
 };
 
+/** Name, role and badge pills, and age: shared with the live discussion thread. */
+export function CommentHeader({ comment }: { comment: Pick<CaseComment, 'author' | 'role' | 'badge' | 'pinned' | 'ago'> }) {
+  const badge = comment.badge ? BADGES[comment.badge] : undefined;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-base font-medium">{comment.author}</span>
+      {comment.role === 'FAMILY' && <Pill tone="brand" icon={<House />}>Family</Pill>}
+      {comment.role === 'EXPERT' && <Pill tone="expert" icon={<Lightbulb />}>Expert</Pill>}
+      {badge && <Pill tone="expert" icon={badge.icon}>{badge.label}</Pill>}
+      {comment.pinned && <Pill tone="pinned" icon={<Pin />}>Pinned</Pill>}
+      <span className="text-muted-foreground">· {comment.ago}</span>
+    </div>
+  );
+}
+
 function Comment({ comment, depth, actions }: { comment: CaseComment; depth: number; actions: CommentActions }) {
   const [repliesHidden, setRepliesHidden] = useState(false);
   const replies = comment.replies ?? [];
@@ -38,14 +53,7 @@ function Comment({ comment, depth, actions }: { comment: CaseComment; depth: num
       <UserAvatar seed={comment.avatarSeed} size={depth === 0 ? 'lg' : depth === 1 ? 'md' : 'sm'}
         tone={comment.role === 'EXPERT' || badge ? 'expert' : 'brand'} />
       <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-base font-medium">{comment.author}</span>
-          {comment.role === 'FAMILY' && <Pill tone="brand" icon={<House />}>Family</Pill>}
-          {comment.role === 'EXPERT' && <Pill tone="expert" icon={<Lightbulb />}>Expert</Pill>}
-          {badge && <Pill tone="expert" icon={badge.icon}>{badge.label}</Pill>}
-          {comment.pinned && <Pill tone="pinned" icon={<Pin />}>Pinned</Pill>}
-          <span className="text-muted-foreground">· {comment.ago}</span>
-        </div>
+        <CommentHeader comment={comment} />
         <p className="whitespace-pre-line break-words text-[15px] leading-relaxed text-foreground/90">{comment.body}</p>
         <div className="flex gap-4 empty:hidden">
           {actions.onReply && <button type="button" className={action} onClick={() => actions.onReply?.(comment)}>Reply</button>}
