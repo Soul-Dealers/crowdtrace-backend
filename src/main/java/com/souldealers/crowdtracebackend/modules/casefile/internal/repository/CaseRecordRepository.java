@@ -12,11 +12,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface CaseRecordRepository extends JpaRepository<CaseRecord, Long>, JpaSpecificationExecutor<CaseRecord> {
     Optional<CaseRecord> findByIdAndReviewStatus(Long id, ReviewStatus reviewStatus);
+
+    List<CaseRecord> findByIdInAndReviewStatus(Collection<Long> ids, ReviewStatus reviewStatus);
 
     boolean existsByIdAndReviewStatus(Long id, ReviewStatus reviewStatus);
 

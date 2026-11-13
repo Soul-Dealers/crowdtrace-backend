@@ -602,6 +602,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/user/cases/{caseId}/follow': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Follow a case
+     * @description Follows an approved case. Following again changes nothing.
+     */
+    post: operations['follow'];
+    /**
+     * Unfollow a case
+     * @description Stops following a case, even one no longer public. Unfollowing a case the caller does not follow is harmless.
+     */
+    delete: operations['unfollow'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/user/cases/{caseId}/comments': {
     parameters: {
       query?: never;
@@ -767,6 +791,26 @@ export interface paths {
      * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
      */
     get: operations['fileUrl'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/user/follows': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List followed cases
+     * @description Returns the caller's followed cases, most recently followed first. Cases that are no longer public are left out, so a page can be short or empty while hasNext is true; keep following nextCursor.
+     */
+    get: operations['listFollows'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1429,6 +1473,25 @@ export interface components {
       success?: boolean;
       message?: string;
       data?: components['schemas']['CommentResponse'];
+      errors?: Record<string, never>;
+    };
+    FollowedCaseResponse: {
+      followedCase: components['schemas']['PublicCaseSummaryResponse'];
+      /** Format: date-time */
+      followedAt: string;
+    };
+    FollowedCaseCursorResponse: {
+      content?: components['schemas']['FollowedCaseResponse'][];
+      /** Format: int32 */
+      size?: number;
+      hasNext?: boolean;
+      nextCursor?: string | null;
+    };
+    /** @description Followed case cursor page */
+    FollowedCaseListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['FollowedCaseCursorResponse'];
       errors?: Record<string, never>;
     };
     /** @description Public case detail */
@@ -3003,6 +3066,73 @@ export interface operations {
       };
     };
   };
+  follow: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Following */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No approved case with this id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  unfollow: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Not following */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   create: {
     parameters: {
       query?: never;
@@ -3343,6 +3473,49 @@ export interface operations {
       };
       /** @description File storage cannot issue download links */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  listFollows: {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor returned as nextCursor */
+        cursor?: string;
+        /** @description Page size (1–50) */
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['FollowedCaseListResponse'];
+        };
+      };
+      /** @description Invalid size or cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
         headers: {
           [name: string]: unknown;
         };

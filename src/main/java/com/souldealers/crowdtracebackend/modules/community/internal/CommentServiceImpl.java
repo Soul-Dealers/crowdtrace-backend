@@ -63,7 +63,7 @@ class CommentServiceImpl implements CommentService {
         if (parentId != null && parentId <= 0) {
             throw new ValidationException("parentCommentId must be positive");
         }
-        CommentCursor cursor = token == null ? null : CommentCursor.decode(token);
+        SeekCursor cursor = token == null ? null : SeekCursor.decode(token);
         requirePublicCase(caseId);
         if (parentId != null && comments.findVisible(parentId, caseId).isEmpty()) {
             throw new NotFoundException(COMMENT_NOT_FOUND);
@@ -87,7 +87,7 @@ class CommentServiceImpl implements CommentService {
         List<CommentResponse> content = page.stream()
                 .map(c -> toResponse(c, authors.get(c.getAuthorId()), replyCounts.getOrDefault(c.getId(), 0L)))
                 .toList();
-        String next = hasNext ? new CommentCursor(page.getLast().getCreatedAt(), page.getLast().getId()).encode() : null;
+        String next = hasNext ? new SeekCursor(page.getLast().getCreatedAt(), page.getLast().getId()).encode() : null;
         return new CursorResponse<>(content, size, hasNext, next);
     }
 

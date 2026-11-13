@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -69,6 +70,22 @@ public class CaseQueryServiceImpl implements CaseQueryService {
     }
 
     @Override
+    public Map<Long, PublicCaseSummaryResponse> getPublicCaseSummaries(Collection<Long> caseIds) {
+        if (caseIds.isEmpty()) {
+            return Map.of();
+        }
+        return toPublicSummaries(caseRepository.findByIdInAndReviewStatus(caseIds, ReviewStatus.APPROVED)).stream()
+                .collect(Collectors.toMap(PublicCaseSummaryResponse::id, summary -> summary));
+    }
+
+    private List<PublicCaseSummaryResponse> toPublicSummaries(List<CaseRecord> approved) {
+        List<Long> ids = approved.stream().map(CaseRecord::getId).toList();
+        Map<Long, Long> thumbnails = ids.isEmpty() ? Map.of() : fileRepository.findThumbnails(ids).stream()
+                .collect(Collectors.toMap(row -> row.getCaseId(), row -> row.getPhotoId()));
+        return approved.stream().map(c -> CaseMapper.toPublicSummary(c, thumbnails.get(c.getId()))).toList();
+    }
+
+    @Override
     public CursorResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, String token, int size) {
         if (size < 1 || size > 50) {
             throw new ValidationException("size must be between 1 and 50");
@@ -78,11 +95,7 @@ public class CaseQueryServiceImpl implements CaseQueryService {
                 fluent -> fluent.sortBy(PublicCaseSpecification.ORDER).limit(size + 1).all());
         boolean hasNext = fetched.size() > size;
         List<CaseRecord> returned = hasNext ? fetched.subList(0, size) : fetched;
-        List<Long> ids = returned.stream().map(CaseRecord::getId).toList();
-        Map<Long, Long> thumbnails = ids.isEmpty() ? Map.of() : fileRepository.findThumbnails(ids).stream()
-                .collect(Collectors.toMap(row -> row.getCaseId(), row -> row.getPhotoId()));
-        List<PublicCaseSummaryResponse> content = returned.stream()
-                .map(c -> CaseMapper.toPublicSummary(c, thumbnails.get(c.getId()))).toList();
+        List<PublicCaseSummaryResponse> content = toPublicSummaries(returned);
         String nextCursor = hasNext && !returned.isEmpty()
                 ? new PublicCaseCursor(returned.getLast().getApprovedAt(), returned.getLast().getId()).encode() : null;
         return new CursorResponse<>(content, size, hasNext, nextCursor);
