@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { WithRail } from '@/components/ct/app-shell';
 import { CaseContactCard } from '@/components/ct/case-contact-card';
@@ -15,6 +15,7 @@ import { SightingsBars } from '@/components/ct/sightings-bars';
 import { api, errorMessage, unwrap, type Schemas } from '@/lib/api/client';
 import { useSession } from '@/lib/auth';
 import { useMyAvatarSeed } from '@/lib/case-comments';
+import { useFollowState, useToggleFollow } from '@/lib/case-follow';
 import { caseKindLabel, daysSince, formatShortDate, humanRegion } from '@/lib/case-display';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,23 @@ function Profile({ c }: { c: PublicCase }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Guests are sent to log in; members toggle their follow. */
+function FollowableContactCard({ caseId, phone, gender }: {
+  caseId: number;
+  phone: string;
+  gender: 'FEMALE' | 'MALE' | 'UNKNOWN';
+}) {
+  const session = useSession();
+  const router = useRouter();
+  const following = useFollowState(caseId);
+  const toggle = useToggleFollow(caseId);
+  return (
+    <CaseContactCard phone={phone} gender={gender} sharePath={`/cases/${caseId}`} className="max-w-md"
+      following={following} followBusy={toggle.isPending || (!!session && following === undefined)}
+      onFollow={() => (session ? toggle.mutate(!following) : router.push('/login'))} />
   );
 }
 
@@ -133,7 +151,8 @@ export default function PublicCasePage() {
             </p>
           )}
           {missing && c.publicContactNumber && (
-            <CaseContactCard phone={c.publicContactNumber} gender={c.gender === 'FEMALE' || c.gender === 'MALE' ? c.gender : 'UNKNOWN'} sharePath={`/cases/${c.id}`} className="max-w-md" />
+            <FollowableContactCard caseId={c.id!} phone={c.publicContactNumber}
+              gender={c.gender === 'FEMALE' || c.gender === 'MALE' ? c.gender : 'UNKNOWN'} />
           )}
         </div>
       </div>

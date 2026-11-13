@@ -10,6 +10,7 @@ public class CustomMessages {
     public static final String JWT_EXC_MSG = "Could not authenticate you, try again";
     public static final String CASE_NOT_FOUND = "Case not found";
     public static final String COMMENT_NOT_FOUND = "Comment not found";
+    public static final String NOTIFICATION_NOT_FOUND = "Notification not found";
     public static final String USER_NOT_FOUND_MSG = "User not found";
     public static final String EMAIL_NOT_NULL_MSG = "Email cannot be null";
     public static final String EXISTING_EMAIL = "This email is already registered";

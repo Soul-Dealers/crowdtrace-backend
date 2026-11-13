@@ -148,6 +148,25 @@ public class OpenApiConfig {
                 "#/components/schemas/CommentCursorResponse"));
         schemas.put("CommentApiResponse", caseResponseEnvelope("Posted comment",
                 "#/components/schemas/CommentResponse"));
+        schemas.put("FollowedCaseResponse", new ObjectSchema()
+                .addProperties("followedCase", new Schema<>().$ref("#/components/schemas/PublicCaseSummaryResponse"))
+                .addProperties("followedAt", new StringSchema().format("date-time"))
+                .required(List.of("followedCase", "followedAt")));
+        schemas.put("FollowStateResponse", new ObjectSchema()
+                .addProperties("following", new BooleanSchema()).required(List.of("following")));
+        schemas.put("FollowStateApiResponse", caseResponseEnvelope("Follow state",
+                "#/components/schemas/FollowStateResponse"));
+        schemas.put("FollowedCaseCursorResponse", cursorSchema("#/components/schemas/FollowedCaseResponse"));
+        schemas.put("FollowedCaseListResponse", caseResponseEnvelope("Followed case cursor page",
+                "#/components/schemas/FollowedCaseCursorResponse"));
+        schemas.put("InAppNotificationResponse", inAppNotificationSchema());
+        schemas.put("InAppNotificationCursorResponse", cursorSchema("#/components/schemas/InAppNotificationResponse"));
+        schemas.put("InAppNotificationListResponse", caseResponseEnvelope("Notification cursor page",
+                "#/components/schemas/InAppNotificationCursorResponse"));
+        schemas.put("UnreadCountResponse", new ObjectSchema()
+                .addProperties("unreadCount", new IntegerSchema().format("int64")).required(List.of("unreadCount")));
+        schemas.put("UnreadCountApiResponse", caseResponseEnvelope("Unread notification count",
+                "#/components/schemas/UnreadCountResponse"));
         schemas.put("PublicCaseApiResponse", caseResponseEnvelope("Public case detail",
                 "#/components/schemas/PublicCaseResponse"));
         schemas.put("ReporterCaseResponse", reporterCaseResponseSchema());
@@ -293,6 +312,21 @@ public class OpenApiConfig {
                         .description("Visible direct replies, not all descendants"))
                 .addProperties("deleted", new BooleanSchema().description("The author deleted this comment"))
                 .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted"));
+    }
+
+    private Schema inAppNotificationSchema() {
+        return new ObjectSchema()
+                .description("Ids only; load the case or comment for details.")
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("type", new StringSchema()._enum(List.of("NEW_COMMENT", "CASE_STATUS_CHANGED")))
+                .addProperties("caseId", new IntegerSchema().format("int64"))
+                .addProperties("commentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
+                        .format("int64").description("Set for NEW_COMMENT only"))
+                .addProperties("caseStatus", nullableString()
+                        .description("The new status, set for CASE_STATUS_CHANGED only"))
+                .addProperties("read", new BooleanSchema())
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .required(List.of("id", "type", "caseId", "commentId", "caseStatus", "read", "createdAt"));
     }
 
     private Schema cursorSchema(String itemReference) {

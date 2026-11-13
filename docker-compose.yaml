@@ -15,14 +15,19 @@ services:
       timeout: 5s
       retries: 10
 
-  # Local S3 for case files. Run the backend on the host with the CROWDTRACE_STORAGE_S3_* values from
-  # example.env; presigned URLs embed localhost:4566, which browsers can reach.
+  # Local S3 for case files. A backend on the host uses the CROWDTRACE_STORAGE_S3_* values from example.env;
+  # the app service below uses localhost.localstack.cloud, which public DNS sends to 127.0.0.1 for the browser
+  # and the alias sends to this container for the app, so presigned URLs work from both sides.
   localstack:
     image: localstack/localstack:4.4
     environment:
       SERVICES: s3
       S3_SKIP_SIGNATURE_VALIDATION: "0"
       CROWDTRACE_STORAGE_S3_BUCKET: ${CROWDTRACE_STORAGE_S3_BUCKET:-crowdtrace-case-files}
+    networks:
+      default:
+        aliases:
+          - localhost.localstack.cloud
     ports:
       - "4566:4566"
     volumes:
@@ -42,11 +47,20 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD must be set}
       RESEND_API_KEY: ${RESEND_API_KEY:-local-api-key}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@example.com}
+      # Without a bucket the app keeps files in memory, which cannot sign photo links and loses uploads on restart.
+      CROWDTRACE_STORAGE_S3_BUCKET: ${CROWDTRACE_STORAGE_S3_BUCKET:-crowdtrace-case-files}
+      CROWDTRACE_STORAGE_S3_REGION: us-east-1
+      CROWDTRACE_STORAGE_S3_ENDPOINT: http://localhost.localstack.cloud:4566
+      CROWDTRACE_STORAGE_S3_PATH_STYLE_ACCESS: "true"
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      localstack:
+        condition: service_started
 
 volumes:
   postgres-data:

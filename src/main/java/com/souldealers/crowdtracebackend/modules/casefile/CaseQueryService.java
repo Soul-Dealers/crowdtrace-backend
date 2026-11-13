@@ -5,7 +5,9 @@ import com.souldealers.crowdtracebackend.shared.CursorResponse;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 public interface CaseQueryService {
     /** Approved cases only; anything else is not found. */
@@ -19,6 +21,9 @@ public interface CaseQueryService {
      * concurrent takedown waits. Must run inside a read-write transaction.
      */
     boolean lockPublicCase(Long caseId);
+
+    /** Summaries of the approved cases among caseIds, keyed by id; any other id is left out. */
+    Map<Long, PublicCaseSummaryResponse> getPublicCaseSummaries(Collection<Long> caseIds);
 
     /** Approved cases matching the query, newest approval first, then id; client sorting is ignored. */
     CursorResponse<PublicCaseSummaryResponse> searchPublicCases(PublicCaseSearchQuery query, String cursor, int size);

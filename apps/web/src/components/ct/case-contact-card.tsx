@@ -21,15 +21,15 @@ function useFlash() {
   };
 }
 
-/**
- * The family's public contact number with call / copy / share actions.
- * Follow is disabled until the follow API exists (pass onFollow to enable it).
- */
-export function CaseContactCard({ phone, gender, sharePath, onFollow, className }: {
+/** The family's public contact number with call / copy / share / follow actions. */
+export function CaseContactCard({ phone, gender, sharePath, following, followBusy, onFollow, className }: {
   phone: string;
   gender: keyof typeof pronoun;
   /** Path of the public case page; the full link is built on click so server and client render the same markup. */
   sharePath: string;
+  /** Whether the viewer follows the case; undefined for guests or while loading. */
+  following?: boolean;
+  followBusy?: boolean;
   onFollow?: () => void;
   className?: string;
 }) {
@@ -47,9 +47,10 @@ export function CaseContactCard({ phone, gender, sharePath, onFollow, className 
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff7a3d] px-3 py-1.5 text-sm font-semibold text-white sm:hidden">
             <Phone /> Call
           </a>
-          <button type="button" onClick={onFollow} disabled={!onFollow} title={onFollow ? undefined : 'Following is coming soon'}
+          <button type="button" onClick={onFollow} disabled={!onFollow || followBusy} aria-pressed={following ?? false}
+            title={following ? 'Stop following this case' : 'Get notified about new tips and status changes'}
             className="hidden items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-black disabled:opacity-60 sm:inline-flex">
-            Follow <Plus />
+            {following ? <>Following <Check /></> : <>Follow <Plus /></>}
           </button>
           <button type="button" onClick={() => copy('number', phone)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-info px-3 py-1.5 text-sm font-semibold text-black">
