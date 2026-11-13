@@ -22,6 +22,11 @@ public interface CaseFollowRepository extends Repository<CaseFollow, CaseFollow.
     @Query("DELETE FROM CaseFollow f WHERE f.userId = :userId AND f.caseId = :caseId")
     void delete(@Param("userId") long userId, @Param("caseId") long caseId);
 
+    boolean existsByUserIdAndCaseId(long userId, long caseId);
+
+    @Query("SELECT f.userId FROM CaseFollow f WHERE f.caseId = :caseId")
+    List<Long> findFollowerIds(@Param("caseId") long caseId);
+
     @Query("SELECT f FROM CaseFollow f WHERE f.userId = :userId ORDER BY f.createdAt DESC, f.caseId DESC")
     List<CaseFollow> findFirst(@Param("userId") long userId, Limit limit);
 

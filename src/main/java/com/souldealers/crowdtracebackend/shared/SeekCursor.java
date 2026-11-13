@@ -1,6 +1,5 @@
-package com.souldealers.crowdtracebackend.modules.community.internal;
+package com.souldealers.crowdtracebackend.shared;
 
-import com.souldealers.crowdtracebackend.shared.ValidationException;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -12,28 +11,28 @@ import java.time.temporal.ChronoField;
 import java.util.Base64;
 import java.util.Locale;
 
-/** Opaque seek boundary (createdAt, id) for a newest-first community list: comments, or follows keyed by case id. */
-record SeekCursor(LocalDateTime createdAt, long id) {
-    static final int MAX_TOKEN_LENGTH = 128;
+/** Opaque seek boundary (createdAt, id) for a newest-first list such as comments, follows or notifications. */
+public record SeekCursor(LocalDateTime createdAt, long id) {
+    public static final int MAX_TOKEN_LENGTH = 128;
     private static final String VERSION = "c1";
     private static final DateTimeFormatter TIMESTAMP_FORMAT = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd'T'HH:mm:ss")
             .appendFraction(ChronoField.NANO_OF_SECOND, 6, 6, true)
             .toFormatter(Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
 
-    SeekCursor {
+    public SeekCursor {
         if (createdAt == null || id <= 0 || createdAt.getYear() < 1 || createdAt.getYear() > 9999
                 || createdAt.getNano() % 1_000 != 0) {
             throw invalidCursor();
         }
     }
 
-    String encode() {
+    public String encode() {
         String payload = VERSION + "|" + TIMESTAMP_FORMAT.format(createdAt) + "|" + id;
         return Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
     }
 
-    static SeekCursor decode(String token) {
+    public static SeekCursor decode(String token) {
         if (token == null || token.isBlank() || token.length() > MAX_TOKEN_LENGTH) {
             throw invalidCursor();
         }

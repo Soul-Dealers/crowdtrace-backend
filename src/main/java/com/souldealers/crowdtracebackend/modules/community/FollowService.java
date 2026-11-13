@@ -8,6 +8,9 @@ public interface FollowService {
     /** Follows an approved case; repeat calls change nothing. Throws NotFoundException for any other case. */
     void follow(Long caseId, Long userId);
 
+    /** Whether the caller follows the case; false for any case they do not follow, whatever its state. */
+    boolean isFollowing(Long caseId, Long userId);
+
     /** Removes the caller's follow, whatever the case's state now. Repeat calls are harmless. */
     void unfollow(Long caseId, Long userId);
 

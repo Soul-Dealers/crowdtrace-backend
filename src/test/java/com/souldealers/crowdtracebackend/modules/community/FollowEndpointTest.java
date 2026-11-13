@@ -66,6 +66,22 @@ class FollowEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void followStateReflectsOnlyTheCallersFollow() throws Exception {
+        String otherEmail = email("other");
+        user(otherEmail);
+        mvc.perform(get(followPath(liveCase))).andExpect(status().isUnauthorized());
+        mvc.perform(as(get(followPath(liveCase)), followerEmail))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.following").value(false));
+
+        mvc.perform(as(post(followPath(liveCase)), followerEmail)).andExpect(status().isNoContent());
+        mvc.perform(as(get(followPath(liveCase)), followerEmail)).andExpect(jsonPath("$.data.following").value(true));
+        mvc.perform(as(get(followPath(liveCase)), otherEmail)).andExpect(jsonPath("$.data.following").value(false));
+
+        mvc.perform(as(delete(followPath(liveCase)), followerEmail)).andExpect(status().isNoContent());
+        mvc.perform(as(get(followPath(liveCase)), followerEmail)).andExpect(jsonPath("$.data.following").value(false));
+    }
+
+    @Test
     void unfollowingTwiceIsHarmless() throws Exception {
         mvc.perform(as(post(followPath(liveCase)), followerEmail)).andExpect(status().isNoContent());
         mvc.perform(as(delete(followPath(liveCase)), followerEmail)).andExpect(status().isNoContent());

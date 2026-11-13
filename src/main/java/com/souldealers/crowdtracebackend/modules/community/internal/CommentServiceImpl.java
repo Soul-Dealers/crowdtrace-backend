@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.community.internal;
 
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.community.CommentResponse;
+import com.souldealers.crowdtracebackend.modules.community.CommentPostedEvent;
 import com.souldealers.crowdtracebackend.modules.community.CommentService;
 import com.souldealers.crowdtracebackend.modules.community.CreateCommentRequest;
 import com.souldealers.crowdtracebackend.modules.community.internal.model.Comment;
@@ -10,9 +11,11 @@ import com.souldealers.crowdtracebackend.modules.community.internal.repository.C
 import com.souldealers.crowdtracebackend.modules.identity.PublicUserResponse;
 import com.souldealers.crowdtracebackend.modules.identity.UserService;
 import com.souldealers.crowdtracebackend.shared.CursorResponse;
+import com.souldealers.crowdtracebackend.shared.SeekCursor;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +39,7 @@ class CommentServiceImpl implements CommentService {
     private final CaseQueryService caseQueryService;
     private final UserService userService;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     @Override
     @Transactional
@@ -51,6 +55,7 @@ class CommentServiceImpl implements CommentService {
                     .orElseThrow(() -> new NotFoundException(COMMENT_NOT_FOUND));
         }
         Comment saved = comments.save(Comment.post(caseId, parentId, authorId, request.body().strip(), now()));
+        events.publishEvent(CommentPostedEvent.of(caseId, saved.getId(), authorId));
         return toResponse(saved, userService.getPublicProfile(authorId), 0);
     }
 

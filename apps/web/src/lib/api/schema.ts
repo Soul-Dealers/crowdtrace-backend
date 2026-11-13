@@ -582,6 +582,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/user/notifications/{notificationId}/read': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mark a notification read
+     * @description Marks one of the caller's notifications read. Marking it again is harmless.
+     */
+    post: operations['markRead'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/user/cases/{id}/photos': {
     parameters: {
       query?: never;
@@ -609,7 +629,11 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /**
+     * Follow state
+     * @description Whether the caller follows the case.
+     */
+    get: operations['followState'];
     put?: never;
     /**
      * Follow a case
@@ -791,6 +815,43 @@ export interface paths {
      * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
      */
     get: operations['fileUrl'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/user/notifications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List notifications
+     * @description Returns the caller's in-app notifications, newest first: new comments and status changes on cases they follow. Each holds ids only; load the case or comment for details.
+     */
+    get: operations['listNotifications'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/user/notifications/unread-count': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Count unread notifications */
+    get: operations['unreadCount'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1480,6 +1541,16 @@ export interface components {
       /** Format: date-time */
       followedAt: string;
     };
+    FollowStateResponse: {
+      following: boolean;
+    };
+    /** @description Follow state */
+    FollowStateApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['FollowStateResponse'];
+      errors?: Record<string, never>;
+    };
     FollowedCaseCursorResponse: {
       content?: components['schemas']['FollowedCaseResponse'][];
       /** Format: int32 */
@@ -1492,6 +1563,50 @@ export interface components {
       success?: boolean;
       message?: string;
       data?: components['schemas']['FollowedCaseCursorResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Ids only; load the case or comment for details. */
+    InAppNotificationResponse: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      type: 'NEW_COMMENT' | 'CASE_STATUS_CHANGED';
+      /** Format: int64 */
+      caseId: number;
+      /**
+       * Format: int64
+       * @description Set for NEW_COMMENT only
+       */
+      commentId: null | number;
+      /** @description The new status, set for CASE_STATUS_CHANGED only */
+      caseStatus: string | null;
+      read: boolean;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    InAppNotificationCursorResponse: {
+      content?: components['schemas']['InAppNotificationResponse'][];
+      /** Format: int32 */
+      size?: number;
+      hasNext?: boolean;
+      nextCursor?: string | null;
+    };
+    /** @description Notification cursor page */
+    InAppNotificationListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['InAppNotificationCursorResponse'];
+      errors?: Record<string, never>;
+    };
+    UnreadCountResponse: {
+      /** Format: int64 */
+      unreadCount: number;
+    };
+    /** @description Unread notification count */
+    UnreadCountApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['UnreadCountResponse'];
       errors?: Record<string, never>;
     };
     /** @description Public case detail */
@@ -2995,6 +3110,44 @@ export interface operations {
       };
     };
   };
+  markRead: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        notificationId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Read */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No notification of the caller's with this id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   addPhotos: {
     parameters: {
       query?: never;
@@ -3057,6 +3210,37 @@ export interface operations {
       };
       /** @description Case state, version or attachment conflict */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  followState: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['FollowStateApiResponse'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -3473,6 +3657,78 @@ export interface operations {
       };
       /** @description File storage cannot issue download links */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  listNotifications: {
+    parameters: {
+      query?: {
+        /** @description Opaque cursor returned as nextCursor */
+        cursor?: string;
+        /** @description Page size (1–50) */
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['InAppNotificationListResponse'];
+        };
+      };
+      /** @description Invalid size or cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  unreadCount: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['UnreadCountApiResponse'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
         headers: {
           [name: string]: unknown;
         };

@@ -7,6 +7,7 @@ import com.souldealers.crowdtracebackend.modules.community.FollowedCaseResponse;
 import com.souldealers.crowdtracebackend.modules.community.internal.model.CaseFollow;
 import com.souldealers.crowdtracebackend.modules.community.internal.repository.CaseFollowRepository;
 import com.souldealers.crowdtracebackend.shared.CursorResponse;
+import com.souldealers.crowdtracebackend.shared.SeekCursor;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.ValidationException;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,12 @@ class FollowServiceImpl implements FollowService {
         }
         // Microseconds match Postgres precision, so a cursor built from this row stays valid.
         follows.insertIfAbsent(userId, caseId, LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isFollowing(Long caseId, Long userId) {
+        return follows.existsByUserIdAndCaseId(userId, caseId);
     }
 
     @Override

@@ -44,6 +44,19 @@ public class FollowController {
         followService.follow(caseId, principal.userId());
     }
 
+    @GetMapping("/api/user/cases/{caseId}/follow")
+    @Operation(summary = "Follow state", description = "Whether the caller follows the case.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/FollowStateApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not signed in",
+                    content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
+    public ApiResponse<FollowStateResponse> followState(@AuthenticationPrincipal SecurityUser principal,
+                                                        @PathVariable Long caseId) {
+        return ApiResponse.success(new FollowStateResponse(followService.isFollowing(caseId, principal.userId())),
+                "Follow state retrieved successfully");
+    }
+
     @DeleteMapping("/api/user/cases/{caseId}/follow")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Unfollow a case", description = "Stops following a case, even one no longer public. "
