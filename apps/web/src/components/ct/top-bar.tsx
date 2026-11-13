@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Megaphone, Menu, Search } from 'lucide-react';
+import { Bell, Megaphone, Menu, Search } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { api } from '@/lib/api/client';
 import { clearSession, useSession } from '@/lib/auth';
+import { useUnreadCount } from '@/lib/notifications';
 import { BrandMark } from './brand-mark';
 
 function JumpSearch({ className }: { className?: string }) {
@@ -40,6 +41,22 @@ function JumpSearch({ className }: { className?: string }) {
   );
 }
 
+function NotificationBell() {
+  const unread = useUnreadCount();
+  const label = unread ? `Notifications, ${unread} unread` : 'Notifications';
+  return (
+    <Link href="/notifications" aria-label={label} title={label}
+      className="relative rounded-lg p-2 text-text-secondary hover:text-foreground">
+      <Bell className="size-5" />
+      {unread > 0 && (
+        <span aria-hidden className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-brand px-1 text-center text-[10px] font-semibold leading-4 text-black">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function Account() {
   const session = useSession();
   const router = useRouter();
@@ -60,6 +77,7 @@ function Account() {
   }
   return (
     <>
+      <NotificationBell />
       <Link href="/account" className="max-w-40 truncate px-2 text-sm text-text-secondary hover:text-foreground">
         {session.displayName}
       </Link>
