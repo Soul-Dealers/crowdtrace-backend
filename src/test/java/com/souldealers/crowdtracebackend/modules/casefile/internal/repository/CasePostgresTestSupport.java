@@ -4,6 +4,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
+import com.souldealers.crowdtracebackend.shared.EmailService;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,6 +42,7 @@ public abstract class CasePostgresTestSupport {
 
     @Autowired protected JdbcTemplate jdbc;
     @MockitoBean protected NotificationService notificationService;
+    @MockitoBean protected EmailService emailService;
 
     protected long user(String email) {
         return jdbc.queryForObject("""

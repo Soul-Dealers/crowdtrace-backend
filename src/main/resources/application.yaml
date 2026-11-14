@@ -36,6 +36,8 @@ rate-limit:
     user-case-upload: { limit: 20, window: 24h }
 
 crowdtrace:
+  web:
+    base-url: ${CROWDTRACE_WEB_BASE_URL:http://localhost:3000}
   duplicates:
     date-window-days: 7
     name-threshold-permille: 900
