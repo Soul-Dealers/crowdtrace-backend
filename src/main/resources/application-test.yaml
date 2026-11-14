@@ -25,7 +25,7 @@ management:
 
 
 resend:
-  url: https://api.resend.com/emails
+  url: http://127.0.0.1:9/emails
   api-key: test-api-key
   from-email: test@test.com
 

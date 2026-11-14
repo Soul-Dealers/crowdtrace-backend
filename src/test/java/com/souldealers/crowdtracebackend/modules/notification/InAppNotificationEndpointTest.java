@@ -74,33 +74,79 @@ class InAppNotificationEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
-    void aCommentNotifiesFollowersButNotItsAuthor() throws Exception {
+    void aTopLevelCommentNotifiesOnlyTheReporter() throws Exception {
         String authorEmail = email("author");
-        long authorId = user(authorEmail);
-        String bystanderEmail = email("bystander");
-        user(bystanderEmail);
+        user(authorEmail);
         follow(followerId);
-        follow(authorId);
 
-        String posted = mvc.perform(as(post("/api/user/cases/" + liveCase.getId() + "/comments"), authorEmail)
-                        .content("{\"body\":\"Saw her near Kaneshie market\"}"))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        long commentId = JSON.readTree(posted).at("/data/id").asLong();
+        long tip = comment(authorEmail, null);
 
-        String list = mvc.perform(as(get(LIST), followerEmail))
-                .andExpect(status().isOk())
+        mvc.perform(as(get(LIST), reporterEmail))
                 .andExpect(jsonPath("$.data.content.length()").value(1))
                 .andExpect(jsonPath("$.data.content[0].type").value("NEW_COMMENT"))
                 .andExpect(jsonPath("$.data.content[0].caseId").value(liveCase.getId()))
-                .andExpect(jsonPath("$.data.content[0].commentId").value(commentId))
-                .andExpect(jsonPath("$.data.content[0].caseStatus").value(nullValue()))
-                .andExpect(jsonPath("$.data.content[0].read").value(false))
-                .andReturn().getResponse().getContentAsString();
-        assertThat(fields(JSON.readTree(list).at("/data/content/0"))).containsExactlyInAnyOrder(NOTIFICATION_FIELDS);
-        assertThat(list).doesNotContain("Kaneshie").doesNotContain(authorEmail);
-
+                .andExpect(jsonPath("$.data.content[0].commentId").value(tip));
+        mvc.perform(as(get(UNREAD), followerEmail)).andExpect(jsonPath("$.data.unreadCount").value(0));
         mvc.perform(as(get(UNREAD), authorEmail)).andExpect(jsonPath("$.data.unreadCount").value(0));
-        mvc.perform(as(get(UNREAD), bystanderEmail)).andExpect(jsonPath("$.data.unreadCount").value(0));
+    }
+
+    @Test
+    void theReportersOwnTopLevelCommentNotifiesNoOne() throws Exception {
+        follow(followerId);
+
+        comment(reporterEmail, null);
+
+        mvc.perform(as(get(UNREAD), reporterEmail)).andExpect(jsonPath("$.data.unreadCount").value(0));
+        mvc.perform(as(get(UNREAD), followerEmail)).andExpect(jsonPath("$.data.unreadCount").value(0));
+    }
+
+    @Test
+    void aReplyNotifiesEveryoneAboveItInItsThreadOnce() throws Exception {
+        String p1 = participant("p1");
+        String p2 = participant("p2");
+        String p3 = participant("p3");
+        String p4 = participant("p4");
+        String sideBranch = participant("side");
+        long root = comment(p1, null);
+        long second = comment(p2, root);
+        long third = comment(p3, second);
+        comment(sideBranch, root);
+        clearNotifications();
+
+        long fourth = comment(p4, third);
+
+        for (String above : new String[] {p1, p2, p3}) {
+            String list = mvc.perform(as(get(LIST), above))
+                    .andExpect(jsonPath("$.data.content.length()").value(1))
+                    .andExpect(jsonPath("$.data.content[0].type").value("COMMENT_REPLY"))
+                    .andExpect(jsonPath("$.data.content[0].caseId").value(liveCase.getId()))
+                    .andExpect(jsonPath("$.data.content[0].commentId").value(fourth))
+                    .andExpect(jsonPath("$.data.content[0].caseStatus").value(nullValue()))
+                    .andReturn().getResponse().getContentAsString();
+            assertThat(fields(JSON.readTree(list).at("/data/content/0"))).containsExactlyInAnyOrder(NOTIFICATION_FIELDS);
+            assertThat(list).doesNotContain("Seen near").doesNotContain(p4);
+        }
+        mvc.perform(as(get(UNREAD), p4)).andExpect(jsonPath("$.data.unreadCount").value(0));
+        mvc.perform(as(get(UNREAD), sideBranch)).andExpect(jsonPath("$.data.unreadCount").value(0));
+    }
+
+    @Test
+    void repliersAndDeletedCommentAuthorsAreLeftOut() throws Exception {
+        String p1 = participant("p1");
+        String p2 = participant("p2");
+        String p3 = participant("p3");
+        long root = comment(p1, null);
+        long second = comment(p2, root);
+        long third = comment(p1, second);
+        jdbc.update("UPDATE comments SET body = '[deleted]', deleted_at = now() WHERE id = ?", second);
+        clearNotifications();
+
+        comment(p1, third);
+        comment(p3, third);
+
+        mvc.perform(as(get(UNREAD), p1)).andExpect(jsonPath("$.data.unreadCount").value(1));
+        mvc.perform(as(get(UNREAD), p2)).andExpect(jsonPath("$.data.unreadCount").value(0));
+        mvc.perform(as(get(UNREAD), p3)).andExpect(jsonPath("$.data.unreadCount").value(0));
     }
 
     @Test
@@ -179,6 +225,23 @@ class InAppNotificationEndpointTest extends CasePostgresTestSupport {
         notification(followerId, "e1", 1);
         assertThatThrownBy(() -> notification(followerId, "e1", 2))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private String participant(String label) {
+        String address = email(label);
+        user(address);
+        return address;
+    }
+
+    private long comment(String authorEmail, Long parentId) throws Exception {
+        String body = "{\"body\":\"Seen near the station\"" + (parentId == null ? "" : ",\"parentCommentId\":" + parentId) + "}";
+        String posted = mvc.perform(as(post("/api/user/cases/" + liveCase.getId() + "/comments"), authorEmail).content(body))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        return JSON.readTree(posted).at("/data/id").asLong();
+    }
+
+    private void clearNotifications() {
+        jdbc.update("DELETE FROM notifications WHERE case_id = ?", liveCase.getId());
     }
 
     private void follow(long userId) {

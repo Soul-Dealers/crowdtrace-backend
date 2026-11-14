@@ -34,10 +34,17 @@ class InAppNotificationServiceImpl implements InAppNotifications {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void notifyNewComment(String eventId, Collection<Long> recipientIds, long caseId, long commentId) {
+    public void notifyNewComment(String eventId, long recipientId, long caseId, long commentId) {
+        notifications.insertIfAbsent(eventId, recipientId, caseId, NotificationType.NEW_COMMENT.name(), commentId,
+                null, now());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void notifyReply(String eventId, Collection<Long> recipientIds, long caseId, long commentId) {
         LocalDateTime now = now();
         recipientIds.forEach(recipient -> notifications.insertIfAbsent(eventId, recipient, caseId,
-                NotificationType.NEW_COMMENT.name(), commentId, null, now));
+                NotificationType.COMMENT_REPLY.name(), commentId, null, now));
     }
 
     @Override
