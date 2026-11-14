@@ -1,6 +1,5 @@
 package com.souldealers.crowdtracebackend.modules.community.internal;
 
-import com.souldealers.crowdtracebackend.modules.community.CommentPostedEvent;
 import com.souldealers.crowdtracebackend.modules.community.internal.repository.CaseFollowRepository;
 import com.souldealers.crowdtracebackend.modules.notification.CaseStatusChangedEvent;
 import com.souldealers.crowdtracebackend.modules.notification.InAppNotifications;
@@ -13,7 +12,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.util.List;
 
 /**
- * Tells a case's followers about new comments and status changes once the change has committed. A failure is logged
+ * Tells a case's followers about status changes once the change has committed. A failure is logged
  * and never undoes the change itself.
  */
 @Component
@@ -22,19 +21,6 @@ import java.util.List;
 class FollowerNotifier {
     private final CaseFollowRepository follows;
     private final InAppNotifications notifications;
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void commentPosted(CommentPostedEvent event) {
-        try {
-            List<Long> recipients = followersExcept(event.caseId(), event.authorId());
-            if (!recipients.isEmpty()) {
-                notifications.notifyNewComment(event.eventId(), recipients, event.caseId(), event.commentId());
-            }
-        } catch (RuntimeException exception) {
-            log.warn("Comment notifications failed for event {} ({})", event.eventId(),
-                    exception.getClass().getSimpleName());
-        }
-    }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void statusChanged(CaseStatusChangedEvent event) {
