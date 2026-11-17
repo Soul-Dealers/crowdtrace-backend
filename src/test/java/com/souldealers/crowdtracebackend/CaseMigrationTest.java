@@ -9,9 +9,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.util.List;
 import java.util.Map;
@@ -26,11 +23,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 })
 @ActiveProfiles("test")
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost")
-@Testcontainers
 class CaseMigrationTest {
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

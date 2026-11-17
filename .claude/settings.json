@@ -1,0 +1,38 @@
+{
+  "env": {
+    "VERIFY_GATE": "enforce"
+  },
+  "permissions": {
+    "ask": [
+      "Edit(/REVIEW.md)",
+      "Write(/REVIEW.md)",
+      "Edit(/.claude/hooks/**)",
+      "Write(/.claude/hooks/**)",
+      "Edit(/.claude/verify/**)",
+      "Write(/.claude/verify/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/install-git-hooks.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-checks.sh",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

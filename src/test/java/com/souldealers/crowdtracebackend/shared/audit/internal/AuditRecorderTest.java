@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.shared.audit.internal;
 
+import com.souldealers.crowdtracebackend.TestPostgres;
+
 import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
 import com.souldealers.crowdtracebackend.shared.audit.AuditAction;
 import com.souldealers.crowdtracebackend.shared.audit.AuditActor;
@@ -41,9 +43,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -64,15 +63,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 })
 @ActiveProfiles("test")
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost")
-@Testcontainers
 @ExtendWith(OutputCaptureExtension.class)
 @Import(AuditRecorderTest.Fixtures.class)
 class AuditRecorderTest {
 
     private static final LocalDateTime STORED_AT = LocalDateTime.of(2026, 10, 10, 12, 30);
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

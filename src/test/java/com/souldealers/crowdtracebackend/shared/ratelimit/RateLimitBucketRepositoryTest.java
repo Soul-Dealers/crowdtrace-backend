@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.shared.ratelimit;
 
+import com.souldealers.crowdtracebackend.TestPostgres;
+
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,9 +11,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -31,16 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
         "rate-limit.enabled=true"
 })
 @ActiveProfiles("test")
-@Testcontainers
 class RateLimitBucketRepositoryTest {
 
     private static final int CONCURRENCY = 12;
     private static final String SCOPE = "IDENTITY";
     private static final String ACTION = "otp-attempt";
-
-    @Container
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

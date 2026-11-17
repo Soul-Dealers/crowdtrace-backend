@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.identity;
 
+import com.souldealers.crowdtracebackend.TestPostgres;
+
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.RevokedTokenRepository;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import org.junit.jupiter.api.Test;
@@ -10,9 +12,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -29,14 +28,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = "cors.allowed-origins=http://localhost")
 @ActiveProfiles("test")
-@Testcontainers
 class TokenRevocationRaceTest {
 
     private static final int CONCURRENCY = 8;
-
-    @Container
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {
