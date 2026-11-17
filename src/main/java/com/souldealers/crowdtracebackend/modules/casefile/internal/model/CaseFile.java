@@ -21,6 +21,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "case_files")
@@ -88,6 +90,7 @@ public class CaseFile {
 
     @PrePersist
     protected void onCreate() {
-        if (uploadedAt == null) uploadedAt = LocalDateTime.now();
+        // PostgreSQL keeps microseconds; Linux clocks give nanoseconds, so the response would differ from a re-read.
+        if (uploadedAt == null) uploadedAt = LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
     }
 }

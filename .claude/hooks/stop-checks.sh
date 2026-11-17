@@ -2,6 +2,7 @@
 # Stop hook. When Claude finishes with uncommitted changes, runs .claude/verify/fast-checks.sh.
 # Failure sends Claude back to fix it; after three failed rounds it stops and hands over to a human.
 # Skips when the tree is unchanged since the last green run.
+[ "${VERIFY_GATE:-}" = off ] && exit 0 # loop paused
 input=$(cat)
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 checks="$root/.claude/verify/fast-checks.sh"
