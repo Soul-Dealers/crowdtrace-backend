@@ -1,9 +1,12 @@
 package com.souldealers.crowdtracebackend.modules.casefile.internal.repository;
 
+import com.souldealers.crowdtracebackend.TestPostgres;
+
 import com.souldealers.crowdtracebackend.modules.casefile.Gender;
 import com.souldealers.crowdtracebackend.modules.casefile.GhanaRegion;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
+import com.souldealers.crowdtracebackend.shared.EmailService;
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,33 +17,31 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @SpringBootTest(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
-        "cors.allowed-origins=http://localhost"})
+        "cors.allowed-origins=http://localhost",
+        // Flyway's V27 must create event_publication here, as it does in production.
+        "spring.modulith.events.jdbc.schema-initialization.enabled=false"})
 @ActiveProfiles("test")
-@Testcontainers
 @Transactional
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class CasePostgresTestSupport {
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
-
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
+        // Runs once per context, so every subclass (each closes its context) gets its own empty database.
+        TestPostgres.Database db = TestPostgres.newDatabase();
+        registry.add("spring.datasource.url", db::getJdbcUrl);
+        registry.add("spring.datasource.username", db::getUsername);
+        registry.add("spring.datasource.password", db::getPassword);
+        registry.add("spring.datasource.driver-class-name", db::getDriverClassName);
         registry.add("spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.PostgreSQLDialect");
     }
 
     @Autowired protected JdbcTemplate jdbc;
     @MockitoBean protected NotificationService notificationService;
+    @MockitoBean protected EmailService emailService;
 
     protected long user(String email) {
         return jdbc.queryForObject("""

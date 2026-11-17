@@ -65,7 +65,11 @@ class LifecycleAuditRollbackTest extends CasePostgresTestSupport {
 
     @Autowired private CaseLifecycleService service;
     @Autowired private CaseRecordRepository cases;
-    @Autowired private LifecycleEventProbe events;
+    private LifecycleEventProbe events;
+
+    /** Modulith proxies listener beans, and a proxy's own fields are empty: read the real probe. */
+    @Autowired
+    void useProbe(LifecycleEventProbe proxy) { this.events = AopTestUtils.getUltimateTargetObject(proxy); }
     @MockitoSpyBean private AuditRecorder auditRecorder;
 
     private String reporterEmail;

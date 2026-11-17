@@ -10,9 +10,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -25,11 +22,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=none"})
 @ActiveProfiles("test")
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost")
-@Testcontainers
 class GovernanceMigrationTest {
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

@@ -55,7 +55,7 @@ class CommentServiceImpl implements CommentService {
                     .orElseThrow(() -> new NotFoundException(COMMENT_NOT_FOUND));
         }
         Comment saved = comments.save(Comment.post(caseId, parentId, authorId, request.body().strip(), now()));
-        events.publishEvent(CommentPostedEvent.of(caseId, saved.getId(), authorId));
+        events.publishEvent(CommentPostedEvent.of(caseId, saved.getId(), parentId, authorId));
         return toResponse(saved, userService.getPublicProfile(authorId), 0);
     }
 

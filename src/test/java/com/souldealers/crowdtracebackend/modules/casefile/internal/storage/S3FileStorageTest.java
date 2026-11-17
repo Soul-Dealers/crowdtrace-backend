@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.HexFormat;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.localstack.LocalStackContainer;
@@ -32,6 +33,8 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /** Exercises the real S3 protocol against LocalStack: checksums, conditional puts, signing and expiry. */
+/** Needs Docker, so only CI runs it (see test.excludedGroups in pom.xml). */
+@Tag("docker")
 @Testcontainers
 class S3FileStorageTest {
     private static final String BUCKET = "case-files";

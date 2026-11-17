@@ -39,3 +39,8 @@ resend:
   url: "https://api.resend.com/emails"
   api-key: ${RESEND_API_KEY}
   from-email: ${RESEND_FROM_EMAIL}
+
+crowdtrace:
+  web:
+    # Links in emails point here. Override with CROWDTRACE_WEB_BASE_URL.
+    base-url: ${CROWDTRACE_WEB_BASE_URL:https://ovrhr.akato.dev}

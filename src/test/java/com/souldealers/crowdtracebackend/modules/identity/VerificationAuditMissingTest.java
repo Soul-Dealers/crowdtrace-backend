@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.identity;
 
+import com.souldealers.crowdtracebackend.TestPostgres;
+
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.User;
 import com.souldealers.crowdtracebackend.modules.identity.internal.model.VerificationRequest;
 import com.souldealers.crowdtracebackend.modules.identity.internal.repository.UserRepository;
@@ -15,9 +17,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.util.UUID;
 
@@ -30,12 +29,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.jpa.hibernate.ddl-auto=none"
 })
 @ActiveProfiles("test")
-@Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class VerificationAuditMissingTest {
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

@@ -17,6 +17,7 @@ import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -46,7 +47,11 @@ class CaseRestoreTest extends CasePostgresTestSupport {
     @Autowired private CaseLifecycleService service;
     @Autowired private CaseQueryService queryService;
     @Autowired private CaseRecordRepository cases;
-    @Autowired private LifecycleEvents events;
+    private LifecycleEvents events;
+
+    /** Modulith proxies listener beans, and a proxy's own fields are empty: read the real probe. */
+    @Autowired
+    void useProbe(LifecycleEvents proxy) { this.events = AopTestUtils.getUltimateTargetObject(proxy); }
     private long reporter;
     private String moderatorEmail;
     private long moderator;

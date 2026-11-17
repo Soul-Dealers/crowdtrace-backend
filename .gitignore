@@ -51,3 +51,9 @@ node_modules/
 *.tsbuildinfo
 .env*.local
 next-env.d.ts
+
+### Claude verification state (stamps, gate log) ###
+.claude/state/
+
+### jqwik example database ###
+.jqwik-database

@@ -1,5 +1,7 @@
 package com.souldealers.crowdtracebackend.shared.ratelimit;
 
+import com.souldealers.crowdtracebackend.TestPostgres;
+
 import com.souldealers.crowdtracebackend.shared.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,9 +17,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.Instant;
 
@@ -33,13 +32,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "rate-limit.policies.brief-policy.window=1s"
 })
 @ActiveProfiles("test")
-@Testcontainers
 @Import(PostgresRateLimiterTest.RollbackProbeConfig.class)
 class PostgresRateLimiterTest {
-
-    @Container
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

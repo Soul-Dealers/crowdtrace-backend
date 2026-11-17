@@ -6,9 +6,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Boots with the Flyway-migrated schema and ddl-auto: validate, the way dev and
@@ -25,11 +22,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 })
 @ActiveProfiles("test")
 @TestPropertySource(properties = "cors.allowed-origins=http://localhost")
-@Testcontainers
 class SchemaValidationTest {
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
 
     @DynamicPropertySource
     static void usePostgres(DynamicPropertyRegistry registry) {

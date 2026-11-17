@@ -1,0 +1,5 @@
+# The verification layer: a change must not be able to loosen its own checks without the owner seeing it.
+/.github/    @heyEdem
+/.claude/    @heyEdem
+/REVIEW.md   @heyEdem
+/CLAUDE.md   @heyEdem

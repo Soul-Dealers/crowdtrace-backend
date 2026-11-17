@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Git commit-msg hook: the verification gate. Only commits made from Claude Code (CLAUDECODE=1) are gated.
+# Passes when the tree being committed is exactly the verified tree and the message has a `Verified:` trailer,
+# or when the message has an `Unverified: <why>` trailer.
+# VERIFY_GATE=off|observe|enforce (default enforce); observe logs what it would block.
+# After two blocks of the same tree the third attempt passes, so Claude can't get stuck.
+[ "${CLAUDECODE:-}" = 1 ] || exit 0
+mode=${VERIFY_GATE:-enforce}
+[ "$mode" = off ] && exit 0
+root=$(git rev-parse --show-toplevel) || exit 0
+state="$root/.claude/state"
+mkdir -p "$state"
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$1" >>"$state/gate.log"; }
+
+trailers=$(git interpret-trailers --parse "$1")
+if grep -q '^Unverified: .' <<<"$trailers"; then log "pass unverified"; exit 0; fi
+
+committed=$(git write-tree) || exit 1 # honours GIT_INDEX_FILE, so `commit -a` and pathspec commits are covered
+stamp=$(cat "$state/verified" 2>/dev/null || true)
+if [ -n "$stamp" ] && [ "$committed" = "${stamp%% *}" ]; then
+  if grep -q '^Verified: .' <<<"$trailers"; then log "pass verified (${stamp#* })"; exit 0; fi
+  reason="Add the trailer \`Verified: ${stamp#* }\` to the commit message."
+else
+  reason="This commit's content is not the tree that was verified. Run the verify skill on exactly what you are committing (stage all of it, or stash the rest first), or add an \`Unverified: <why>\` trailer."
+fi
+
+if [ "$mode" = observe ]; then log "would-block: $reason"; exit 0; fi
+counter="$state/gate-blocks-$committed"
+n=$(( $(cat "$counter" 2>/dev/null || echo 0) + 1 ))
+echo "$n" >"$counter"
+if [ "$n" -gt 2 ]; then log "pass after $((n - 1)) blocks ($committed)"; exit 0; fi
+log "block #$n: $reason"
+echo "Commit blocked by the verification gate. $reason" >&2
+exit 1

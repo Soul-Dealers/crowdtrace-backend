@@ -11,6 +11,7 @@ import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.notification.CaseReviewDecidedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -43,7 +44,11 @@ abstract class ReviewDecisionTestSupport extends CasePostgresTestSupport {
     @Autowired protected CaseRecordRepository cases;
     @Autowired protected CaseFileRepository files;
     @Autowired protected PlatformTransactionManager transactionManager;
-    @Autowired protected DecisionEventProbe probe;
+    protected DecisionEventProbe probe;
+
+    /** Modulith proxies listener beans, and a proxy's own fields are empty: read the real probe. */
+    @Autowired
+    void useProbe(DecisionEventProbe proxy) { this.probe = AopTestUtils.getUltimateTargetObject(proxy); }
 
     protected long reporter;
     protected String reporterEmail;

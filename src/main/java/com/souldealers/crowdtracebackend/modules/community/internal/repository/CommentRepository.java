@@ -55,6 +55,22 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
             + " WHERE c.id = :id AND c.deletedAt IS NULL")
     void scrubByAuthor(@Param("id") long id, @Param("now") LocalDateTime now);
 
+    /**
+     * Authors of startId and every comment above it, excluding one user. Removed and author-deleted comments still
+     * link the chain but their authors are left out.
+     */
+    @Query(value = """
+            WITH RECURSIVE chain AS (
+                SELECT id, parent_comment_id, author_id, moderation_status, deleted_at FROM comments WHERE id = :startId
+                UNION ALL
+                SELECT c.id, c.parent_comment_id, c.author_id, c.moderation_status, c.deleted_at
+                FROM comments c JOIN chain ON c.id = chain.parent_comment_id
+            )
+            SELECT DISTINCT author_id FROM chain
+            WHERE moderation_status = 'VISIBLE' AND deleted_at IS NULL AND author_id <> :excluded
+            """, nativeQuery = true)
+    List<Long> findThreadAuthorIdsFrom(@Param("startId") long startId, @Param("excluded") long excluded);
+
     interface ReplyCount {
         Long getParentId();
 

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -42,7 +43,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(OutputCaptureExtension.class)
 @Import(CaseSubmittedEventTest.ListenerConfiguration.class)
 class CaseSubmittedEventTest extends CaseSubmissionEndpointSupport {
-    @Autowired private EventProbe probe;
+    private EventProbe probe;
+
+    /** Modulith proxies listener beans, and a proxy's own fields are empty: read the real probe. */
+    @Autowired
+    void useProbe(EventProbe proxy) { this.probe = AopTestUtils.getUltimateTargetObject(proxy); }
     @Autowired private HikariDataSource dataSource;
     @Autowired private CaseRecordRepository cases;
     @Autowired private CaseDuplicateMatchRepository matches;

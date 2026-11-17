@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.souldealers.crowdtracebackend.shared.CustomMessages.CASE_NOT_FOUND;
@@ -56,6 +57,11 @@ public class CaseQueryServiceImpl implements CaseQueryService {
         return caseRepository.findByIdAndReviewStatus(caseId, ReviewStatus.APPROVED)
                 .map(c -> CaseMapper.toPublic(c, fileRepository.findPublicPhotoIds(c.getId())))
                 .orElseThrow(() -> new NotFoundException(CASE_NOT_FOUND));
+    }
+
+    @Override
+    public Optional<Long> findReporterId(Long caseId) {
+        return caseRepository.findById(caseId).map(CaseRecord::getReporterId);
     }
 
     @Override

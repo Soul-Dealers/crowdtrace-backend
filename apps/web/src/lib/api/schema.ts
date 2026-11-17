@@ -1570,12 +1570,12 @@ export interface components {
       /** Format: int64 */
       id: number;
       /** @enum {string} */
-      type: 'NEW_COMMENT' | 'CASE_STATUS_CHANGED';
+      type: 'NEW_COMMENT' | 'COMMENT_REPLY' | 'CASE_STATUS_CHANGED';
       /** Format: int64 */
       caseId: number;
       /**
        * Format: int64
-       * @description Set for NEW_COMMENT only
+       * @description Set for NEW_COMMENT and COMMENT_REPLY only
        */
       commentId: null | number;
       /** @description The new status, set for CASE_STATUS_CHANGED only */

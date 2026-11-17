@@ -28,8 +28,8 @@ function Row({ n }: { n: Notification }) {
   const router = useRouter();
   const markRead = useMarkRead();
   const name = useCaseName(n.caseId!) ?? 'a case you follow';
-  const text = n.type === 'NEW_COMMENT'
-    ? `New comment on ${name}`
+  const text = n.type === 'COMMENT_REPLY' ? `New reply in your conversation on ${name}`
+    : n.type === 'NEW_COMMENT' ? `New comment on your case: ${name}`
     : `${name} was marked ${STATUS[n.caseStatus ?? ''] ?? 'updated'}`;
   function open() {
     if (!n.read) markRead.mutate(n.id!);
@@ -57,14 +57,14 @@ function Notifications() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-semibold sm:text-3xl">Notifications</h1>
-        <p className="mt-1 text-sm text-muted-foreground">New comments and status changes on cases you follow.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Comments on your cases, replies to your conversations, and status changes on cases you follow.</p>
       </header>
       {query.isError && <p className="text-sm text-destructive">{errorMessage(query.error)}</p>}
       {query.isPending ? (
         <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-busy />
       ) : items.length === 0 ? (
         <Panel><p className="p-6 text-center text-sm text-muted-foreground">
-          Nothing yet. Follow a case to hear about new tips and status changes.
+          Nothing yet. Follow a case to hear when its status changes.
         </p></Panel>
       ) : (
         <Panel bodyClassName="p-0">

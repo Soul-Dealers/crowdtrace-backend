@@ -7,9 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,14 +15,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Exercises V16's legacy backfill and revocation attribution constraints on PostgreSQL. */
-@Testcontainers
 class VerificationRevocationMigrationTest {
-
-    @Container
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
-
-    @Container
-    static final PostgreSQLContainer LEGACY_WITHOUT_REVIEWER_POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+    static final TestPostgres.Database POSTGRES = TestPostgres.newDatabase();
+    static final TestPostgres.Database LEGACY_WITHOUT_REVIEWER_POSTGRES = TestPostgres.newDatabase();
 
     @Test
     void backfillsLegacyRevocationsAndRejectsIncompleteAttribution() {
@@ -147,7 +139,7 @@ class VerificationRevocationMigrationTest {
         return jdbc(POSTGRES);
     }
 
-    private static JdbcTemplate jdbc(PostgreSQLContainer postgres) {
+    private static JdbcTemplate jdbc(TestPostgres.Database postgres) {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(
                 postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
         return new JdbcTemplate(dataSource);

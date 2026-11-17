@@ -17,6 +17,13 @@ spring:
       enabled: true
   flyway:
     enabled: false
+  # Flyway is off on H2, so Modulith creates its event_publication table itself (IF NOT EXISTS, so harmless when
+  # a Postgres test's V27 has already made it).
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true
 
 management:
   endpoint:
@@ -25,7 +32,7 @@ management:
 
 
 resend:
-  url: https://api.resend.com/emails
+  url: http://127.0.0.1:9/emails
   api-key: test-api-key
   from-email: test@test.com
 
@@ -55,3 +62,8 @@ otp:
 rate-limit:
   enabled: false
   hmac-secret: dGVzdC1yYXRlLWxpbWl0LWhtYWMtc2VjcmV0LWZvci1hdXRvbWF0ZWQtdGVzdHM=
+
+# Tests run the retry job by hand.
+notification:
+  retry:
+    interval: PT24H

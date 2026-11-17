@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface CaseQueryService {
     /** Approved cases only; anything else is not found. */
@@ -15,6 +16,9 @@ public interface CaseQueryService {
 
     /** Whether the case is approved and so publicly visible. */
     boolean isPublicCase(Long caseId);
+
+    /** The case's reporter, for notifying them only; never put it in a public response. Empty for an unknown case. */
+    Optional<Long> findReporterId(Long caseId);
 
     /**
      * Like {@link #isPublicCase} but holds a shared lock on the case row until the caller's transaction ends, so a

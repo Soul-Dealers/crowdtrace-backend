@@ -1,0 +1,15 @@
+{
+  "paths": [
+    "/api/public/cases",
+    "/api/public/cases?region=ASHANTI",
+    "/api/public/cases?gender=FEMALE&ageMax=17",
+    "/api/public/cases?status=FOUND_SAFE",
+    "/api/public/cases?name=herzog",
+    "/api/public/cases/1000152",
+    "/api/public/cases/1000152/comments",
+    "/api/public/cases/999999999",
+    "/v3/api-docs"
+  ],
+  "ignoreKeys": ["correlationId", "timestamp"],
+  "approved": []
+}

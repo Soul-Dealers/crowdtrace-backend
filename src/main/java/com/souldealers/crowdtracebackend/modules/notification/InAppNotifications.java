@@ -10,7 +10,11 @@ import java.util.Collection;
  */
 public interface InAppNotifications {
 
-    void notifyNewComment(String eventId, Collection<Long> recipientIds, long caseId, long commentId);
+    /** Tells the case's reporter about a top-level comment on their case. */
+    void notifyNewComment(String eventId, long recipientId, long caseId, long commentId);
+
+    /** Tells each recipient that commentId replied into a thread they wrote in. */
+    void notifyReply(String eventId, Collection<Long> recipientIds, long caseId, long commentId);
 
     void notifyStatusChanged(String eventId, Collection<Long> recipientIds, long caseId, NotifiedCaseStatus status);
 

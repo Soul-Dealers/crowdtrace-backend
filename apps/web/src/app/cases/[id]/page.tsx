@@ -72,6 +72,12 @@ function Discussion({ caseId, name }: { caseId: number; name: string }) {
   const mySeed = useMyAvatarSeed();
   return (
     <div>
+      <div className="border-b border-border p-4">
+        <p role="note" className="flex gap-2 rounded-lg bg-chip px-3 py-2 text-sm text-foreground/90">
+          <span aria-hidden>💛</span>
+          <span><b className="font-medium">Be kind.</b> Families read these threads. Share what you saw, not rumors or blame.</span>
+        </p>
+      </div>
       {session ? (
         <div className="border-b border-border bg-panel p-4">
           <CommentComposer caseId={caseId} label="Share what you saw"
