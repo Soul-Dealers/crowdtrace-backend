@@ -7,6 +7,12 @@ spring:
     name: crowdtrace-backend
   profiles:
     active: dev
+  # Event publications back notification retries (CT-029). Completed rows are deleted; failed ones stay for the
+  # retry job and for operators.
+  modulith:
+    events:
+      completion-mode: delete
+
   servlet:
     multipart:
       max-file-size: 10MB
@@ -67,3 +73,11 @@ logging:
   structured:
     format:
       console: ecs
+
+# Retries of failed notification and email deliveries (CT-029). Backoff doubles per attempt.
+notification:
+  retry:
+    interval: PT1M
+    max-attempts: 5
+    backoff: PT1M
+    stuck-after: PT15M

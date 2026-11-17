@@ -73,9 +73,9 @@ class ReporterStatusEmailTest extends CasePostgresTestSupport {
         adminChange("FOUND_SAFE");
 
         verify(emailService, timeout(5_000)).send(eq(reporterEmail), anyString(),
-                contains("/cases/" + liveCase.getId()));
-        verify(emailService, after(300).never()).send(eq(followerEmail), anyString(), anyString());
-        verify(emailService, never()).send(eq(moderatorEmail), anyString(), anyString());
+                contains("/cases/" + liveCase.getId()), anyString());
+        verify(emailService, after(300).never()).send(eq(followerEmail), anyString(), anyString(), anyString());
+        verify(emailService, never()).send(eq(moderatorEmail), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -84,19 +84,19 @@ class ReporterStatusEmailTest extends CasePostgresTestSupport {
                         .content(body("FOUND_SAFE")))
                 .andExpect(status().isOk());
 
-        verify(emailService, after(500).never()).send(anyString(), anyString(), anyString());
+        verify(emailService, after(500).never()).send(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
     void aSlowProviderDoesNotHoldUpTheRequest() throws Exception {
         CountDownLatch release = new CountDownLatch(1);
         doAnswer(invocation -> release.await(10, TimeUnit.SECONDS))
-                .when(emailService).send(anyString(), anyString(), anyString());
+                .when(emailService).send(anyString(), anyString(), anyString(), anyString());
         try {
             long started = System.nanoTime();
             adminChange("FOUND_SAFE");
             assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)).isLessThan(5_000);
-            verify(emailService, timeout(5_000)).send(eq(reporterEmail), anyString(), anyString());
+            verify(emailService, timeout(5_000)).send(eq(reporterEmail), anyString(), anyString(), anyString());
         } finally {
             release.countDown();
         }
@@ -105,11 +105,11 @@ class ReporterStatusEmailTest extends CasePostgresTestSupport {
     @Test
     void aProviderFailureIsLoggedWithoutTheAddress(CapturedOutput output) throws Exception {
         doThrow(new EmailDeliveryException("provider returned 503"))
-                .when(emailService).send(anyString(), anyString(), anyString());
+                .when(emailService).send(anyString(), anyString(), anyString(), anyString());
 
         adminChange("FOUND_SAFE");
 
-        verify(emailService, timeout(5_000)).send(eq(reporterEmail), anyString(), anyString());
+        verify(emailService, timeout(5_000)).send(eq(reporterEmail), anyString(), anyString(), anyString());
         String line = awaitLine(output, "Reporter status email failed");
         assertThat(line).contains("case-status:").contains("EmailDeliveryException").contains("provider returned 503").doesNotContain(reporterEmail);
     }

@@ -19,6 +19,7 @@ import com.souldealers.crowdtracebackend.shared.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -48,7 +49,11 @@ class CaseTakedownTest extends CasePostgresTestSupport {
     @Autowired private CaseLifecycleService service;
     @Autowired private CaseQueryService queryService;
     @Autowired private CaseRecordRepository cases;
-    @Autowired private TakedownEventProbe events;
+    private TakedownEventProbe events;
+
+    /** Modulith proxies listener beans, and a proxy's own fields are empty: read the real probe. */
+    @Autowired
+    void useProbe(TakedownEventProbe proxy) { this.events = AopTestUtils.getUltimateTargetObject(proxy); }
     private long reporter;
     private String reporterEmail;
     private String moderatorEmail;

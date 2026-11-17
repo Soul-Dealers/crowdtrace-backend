@@ -54,7 +54,11 @@ class LiveCasePhotoTest extends CasePostgresTestSupport {
     @Autowired private MockMvc mvc;
     @Autowired private JwtService jwt;
     @Autowired private UserDetailsService users;
-    @Autowired private PhotoEventProbe events;
+    private PhotoEventProbe events;
+
+    /** Modulith proxies listener beans, and a proxy's own fields are empty: read the real probe. */
+    @Autowired
+    void useProbe(PhotoEventProbe proxy) { this.events = AopTestUtils.getUltimateTargetObject(proxy); }
     @MockitoSpyBean private AuditRecorder auditRecorder;
 
     private long reporterId;

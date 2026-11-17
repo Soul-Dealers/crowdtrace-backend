@@ -1,5 +1,6 @@
 package com.souldealers.crowdtracebackend.shared;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -36,11 +37,14 @@ public class ResendEmailService implements EmailService {
     }
 
     @Override
-    public void send(String to, String subject, String html) {
+    public void send(String to, String subject, String html, @Nullable String idempotencyKey) {
         try {
             client.post()
                     .uri(url)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .headers(headers -> {
+                        if (idempotencyKey != null) headers.set("Idempotency-Key", idempotencyKey);
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("from", fromEmail, "to", to, "subject", subject, "html", html))
                     .retrieve()

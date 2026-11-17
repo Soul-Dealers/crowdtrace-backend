@@ -21,7 +21,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @SpringBootTest(properties = {"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
-        "cors.allowed-origins=http://localhost"})
+        "cors.allowed-origins=http://localhost",
+        // Flyway's V27 must create event_publication here, as it does in production.
+        "spring.modulith.events.jdbc.schema-initialization.enabled=false"})
 @ActiveProfiles("test")
 @Transactional
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
