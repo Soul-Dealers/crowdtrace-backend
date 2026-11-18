@@ -17,33 +17,32 @@ import java.util.Optional;
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     String VISIBLE = "com.souldealers.crowdtracebackend.modules.community.internal.model.ModerationStatus.VISIBLE";
 
-    @Query("SELECT c FROM Comment c WHERE c.caseId = :caseId AND c.parentCommentId IS NULL AND c.moderationStatus = "
-            + VISIBLE + " ORDER BY c.createdAt DESC, c.id DESC")
+    @Query("SELECT c FROM Comment c WHERE c.caseId = :caseId AND c.parentCommentId IS NULL"
+            + " ORDER BY c.createdAt DESC, c.id DESC")
     List<Comment> findFirstRoots(@Param("caseId") long caseId, Limit limit);
 
-    @Query("SELECT c FROM Comment c WHERE c.caseId = :caseId AND c.parentCommentId IS NULL AND c.moderationStatus = "
-            + VISIBLE + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.id < :id))"
+    @Query("SELECT c FROM Comment c WHERE c.caseId = :caseId AND c.parentCommentId IS NULL"
+            + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.id < :id))"
             + " ORDER BY c.createdAt DESC, c.id DESC")
     List<Comment> findRootsAfter(@Param("caseId") long caseId, @Param("createdAt") LocalDateTime createdAt,
                                  @Param("id") long id, Limit limit);
 
-    @Query("SELECT c FROM Comment c WHERE c.parentCommentId = :parentId AND c.moderationStatus = " + VISIBLE
+    @Query("SELECT c FROM Comment c WHERE c.parentCommentId = :parentId"
             + " ORDER BY c.createdAt DESC, c.id DESC")
     List<Comment> findFirstReplies(@Param("parentId") long parentId, Limit limit);
 
-    @Query("SELECT c FROM Comment c WHERE c.parentCommentId = :parentId AND c.moderationStatus = " + VISIBLE
+    @Query("SELECT c FROM Comment c WHERE c.parentCommentId = :parentId"
             + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.id < :id))"
             + " ORDER BY c.createdAt DESC, c.id DESC")
     List<Comment> findRepliesAfter(@Param("parentId") long parentId, @Param("createdAt") LocalDateTime createdAt,
                                    @Param("id") long id, Limit limit);
 
-    /** Visible direct replies per parent, author-deleted ones included: the same rows the reply pages return. */
+    /** Direct replies per parent, removed and author-deleted ones included: the same rows the reply pages return. */
     @Query("SELECT c.parentCommentId AS parentId, COUNT(c) AS replies FROM Comment c WHERE c.parentCommentId IN "
-            + ":parentIds AND c.moderationStatus = " + VISIBLE + " GROUP BY c.parentCommentId")
-    List<ReplyCount> countVisibleReplies(@Param("parentIds") Collection<Long> parentIds);
+            + ":parentIds GROUP BY c.parentCommentId")
+    List<ReplyCount> countReplies(@Param("parentIds") Collection<Long> parentIds);
 
-    @Query("SELECT c FROM Comment c WHERE c.id = :id AND c.caseId = :caseId AND c.moderationStatus = " + VISIBLE)
-    Optional<Comment> findVisible(@Param("id") long id, @Param("caseId") long caseId);
+    boolean existsByIdAndCaseId(long id, long caseId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Comment c WHERE c.id = :id AND c.caseId = :caseId AND c.moderationStatus = " + VISIBLE)
