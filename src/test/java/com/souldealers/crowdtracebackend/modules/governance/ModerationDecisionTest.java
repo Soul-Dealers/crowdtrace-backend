@@ -162,6 +162,10 @@ class ModerationDecisionTest extends ModerationTestSupport {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM content_reports WHERE comment_id = ? AND status = 'OPEN'",
                 Integer.class, c)).isOne();
         assertThat(jdbc.queryForObject("SELECT report_count FROM comments WHERE id = ?", Integer.class, c)).isOne();
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/admin/moderation/comments").header("Authorization", bearer(moderatorId)))
+                .andExpect(jsonPath("$.data.content[0].commentId").value(c))
+                .andExpect(jsonPath("$.data.content[0].openReports").value(1));
     }
 
     @Test

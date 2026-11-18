@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FormMessage } from '@/components/app/form';
 import { Pager } from '@/components/app/pager';
 import { RequireAuth } from '@/components/app/require-auth';
@@ -13,6 +13,7 @@ import { api, ApiError, errorMessage, unwrap, type Schemas } from '@/lib/api/cli
 import { useMyAvatarSeed } from '@/lib/case-comments';
 import { REPORT_REASONS } from '@/lib/comment-reports';
 import { formatDate } from '@/lib/enums';
+import { clampPage } from '@/lib/paging';
 
 type Item = Schemas['CommentModerationQueueItem'];
 type Decision = 'remove' | 'keep';
@@ -22,7 +23,7 @@ const CONFLICT = 'Already handled by another moderator';
 const reasonLabel = (value: string) =>
   REPORT_REASONS.find((r) => r.value === value)?.label ?? value;
 
-function useDecision(commentId: number) {
+function useDecision(commentId: number, onConflict: (message: string) => void) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ decision, notes }: { decision: Decision; notes: string }) => {
@@ -41,14 +42,21 @@ function useDecision(commentId: number) {
         throw new ApiError(res.response.status === 409 ? CONFLICT : errorMessage(res.error));
       }
     },
-    // Refetch either way: on a 409 another moderator already changed the row.
+    // The refetch drops a row another moderator already decided, so its message is shown by the queue.
+    onError: (error) => error.message === CONFLICT && onConflict(CONFLICT),
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
 
-function Detail({ commentId }: { commentId: number }) {
+function Detail({
+  commentId,
+  onConflict,
+}: {
+  commentId: number;
+  onConflict: (message: string) => void;
+}) {
   const mySeed = useMyAvatarSeed();
-  const decide = useDecision(commentId);
+  const decide = useDecision(commentId, onConflict);
   const [notes, setNotes] = useState('');
   const detail = useQuery({
     queryKey: [...KEY, 'detail', commentId],
@@ -135,7 +143,7 @@ function Detail({ commentId }: { commentId: number }) {
   );
 }
 
-function Row({ item }: { item: Item }) {
+function Row({ item, onConflict }: { item: Item; onConflict: (message: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <li className="space-y-3 p-4">
@@ -173,7 +181,7 @@ function Row({ item }: { item: Item }) {
           {open ? 'Hide' : 'Review'}
         </button>
       </div>
-      {open && <Detail commentId={item.commentId!} />}
+      {open && <Detail commentId={item.commentId!} onConflict={onConflict} />}
     </li>
   );
 }
@@ -190,8 +198,15 @@ function Queue() {
       ),
   });
   const rows = query.data?.content ?? [];
+  const [notice, setNotice] = useState<string>();
+  const totalPages = query.data?.totalPages;
+  // Deciding the last row on the last page would otherwise strand the moderator on an empty page.
+  useEffect(() => {
+    if (clampPage(page, totalPages) !== page) setPage(clampPage(page, totalPages));
+  }, [page, totalPages]);
   return (
     <div className="space-y-4">
+      {notice && <FormMessage error={notice} />}
       {query.isError && <FormMessage error={(query.error as Error).message} />}
       {query.isPending && <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-busy />}
       {query.isSuccess && rows.length === 0 && (
@@ -201,7 +216,7 @@ function Queue() {
         <Panel>
           <ol className="divide-y divide-border">
             {rows.map((item) => (
-              <Row key={item.commentId} item={item} />
+              <Row key={item.commentId} item={item} onConflict={setNotice} />
             ))}
           </ol>
         </Panel>

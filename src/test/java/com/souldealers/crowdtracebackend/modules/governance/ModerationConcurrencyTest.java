@@ -1,5 +1,8 @@
 package com.souldealers.crowdtracebackend.modules.governance;
 
+import com.souldealers.crowdtracebackend.modules.community.CommentResponse;
+import com.souldealers.crowdtracebackend.modules.community.CommentService;
+import com.souldealers.crowdtracebackend.modules.community.CreateCommentRequest;
 import com.souldealers.crowdtracebackend.shared.ConflictException;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,12 +25,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** A third transaction holds the comment lock while both contenders start, so they always overlap. */
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ModerationConcurrencyTest extends ModerationTestSupport {
     @Autowired private ModerationService moderation;
     @Autowired private CommentReportService reports;
+    @Autowired private CommentService comments;
     @Autowired private PlatformTransactionManager transactionManager;
 
     private long comment;
@@ -66,6 +71,42 @@ class ModerationConcurrencyTest extends ModerationTestSupport {
                 + "WHERE r.status = 'OPEN' AND c.moderation_status = 'REMOVED'", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT report_count FROM comments WHERE id = ?", Integer.class, comment))
                 .isZero();
+    }
+
+    @Test
+    void replyPostedWhileTheParentIsBeingRemovedIsRefused() throws Exception {
+        String mod = emailOf(moderator("mod"));
+        long replier = user(email("replier"));
+        long caseId = jdbc.queryForObject("SELECT case_id FROM comments WHERE id = ?", Long.class, comment);
+        CountDownLatch removed = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            // The removal runs but holds its transaction open, and with it the comment lock.
+            Future<?> removal = executor.submit(() -> new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(status -> {
+                        try {
+                            as(mod, "MODERATOR", () -> moderation.remove(mod, comment,
+                                    new RemoveCommentRequest("gone")));
+                            removed.countDown();
+                            assertThat(commit.await(30, TimeUnit.SECONDS)).isTrue();
+                        } catch (Exception failure) {
+                            throw new IllegalStateException(failure);
+                        }
+                    }));
+            try {
+                assertThat(removed.await(10, TimeUnit.SECONDS)).isTrue();
+                Future<Object> reply = executor.submit(() -> as(emailOf(replier), "REGISTERED_USER",
+                        () -> comments.create(caseId, replier, new CreateCommentRequest("a reply", comment))));
+                awaitLockWaiters(1);
+                commit.countDown();
+                removal.get(20, TimeUnit.SECONDS);
+                assertThatThrownBy(() -> reply.get(20, TimeUnit.SECONDS)).hasCauseInstanceOf(NotFoundException.class);
+            } finally {
+                commit.countDown();
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM comments WHERE parent_comment_id = ?", Integer.class,
+                comment)).isZero();
     }
 
     private List<Object> race(Callable<Object> first, Callable<Object> second) throws Exception {

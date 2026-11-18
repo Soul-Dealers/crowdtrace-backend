@@ -51,3 +51,38 @@ test('a reported comment removed by a moderator shows as a placeholder and tells
   await reporter.goto('/notifications');
   await expect(reporter.getByText('A comment you reported was removed').first()).toBeVisible();
 });
+
+test('a moderator whose comment was already handled sees why it vanished', async ({ browser }) => {
+  const text = `Second remark ${Date.now()}`;
+  const author = await signedIn(browser, users.user);
+  await openDiscussion(author);
+  await author.getByLabel('Share what you saw').fill(text);
+  await author.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(author.getByText(text)).toBeVisible();
+
+  const reporter = await signedIn(browser, users.admin);
+  await openDiscussion(reporter);
+  const comment = reporter.getByRole('listitem').filter({ hasText: text });
+  await comment.getByRole('button', { name: 'Report' }).click();
+  await comment.getByLabel('Spam').check();
+  await comment.getByRole('button', { name: 'Submit report' }).click();
+  await expect(comment.getByRole('status')).toBeVisible();
+
+  const slow = await signedIn(browser, users.moderator);
+  await slow.goto('/admin/moderation/comments');
+  const row = slow.getByRole('listitem').filter({ hasText: text });
+  await row.getByRole('button', { name: 'Review' }).click();
+  await expect(row.getByRole('button', { name: 'Keep comment' })).toBeVisible();
+
+  // The super admin (also a moderator, and not the author) keeps it first.
+  const fast = reporter;
+  await fast.goto('/admin/moderation/comments');
+  const fastRow = fast.getByRole('listitem').filter({ hasText: text });
+  await fastRow.getByRole('button', { name: 'Review' }).click();
+  await fastRow.getByRole('button', { name: 'Keep comment' }).click();
+  await expect(fast.getByText(text)).toHaveCount(0);
+
+  await row.getByRole('button', { name: 'Keep comment' }).click();
+  await expect(slow.getByText('Already handled by another moderator')).toBeVisible();
+  await expect(slow.getByText(text)).toHaveCount(0);
+});
