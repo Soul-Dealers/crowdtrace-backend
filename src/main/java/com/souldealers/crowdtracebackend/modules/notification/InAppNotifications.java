@@ -18,6 +18,9 @@ public interface InAppNotifications {
 
     void notifyStatusChanged(String eventId, Collection<Long> recipientIds, long caseId, NotifiedCaseStatus status);
 
+    /** Tells each recipient that a comment they reported on the case was removed. */
+    void notifyCommentRemoved(String eventId, Collection<Long> recipientIds, long caseId);
+
     /** The user's notifications, newest first. */
     CursorResponse<InAppNotificationResponse> listOwn(Long userId, String cursor, int size);
 

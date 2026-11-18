@@ -359,6 +359,19 @@ class OpenApiContractTest {
     }
 
     @Test
+    void notificationTypeSchemaListsEveryNotificationType() throws Exception {
+        var schemas = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("components")
+                .path("schemas");
+        java.util.List<String> documented = new java.util.ArrayList<>();
+        schemas.path("InAppNotificationResponse").path("properties").path("type").path("enum")
+                .forEach(node -> documented.add(node.asText()));
+        org.assertj.core.api.Assertions.assertThat(documented).containsExactlyInAnyOrderElementsOf(
+                java.util.Arrays.stream(com.souldealers.crowdtracebackend.modules.notification.NotificationType.values())
+                        .map(Enum::name).toList());
+    }
+
+    @Test
     void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
         String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

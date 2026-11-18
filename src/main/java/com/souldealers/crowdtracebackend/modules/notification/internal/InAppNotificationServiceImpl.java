@@ -57,6 +57,14 @@ class InAppNotificationServiceImpl implements InAppNotifications {
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void notifyCommentRemoved(String eventId, Collection<Long> recipientIds, long caseId) {
+        LocalDateTime now = now();
+        recipientIds.stream().distinct().forEach(recipient -> notifications.insertIfAbsent(eventId, recipient, caseId,
+                NotificationType.COMMENT_REMOVED.name(), null, null, now));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public CursorResponse<InAppNotificationResponse> listOwn(Long userId, String token, int size) {
         if (size < 1 || size > MAX_PAGE_SIZE) {

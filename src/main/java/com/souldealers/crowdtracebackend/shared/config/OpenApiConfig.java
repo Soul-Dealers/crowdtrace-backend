@@ -328,7 +328,8 @@ public class OpenApiConfig {
         return new ObjectSchema()
                 .description("Ids only; load the case or comment for details.")
                 .addProperties("id", new IntegerSchema().format("int64"))
-                .addProperties("type", new StringSchema()._enum(List.of("NEW_COMMENT", "COMMENT_REPLY", "CASE_STATUS_CHANGED")))
+                .addProperties("type", new StringSchema()._enum(List.of("NEW_COMMENT", "COMMENT_REPLY", "CASE_STATUS_CHANGED",
+                        "COMMENT_REMOVED")))
                 .addProperties("caseId", new IntegerSchema().format("int64"))
                 .addProperties("commentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
                         .format("int64").description("Set for NEW_COMMENT and COMMENT_REPLY only"))
