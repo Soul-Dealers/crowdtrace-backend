@@ -13,9 +13,13 @@ public interface CaseFileAccessService {
     /** A live public photo of an approved case; anything else is not found. */
     SignedFileUrl publicPhotoUrl(Long caseId, Long fileId);
 
-    /** Any live file attached to the case, for moderators. Records the grant in the audit log before returning. */
+    /**
+     * Any live file attached to the case, for moderators. Records the grant in the audit log before returning.
+     *
+     * @param inline sign the link for in-app preview instead of download
+     */
     @RequiresModerator
-    SignedFileUrl reviewerFileUrl(String actorEmail, Long caseId, Long fileId);
+    SignedFileUrl reviewerFileUrl(String actorEmail, Long caseId, Long fileId, boolean inline);
 
     boolean signedAccessAvailable();
 }

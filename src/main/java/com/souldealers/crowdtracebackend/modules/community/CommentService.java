@@ -16,6 +16,9 @@ public interface CommentService {
      */
     CursorResponse<CommentResponse> listPublic(Long caseId, Long parentCommentId, String cursor, int size);
 
+    /** How many top-level comments an approved case's thread shows. Throws NotFoundException for any other case. */
+    CommentCountResponse countPublic(Long caseId);
+
     /** Author-only soft deletion that erases the text. Repeat calls are harmless; anyone else gets NotFoundException. */
     void deleteByAuthor(Long caseId, Long commentId, Long authorId);
 }

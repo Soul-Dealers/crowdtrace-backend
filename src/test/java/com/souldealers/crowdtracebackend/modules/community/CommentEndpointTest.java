@@ -56,6 +56,21 @@ class CommentEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void topLevelCountMatchesTheRootsTheThreadShows() throws Exception {
+        long root = insert(liveCase, "first", 1, false);
+        long deleted = insert(liveCase, "second", 2, false);
+        jdbc.update("UPDATE comments SET body = '[deleted]', deleted_at = ? WHERE id = ?", at(12), deleted);
+        insert(liveCase, "removed", 3, true); // shown as a "Removed by a moderator" placeholder
+        reply(root, "a reply", 4);
+        insert(approvedCase(CaseStatus.MISSING), "elsewhere", 5, false);
+
+        mvc.perform(get(listPath(liveCase) + "/count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.topLevel").value(3));
+        mvc.perform(get(listPath(caseWith(ReviewStatus.SUBMITTED)) + "/count")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void guestCannotPost() throws Exception {
         mvc.perform(post(postPath(liveCase)).contentType(MediaType.APPLICATION_JSON).content(body("Saw him")))
                 .andExpect(status().isUnauthorized());

@@ -1,6 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.community.internal;
 
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
+import com.souldealers.crowdtracebackend.modules.community.CommentCountResponse;
 import com.souldealers.crowdtracebackend.modules.community.CommentResponse;
 import com.souldealers.crowdtracebackend.modules.community.CommentPostedEvent;
 import com.souldealers.crowdtracebackend.modules.community.CommentService;
@@ -57,6 +58,13 @@ class CommentServiceImpl implements CommentService {
         Comment saved = comments.save(Comment.post(caseId, parentId, authorId, request.body().strip(), now()));
         events.publishEvent(CommentPostedEvent.of(caseId, saved.getId(), parentId, authorId));
         return toResponse(saved, userService.getPublicProfile(authorId), 0);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CommentCountResponse countPublic(Long caseId) {
+        requirePublicCase(caseId);
+        return new CommentCountResponse(comments.countRoots(caseId));
     }
 
     @Override

@@ -133,6 +133,23 @@ class CaseFileAccessEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void previewLinkIsSignedInlineAndAuditedLikeADownload() throws Exception {
+        CaseRecord pending = caseWith(ReviewStatus.UNDER_REVIEW);
+        long report = file(pending.getId(), CaseFilePurpose.REPORT, null);
+        String path = REVIEW + pending.getId() + "/files/" + report + "/url";
+
+        mvc.perform(get(path).header("Authorization", token(UserRoles.MODERATOR))).andExpect(status().isOk());
+        assertThat(signer.lastInline).isFalse();
+
+        mvc.perform(get(path).param("inline", "true").header("Authorization", token(UserRoles.MODERATOR)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        assertThat(signer.lastInline).isTrue();
+        assertThat(signer.lastTtl).isEqualTo(Duration.ofMinutes(1));
+        assertThat(grants(report)).isEqualTo(2);
+    }
+
+    @Test
     void reviewerLinkForAFileOfAnotherCaseIsNotFoundAndNotAudited() throws Exception {
         CaseRecord pending = caseWith(ReviewStatus.SUBMITTED);
         long foreign = file(caseWith(ReviewStatus.SUBMITTED).getId(), CaseFilePurpose.REPORT, null);
@@ -228,11 +245,13 @@ class CaseFileAccessEndpointTest extends CasePostgresTestSupport {
     static class RecordingSigner implements SignedFileAccess {
         volatile StoredObject last;
         volatile Duration lastTtl;
+        volatile boolean lastInline;
 
         @Override
-        public URI signedDownloadUrl(StoredObject object, Duration ttl) {
+        public URI signedDownloadUrl(StoredObject object, Duration ttl, boolean inline) {
             last = object;
             lastTtl = ttl;
+            lastInline = inline;
             return URI.create("https://signed.test/" + (object.visibility() == FileVisibility.PRIVATE ? "report" : "photo"));
         }
     }

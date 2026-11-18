@@ -75,7 +75,7 @@ class S3FileStorageTest {
     void storedReportDownloadsAsAnAttachmentThroughASignedUrl() throws Exception {
         StoredObject report = stored(CaseFilePurpose.REPORT, "application/pdf", "%PDF-1.7 report");
 
-        HttpResponse<String> response = get(storage.signedDownloadUrl(report, Duration.ofMinutes(1)));
+        HttpResponse<String> response = get(storage.signedDownloadUrl(report, Duration.ofMinutes(1), false));
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).isEqualTo("%PDF-1.7 report");
@@ -85,11 +85,22 @@ class S3FileStorageTest {
     }
 
     @Test
+    void privateReportPreviewIsServedInlineAndStillUncached() throws Exception {
+        StoredObject report = stored(CaseFilePurpose.REPORT, "application/pdf", "%PDF-1.7 report");
+
+        HttpResponse<String> response = get(storage.signedDownloadUrl(report, Duration.ofMinutes(1), true));
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("Content-Disposition")).hasValue("inline");
+        assertThat(response.headers().firstValue("Cache-Control")).hasValue("no-store");
+    }
+
+    @Test
     void publicPhotoIsServedInline() throws Exception {
         StoredObject photo = stored(CaseFilePurpose.PHOTO, "image/jpeg", "jpeg-bytes");
         assertThat(photo.visibility()).isEqualTo(FileVisibility.PUBLIC);
 
-        HttpResponse<String> response = get(storage.signedDownloadUrl(photo, Duration.ofMinutes(1)));
+        HttpResponse<String> response = get(storage.signedDownloadUrl(photo, Duration.ofMinutes(1), false));
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.headers().firstValue("Content-Disposition")).hasValue("inline");
@@ -99,7 +110,7 @@ class S3FileStorageTest {
     @Test
     void signedUrlStopsWorkingAfterItsLifetime() throws Exception {
         StoredObject report = stored(CaseFilePurpose.REPORT, "application/pdf", "short-lived");
-        URI url = storage.signedDownloadUrl(report, Duration.ofSeconds(1));
+        URI url = storage.signedDownloadUrl(report, Duration.ofSeconds(1), false);
 
         Thread.sleep(2_500);
 
@@ -124,7 +135,7 @@ class S3FileStorageTest {
                 Files.size(replacement), sha256("replacement"));
 
         assertThatThrownBy(() -> storage.put(collision, replacement)).isInstanceOf(IOException.class);
-        assertThat(get(storage.signedDownloadUrl(first, Duration.ofMinutes(1))).body()).isEqualTo("original");
+        assertThat(get(storage.signedDownloadUrl(first, Duration.ofMinutes(1), false)).body()).isEqualTo("original");
     }
 
     @Test
@@ -133,7 +144,7 @@ class S3FileStorageTest {
 
         storage.delete(report.key());
 
-        assertThat(get(storage.signedDownloadUrl(report, Duration.ofMinutes(1))).statusCode()).isEqualTo(404);
+        assertThat(get(storage.signedDownloadUrl(report, Duration.ofMinutes(1), false)).statusCode()).isEqualTo(404);
     }
 
     @Test
@@ -141,7 +152,7 @@ class S3FileStorageTest {
         StoredObject report = stored(CaseFilePurpose.REPORT, "application/pdf", "bounded");
 
         for (Duration ttl : new Duration[] {null, Duration.ZERO, Duration.ofSeconds(-1), Duration.ofMinutes(16)}) {
-            assertThatThrownBy(() -> storage.signedDownloadUrl(report, ttl))
+            assertThatThrownBy(() -> storage.signedDownloadUrl(report, ttl, false))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }

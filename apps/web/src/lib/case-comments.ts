@@ -23,6 +23,20 @@ export function useCaseComments(caseId: number, parentCommentId?: number, enable
   });
 }
 
+/** Its own key, outside caseKey: deletion rewrites cached thread pages, and a deleted comment keeps its place. */
+const countKey = (caseId: number) => ['case-comment-count', caseId];
+
+/** How many top-level comments the case's thread shows. */
+export function useTopLevelCommentCount(caseId: number) {
+  return useQuery({
+    queryKey: countKey(caseId),
+    queryFn: async () =>
+      unwrap<Schemas['CommentCountResponse']>(
+        await api.GET('/api/public/cases/{caseId}/comments/count', { params: { path: { caseId } } }),
+      ).topLevel,
+  });
+}
+
 export function usePostComment(caseId: number) {
   const qc = useQueryClient();
   return useMutation({
@@ -30,7 +44,10 @@ export function usePostComment(caseId: number) {
       unwrap<Comment>(
         await api.POST('/api/user/cases/{caseId}/comments', { params: { path: { caseId } }, body: vars }),
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: caseKey(caseId) }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: caseKey(caseId) }),
+      qc.invalidateQueries({ queryKey: countKey(caseId) }),
+    ]),
   });
 }
 
