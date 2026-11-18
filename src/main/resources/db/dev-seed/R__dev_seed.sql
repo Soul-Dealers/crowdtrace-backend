@@ -1963,3 +1963,11 @@ INSERT INTO case_duplicate_matches (id, case_id, matched_case_id, confidence, na
 (1000060, 1000060, 1000122, 81, 911, 609, 'NAME_FUZZY', 'v1', '2026-10-10 01:45:00')
 ON CONFLICT DO NOTHING;
 
+-- CT-019: one reported comment, so the moderation queue has a row locally.
+INSERT INTO comments (id, case_id, author_id, body, report_count, created_at) VALUES
+(1000001, 1000004, 1000003, 'Stop wasting everyone''s time, this family is lying.', 1, '2026-11-10 09:00:00')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_reports (id, comment_id, reporter_id, reason, created_at) VALUES
+(1000001, 1000001, 1000004, 'HARASSMENT', '2026-11-10 10:00:00')
+ON CONFLICT DO NOTHING;
