@@ -38,7 +38,7 @@ function RequestDetail({ r, onClose }: { r: Request; onClose: () => void }) {
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-brand hover:underline"
+                className="text-brand [overflow-wrap:anywhere] hover:underline"
               >
                 {r.evidenceReference}
               </a>
