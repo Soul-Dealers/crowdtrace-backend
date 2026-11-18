@@ -148,6 +148,12 @@ public class OpenApiConfig {
                 "#/components/schemas/CommentCursorResponse"));
         schemas.put("CommentApiResponse", caseResponseEnvelope("Posted comment",
                 "#/components/schemas/CommentResponse"));
+        schemas.put("CommentReportResponse", new ObjectSchema()
+                .addProperties("reportId", new IntegerSchema().format("int64"))
+                .addProperties("status", new StringSchema()._enum(List.of("OPEN")))
+                .required(List.of("reportId", "status")));
+        schemas.put("CommentReportApiResponse", caseResponseEnvelope("The caller's open report",
+                "#/components/schemas/CommentReportResponse"));
         schemas.put("FollowedCaseResponse", new ObjectSchema()
                 .addProperties("followedCase", new Schema<>().$ref("#/components/schemas/PublicCaseSummaryResponse"))
                 .addProperties("followedAt", new StringSchema().format("date-time"))
