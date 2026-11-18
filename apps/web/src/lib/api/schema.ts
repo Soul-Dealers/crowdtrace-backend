@@ -582,6 +582,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/moderation/comments/{commentId}/remove': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Remove a reported comment
+     * @description Hides the comment's text and author from the public thread (its replies stay), resolves every open report on it as REMOVED with these notes, and tells each reporter. Notes are trimmed, 1–2000 characters.
+     */
+    post: operations['remove'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/moderation/comments/{commentId}/keep': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Keep a reported comment
+     * @description Leaves the comment up and resolves every open report on it as DISMISSED. Notes are optional, trimmed, at most 2000 characters. Reporters are not told.
+     */
+    post: operations['keep'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/user/notifications/{notificationId}/read': {
     parameters: {
       query?: never;
@@ -596,6 +636,26 @@ export interface paths {
      * @description Marks one of the caller's notifications read. Marking it again is harmless.
      */
     post: operations['markRead'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/user/comments/{commentId}/reports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Report a comment
+     * @description Reports another user's visible comment to moderators. Details are trimmed, at most 1000 characters, and required for OTHER. Reporting again while your report is open returns that report unchanged with 200. At most 10 reports per hour; refused attempts do not count.
+     */
+    post: operations['report'];
     delete?: never;
     options?: never;
     head?: never;
@@ -823,6 +883,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/moderation/comments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List reported comments
+     * @description One row per comment with open reports, oldest open report first. Includes comments on cases that are no longer public.
+     */
+    get: operations['queue_1'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/moderation/comments/{commentId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Open a reported comment
+     * @description The comment's stored text (kept after removal), its case, and every report on it, oldest first.
+     */
+    get: operations['detail_1'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/user/notifications': {
     parameters: {
       query?: never;
@@ -909,7 +1009,7 @@ export interface paths {
     };
     /**
      * List case comments
-     * @description Returns an approved case's top-level comments, or one comment's direct replies when parentCommentId is set, newest first, under each author's display name and badge only. Removed comments are never returned. A comment its author deleted keeps its place with deleted=true and no author or body, so its replies stay readable. Use nextCursor to load older ones.
+     * @description Returns an approved case's top-level comments, or one comment's direct replies when parentCommentId is set, newest first, under each author's display name and badge only. A comment a moderator removed keeps its place with removed=true, and one its author deleted keeps its place with deleted=true; neither has an author or body, and their replies stay readable. Use nextCursor to load older ones.
      */
     get: operations['list_1'];
     put?: never;
@@ -1501,19 +1601,21 @@ export interface components {
        * @description Null for a top-level comment
        */
       parentCommentId: null | number;
-      /** @description Null when the author deleted the comment */
+      /** @description Null when the comment was removed or its author deleted it */
       author: components['schemas']['PublicUserResponse'] | null;
-      /** @description Null when the author deleted the comment */
+      /** @description Null when the comment was removed or its author deleted it */
       body: string | null;
       /** Format: date-time */
       createdAt: string;
       /**
        * Format: int64
-       * @description Visible direct replies, not all descendants
+       * @description Direct replies, not all descendants
        */
       replyCount: number;
       /** @description The author deleted this comment */
       deleted: boolean;
+      /** @description A moderator removed this comment; takes precedence over deleted */
+      removed: boolean;
     };
     CommentCursorResponse: {
       content?: components['schemas']['CommentResponse'][];
@@ -1534,6 +1636,19 @@ export interface components {
       success?: boolean;
       message?: string;
       data?: components['schemas']['CommentResponse'];
+      errors?: Record<string, never>;
+    };
+    CommentReportResponse: {
+      /** Format: int64 */
+      reportId: number;
+      /** @enum {string} */
+      status: 'OPEN';
+    };
+    /** @description The caller's open report */
+    CommentReportApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentReportResponse'];
       errors?: Record<string, never>;
     };
     FollowedCaseResponse: {
@@ -1570,7 +1685,7 @@ export interface components {
       /** Format: int64 */
       id: number;
       /** @enum {string} */
-      type: 'NEW_COMMENT' | 'COMMENT_REPLY' | 'CASE_STATUS_CHANGED';
+      type: 'NEW_COMMENT' | 'COMMENT_REPLY' | 'CASE_STATUS_CHANGED' | 'COMMENT_REMOVED';
       /** Format: int64 */
       caseId: number;
       /**
@@ -1783,6 +1898,17 @@ export interface components {
       expectedCaseVersion: number;
       reviewNotes?: string;
     };
+    RemoveCommentRequest: {
+      notes: string;
+    };
+    KeepCommentRequest: {
+      notes?: string;
+    };
+    ReportCommentRequest: {
+      /** @enum {string} */
+      reason: 'SPAM' | 'HARASSMENT' | 'MISINFORMATION' | 'PRIVACY' | 'OTHER';
+      details?: string;
+    };
     AddCasePhotosRequest: {
       /** Format: int64 */
       expectedCaseVersion: number;
@@ -1795,6 +1921,104 @@ export interface components {
     };
     UpdateUserProfileRequest: {
       displayName: string;
+    };
+    CommentModerationQueueItem: {
+      /** Format: int64 */
+      commentId?: number;
+      /** Format: int64 */
+      caseId?: number;
+      caseName?: string;
+      casePublic?: boolean;
+      bodyExcerpt?: string;
+      author?: components['schemas']['PublicUserResponse'];
+      authorDeleted?: boolean;
+      /** Format: int64 */
+      openReports?: number;
+      reasons?: {
+        [key: string]: number;
+      };
+      /** Format: date-time */
+      oldestOpenAt?: string;
+      /** Format: date-time */
+      newestOpenAt?: string;
+    };
+    CommentModerationDetail: {
+      comment?: components['schemas']['CommentModerationView'];
+      caseName?: string;
+      casePublic?: boolean;
+      reports?: components['schemas']['ContentReportView'][];
+    };
+    CommentModerationView: {
+      /** Format: int64 */
+      id?: number;
+      /** Format: int64 */
+      caseId?: number;
+      author?: components['schemas']['PublicUserResponse'];
+      /** Format: int64 */
+      authorId?: number;
+      body?: string;
+      deleted?: boolean;
+      removed?: boolean;
+      /** Format: date-time */
+      createdAt?: string;
+    };
+    ContentReportView: {
+      /** Format: int64 */
+      id?: number;
+      /** Format: int64 */
+      reporterId?: number;
+      /** @enum {string} */
+      reason?: 'SPAM' | 'HARASSMENT' | 'MISINFORMATION' | 'PRIVACY' | 'OTHER';
+      details?: string;
+      status?: string;
+      resolution?: string;
+      /** Format: int64 */
+      moderatorId?: number;
+      resolutionNotes?: string;
+      /** Format: date-time */
+      createdAt?: string;
+      /** Format: date-time */
+      resolvedAt?: string;
+    };
+    ModerationDecisionResponse: {
+      /** Format: int64 */
+      commentId?: number;
+      resolution?: string;
+      /** Format: int32 */
+      resolvedReports?: number;
+    };
+    CommentModerationQueuePageResponse: {
+      content: components['schemas']['CommentModerationQueueItem'][];
+      /** Format: int32 */
+      page: number;
+      /** Format: int32 */
+      size: number;
+      /** Format: int64 */
+      totalElements: number;
+      /** Format: int32 */
+      totalPages: number;
+      last: boolean;
+    };
+    /** @description Reported comment page */
+    CommentModerationQueueListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentModerationQueuePageResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Moderation decision */
+    ModerationDecisionApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['ModerationDecisionResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description Reported comment with its reports */
+    CommentModerationDetailApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentModerationDetail'];
+      errors?: Record<string, never>;
     };
   };
   responses: never;
@@ -3110,6 +3334,130 @@ export interface operations {
       };
     };
   };
+  remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        commentId: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RemoveCommentRequest'];
+      };
+    };
+    responses: {
+      /** @description Removed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ModerationDecisionApiResponse'];
+        };
+      };
+      /** @description Invalid notes */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Moderator role required, or your own comment */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Unknown comment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Already removed, or no open reports */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  keep: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        commentId: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['KeepCommentRequest'];
+      };
+    };
+    responses: {
+      /** @description Kept */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['ModerationDecisionApiResponse'];
+        };
+      };
+      /** @description Invalid notes */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Moderator role required, or your own comment */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Unknown comment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No open reports */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   markRead: {
     parameters: {
       query?: never;
@@ -3139,6 +3487,86 @@ export interface operations {
       };
       /** @description No notification of the caller's with this id */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        commentId: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReportCommentRequest'];
+      };
+    };
+    responses: {
+      /** @description Already reported */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentReportApiResponse'];
+        };
+      };
+      /** @description Reported */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentReportApiResponse'];
+        };
+      };
+      /** @description Invalid body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Not signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Your own comment */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description No visible comment with this id on a public case */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Too many reports */
+      429: {
         headers: {
           [name: string]: unknown;
         };
@@ -3666,6 +4094,89 @@ export interface operations {
       };
     };
   };
+  queue_1: {
+    parameters: {
+      query?: {
+        /** @description Zero-based page */
+        page?: number;
+        /** @description Page size (1–50) */
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentModerationQueueListResponse'];
+        };
+      };
+      /** @description Invalid page or size */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Moderator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  detail_1: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        commentId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentModerationDetailApiResponse'];
+        };
+      };
+      /** @description Moderator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+      /** @description Unknown comment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
   listNotifications: {
     parameters: {
       query?: {
@@ -3856,7 +4367,7 @@ export interface operations {
           'application/problem+json': components['schemas']['ProblemDetail'];
         };
       };
-      /** @description No approved case with this id, or no visible parent comment on it */
+      /** @description No approved case with this id, or no such parent comment on it */
       404: {
         headers: {
           [name: string]: unknown;

@@ -10,6 +10,16 @@ import {
   type Comment,
 } from '@/lib/case-comments';
 import { timeAgo } from '@/lib/case-display';
+import {
+  canReport,
+  canSubmitReport,
+  commentState,
+  MAX_REPORT_DETAILS,
+  placeholderText,
+  REPORT_REASONS,
+  type ReportReason,
+  useReportComment,
+} from '@/lib/comment-reports';
 import { cn } from '@/lib/utils';
 import { CommentHeader } from './comment-thread';
 import { UserAvatar } from './user-avatar';
@@ -131,6 +141,80 @@ function DeleteControl({ caseId, commentId }: { caseId: number; commentId: numbe
   );
 }
 
+/** An inline reason picker under the comment; Other needs details. */
+function ReportControl({ commentId }: { commentId: number }) {
+  const report = useReportComment(commentId);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<ReportReason>();
+  const [details, setDetails] = useState('');
+  if (report.isSuccess)
+    return (
+      <span role="status" className="text-sm text-muted-foreground">
+        {report.data}
+      </span>
+    );
+  if (!open)
+    return (
+      <button type="button" className={action} onClick={() => setOpen(true)}>
+        Report
+      </button>
+    );
+  const name = `report-reason-${commentId}`;
+  return (
+    <form
+      aria-label="Report comment"
+      className="w-full space-y-2 rounded-xl border border-border p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (reason && canSubmitReport(reason, details)) report.mutate({ reason, details });
+      }}
+    >
+      <fieldset className="space-y-1">
+        <legend className="text-sm font-medium">Why are you reporting this comment?</legend>
+        {REPORT_REASONS.map((r) => (
+          <label key={r.value} className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name={name}
+              value={r.value}
+              checked={reason === r.value}
+              onChange={() => setReason(r.value)}
+            />
+            {r.label}
+          </label>
+        ))}
+      </fieldset>
+      <label className="block text-sm text-muted-foreground">
+        {reason === 'OTHER' ? 'Details (required)' : 'Details (optional)'}
+        <textarea
+          rows={2}
+          maxLength={MAX_REPORT_DETAILS}
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          className="mt-1 w-full resize-none rounded-xl border border-border bg-black p-2 text-sm text-foreground"
+        />
+      </label>
+      {report.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {errorMessage(report.error)}
+        </p>
+      )}
+      <div className="flex justify-end gap-3">
+        <button type="button" className={action} onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={!canSubmitReport(reason, details) || report.isPending}
+          className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-black disabled:opacity-50"
+        >
+          {report.isPending ? 'Sending…' : 'Submit report'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function LiveComment({
   c,
   caseId,
@@ -146,7 +230,8 @@ function LiveComment({
   const [replying, setReplying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const size = depth === 0 ? 'lg' : depth === 1 ? 'md' : 'sm';
-  const live = !c.deleted && c.author;
+  const state = commentState(c);
+  const live = state === 'live';
 
   const replies = expanded && (
     <CommentList caseId={caseId} parentCommentId={c.id} depth={depth + 1} mySeed={mySeed} />
@@ -186,7 +271,7 @@ function LiveComment({
             </>
           ) : (
             <p className="pt-2 text-[15px] italic text-muted-foreground">
-              Comment has been deleted by author
+              {placeholderText(state as 'removed' | 'deleted')}
             </p>
           )}
           <div className="flex flex-wrap gap-4 empty:hidden">
@@ -208,6 +293,7 @@ function LiveComment({
             {live && mySeed && c.author!.avatarSeed === mySeed && (
               <DeleteControl caseId={caseId} commentId={c.id} />
             )}
+            {session && canReport(c, mySeed) && <ReportControl commentId={c.id} />}
           </div>
           {replying && live && (
             <div className="pt-2">

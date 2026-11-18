@@ -6,12 +6,9 @@ import { RequireAuth } from '@/components/app/require-auth';
 import { Panel } from '@/components/ct/panel';
 import { api, errorMessage, unwrap, type Schemas } from '@/lib/api/client';
 import { timeAgo } from '@/lib/case-display';
+import { notificationHref, notificationText } from '@/lib/comment-reports';
 import { type Notification, useMarkRead, useNotifications } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
-
-const STATUS: Record<string, string> = {
-  MISSING: 'missing again', FOUND_SAFE: 'found safe', FOUND_DECEASED: 'found deceased', CLOSED: 'closed',
-};
 
 /** Notifications hold ids only; the name comes from the public case, shared with the case page's cache. */
 function useCaseName(caseId: number) {
@@ -28,12 +25,10 @@ function Row({ n }: { n: Notification }) {
   const router = useRouter();
   const markRead = useMarkRead();
   const name = useCaseName(n.caseId!) ?? 'a case you follow';
-  const text = n.type === 'COMMENT_REPLY' ? `New reply in your conversation on ${name}`
-    : n.type === 'NEW_COMMENT' ? `New comment on your case: ${name}`
-    : `${name} was marked ${STATUS[n.caseStatus ?? ''] ?? 'updated'}`;
+  const text = notificationText(n, name);
   function open() {
     if (!n.read) markRead.mutate(n.id!);
-    router.push(`/cases/${n.caseId}`);
+    router.push(notificationHref(n));
   }
   return (
     <li>
