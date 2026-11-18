@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { WithRail } from '@/components/ct/app-shell';
 import { CaseContactCard } from '@/components/ct/case-contact-card';
@@ -101,7 +101,9 @@ function Discussion({ caseId, name }: { caseId: number; name: string }) {
 
 export default function PublicCasePage() {
   const { id } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<'profile' | 'discussion'>('profile');
+  // ?tab=discussion opens the thread, for links from a reporter's case or the comment moderation queue.
+  const linked = useSearchParams().get('tab') === 'discussion';
+  const [tab, setTab] = useState<'profile' | 'discussion'>(linked ? 'discussion' : 'profile');
   const commentCount = useTopLevelCommentCount(Number(id)).data;
   const query = useQuery({
     queryKey: ['public-case', id],
