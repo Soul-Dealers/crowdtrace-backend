@@ -1,7 +1,8 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+import { DetailList } from '@/components/app/detail-list';
 import { Field, FormMessage, NativeSelect, formValues } from '@/components/app/form';
 import { Pager } from '@/components/app/pager';
 import { RequireAuth } from '@/components/app/require-auth';
@@ -13,6 +14,51 @@ import { Button } from '@/components/ui/button';
 import { api, errorMessage, unwrap, type Schemas } from '@/lib/api/client';
 import { useSession } from '@/lib/auth';
 import { VERIFICATION_TYPES, formatDate, humanize } from '@/lib/enums';
+import { httpUrl } from '@/lib/links';
+
+type Request = Schemas['AdminVerificationRequestResponse'];
+
+function RequestDetail({ r, onClose }: { r: Request; onClose: () => void }) {
+  const link = httpUrl(r.evidenceReference);
+  return (
+    <section
+      aria-label={`Verification request from ${r.displayName}`}
+      className="space-y-4 bg-secondary/30 px-4 py-4"
+    >
+      <DetailList
+        items={[
+          ['User', `${r.displayName} (#${r.userId})`],
+          ['Type', humanize(r.verificationType)],
+          ['Status', <StatusBadge key="status" status={r.status} />],
+          [
+            'Evidence',
+            link ? (
+              <a
+                key="evidence"
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline"
+              >
+                {r.evidenceReference}
+              </a>
+            ) : (
+              r.evidenceReference
+            ),
+          ],
+          ['Requested', formatDate(r.createdAt)],
+          ['Reviewed', r.reviewedAt && formatDate(r.reviewedAt)],
+          ['Review notes', r.reviewNotes],
+          ['Revoked', r.revokedAt && formatDate(r.revokedAt)],
+          ['Revocation notes', r.revocationNotes],
+        ]}
+      />
+      <Button size="sm" variant="outline" onClick={onClose}>
+        Close
+      </Button>
+    </section>
+  );
+}
 
 type Status = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
 type Decision = 'approve' | 'reject' | 'revoke';
@@ -35,6 +81,7 @@ function Verifications() {
   const isSuperAdmin = useSession()?.role === 'SUPER_ADMIN';
   const [status, setStatus] = useState<Status>('PENDING');
   const [page, setPage] = useState(0);
+  const [openId, setOpenId] = useState<number>();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const query = useQuery({
@@ -116,42 +163,62 @@ function Verifications() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className={TABLE.row}>
-                  <td className="font-medium">{r.displayName}</td>
-                  <td className="text-text-secondary">{humanize(r.verificationType)}</td>
-                  <td className="max-w-56 truncate text-text-secondary" title={r.evidenceReference}>
-                    {r.evidenceReference}
-                  </td>
-                  <td>
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td className="text-text-secondary">{formatDate(r.createdAt)}</td>
-                  <td>
-                    <span className="flex justify-end gap-1.5">
-                      {r.status === 'PENDING' && (
-                        <>
-                          <Button size="sm" onClick={() => decide(r, 'approve')}>
-                            Approve
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => decide(r, 'reject')}>
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                      {/* Revoking is SUPER_ADMIN-only on the API. */}
-                      {r.status === 'APPROVED' && isSuperAdmin && (
+                <Fragment key={r.id}>
+                  <tr className={TABLE.row}>
+                    <td className="font-medium">{r.displayName}</td>
+                    <td className="text-text-secondary">{humanize(r.verificationType)}</td>
+                    <td
+                      className="max-w-56 truncate text-text-secondary"
+                      title={r.evidenceReference}
+                    >
+                      {r.evidenceReference}
+                    </td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td className="text-text-secondary">{formatDate(r.createdAt)}</td>
+                    <td>
+                      <span className="flex justify-end gap-1.5">
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="text-destructive"
-                          onClick={() => decide(r, 'revoke')}
+                          variant="ghost"
+                          aria-expanded={openId === r.id}
+                          onClick={() => setOpenId(openId === r.id ? undefined : r.id)}
                         >
-                          Revoke
+                          View
                         </Button>
-                      )}
-                    </span>
-                  </td>
-                </tr>
+                        {r.status === 'PENDING' && (
+                          <>
+                            <Button size="sm" onClick={() => decide(r, 'approve')}>
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => decide(r, 'reject')}>
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {/* Revoking is SUPER_ADMIN-only on the API. */}
+                        {r.status === 'APPROVED' && isSuperAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive"
+                            onClick={() => decide(r, 'revoke')}
+                          >
+                            Revoke
+                          </Button>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                  {openId === r.id && (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <RequestDetail r={r} onClose={() => setOpenId(undefined)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
