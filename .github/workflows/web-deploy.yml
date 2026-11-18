@@ -1,11 +1,12 @@
-name: Web deploy
+name: Web
 
-# Deploys apps/web to Vercel: main -> production, dev -> preview (the dev environment).
+# Checks apps/web on pull requests and pushes; deploys to Vercel after the checks pass:
+# main -> production, dev -> preview (the dev environment).
 # Runs only when the frontend or the workspace files it builds from change.
 on:
   push:
     branches: [main, dev]
-    paths:
+    paths: &web-paths
       - 'apps/web/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -13,24 +14,18 @@ on:
       - 'tsconfig.base.json'
       - 'eslint.config.mjs'
       - '.github/workflows/web-deploy.yml'
+  pull_request:
+    branches: [main, dev]
+    paths: *web-paths
   workflow_dispatch:
 
 concurrency:
-  group: web-deploy-${{ github.ref_name }}
+  group: web-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
 jobs:
-  deploy:
-    if: github.ref_name == 'main' || github.ref_name == 'dev'
+  check:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'dev' }}
-    env:
-      VERCEL_ENV: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
-      PROD_FLAG: ${{ github.ref_name == 'main' && '--prod' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,10 +38,37 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Lint and typecheck
-        run: |
-          pnpm lint
-          pnpm --filter web typecheck
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm --filter web typecheck
+
+      - name: Test
+        run: pnpm --filter web --if-present test
+
+      - name: Build
+        run: pnpm --filter web build
+
+  deploy:
+    needs: check
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'dev')
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'dev' }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_ENV: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
+      PROD_FLAG: ${{ github.ref_name == 'main' && '--prod' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
       - run: pnpm add --global vercel@latest
 
@@ -54,6 +76,7 @@ jobs:
       - name: Pull Vercel settings and env vars
         run: vercel pull --yes --environment=$VERCEL_ENV --git-branch=${{ github.ref_name }} --token=${{ secrets.VERCEL_TOKEN }}
 
+      # Rebuilt here with the environment's own variables (NEXT_PUBLIC_API_URL is baked in at build time).
       - name: Build
         run: vercel build $PROD_FLAG --token=${{ secrets.VERCEL_TOKEN }}
 
@@ -61,7 +84,7 @@ jobs:
         id: deploy
         run: echo "url=$(vercel deploy --prebuilt $PROD_FLAG --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"
 
-      # Optional stable URL for dev, e.g. crowdtrace-dev.vercel.app (set repo variable VERCEL_DEV_DOMAIN).
+      # Stable URL for dev, e.g. dev.ovrhr.akato.dev (set repo variable VERCEL_DEV_DOMAIN).
       - name: Alias dev deployment
         if: github.ref_name == 'dev' && vars.VERCEL_DEV_DOMAIN != ''
         run: vercel alias set ${{ steps.deploy.outputs.url }} ${{ vars.VERCEL_DEV_DOMAIN }} --token=${{ secrets.VERCEL_TOKEN }}

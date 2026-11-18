@@ -3,7 +3,7 @@
 # Passes when the tree being committed is exactly the verified tree and the message has a `Verified:` trailer,
 # or when the message has an `Unverified: <why>` trailer.
 # VERIFY_GATE=off|observe|enforce (default enforce); observe logs what it would block.
-# After two blocks of the same tree the third attempt passes, so Claude can't get stuck.
+# There is no automatic pass: a commit that can't be verified says so with `Unverified: <why>`.
 [ "${CLAUDECODE:-}" = 1 ] || exit 0
 mode=${VERIFY_GATE:-enforce}
 [ "$mode" = off ] && exit 0
@@ -25,10 +25,6 @@ else
 fi
 
 if [ "$mode" = observe ]; then log "would-block: $reason"; exit 0; fi
-counter="$state/gate-blocks-$committed"
-n=$(( $(cat "$counter" 2>/dev/null || echo 0) + 1 ))
-echo "$n" >"$counter"
-if [ "$n" -gt 2 ]; then log "pass after $((n - 1)) blocks ($committed)"; exit 0; fi
-log "block #$n: $reason"
+log "block: $reason"
 echo "Commit blocked by the verification gate. $reason" >&2
 exit 1
