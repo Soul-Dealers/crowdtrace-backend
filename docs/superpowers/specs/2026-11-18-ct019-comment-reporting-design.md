@@ -133,9 +133,9 @@ This follows the author-deletion pattern:
   rule stays as is, with `comment_id` null.
 - After commit, a listener (following the existing pattern, in the module that publishes the event and calling
   `InAppNotifications`) handles `CommentReportsRemovedEvent` and stores one in-app notification
-  per distinct reporter: "A comment you reported was removed", linking to the case. Use a stable dedup key per
-  report (`content-report:{reportId}:removed`) with the existing recipient uniqueness and retry job. The event
-  carries the resolved report ids for this. If the case is no longer public, the link leads to the case's usual
+  per distinct reporter: "A comment you reported was removed", linking to the case. Use a stable event id per
+  removal (`comment-removed:{commentId}`; a comment is removed at most once) with the existing
+  `(event_id, recipient_id)` uniqueness and retry job. If the case is no longer public, the link leads to the case's usual
   not-found page; nothing special is done for this.
 - The notification never includes moderator notes, report details or the comment text.
 
