@@ -335,6 +335,30 @@ class OpenApiContractTest {
     }
 
     @Test
+    void moderationSchemasMatchTheirRecords() throws Exception {
+        var schemas = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("components")
+                .path("schemas");
+        for (Class<?> type : new Class<?>[]{
+                com.souldealers.crowdtracebackend.modules.governance.CommentReportResponse.class,
+                com.souldealers.crowdtracebackend.modules.governance.CommentModerationQueueItem.class,
+                com.souldealers.crowdtracebackend.modules.governance.ContentReportView.class,
+                com.souldealers.crowdtracebackend.modules.governance.CommentModerationDetail.class,
+                com.souldealers.crowdtracebackend.modules.community.CommentModerationView.class}) {
+            java.util.Set<String> names = new java.util.HashSet<>();
+            schemas.path(type.getSimpleName()).path("properties").fieldNames().forEachRemaining(names::add);
+            org.assertj.core.api.Assertions.assertThat(names).as(type.getSimpleName()).isEqualTo(
+                    java.util.Arrays.stream(type.getRecordComponents())
+                            .map(java.lang.reflect.RecordComponent::getName)
+                            .collect(java.util.stream.Collectors.toSet()));
+        }
+        for (String envelope : new String[]{"CommentReportApiResponse", "CommentModerationQueueListResponse",
+                "CommentModerationDetailApiResponse"}) {
+            org.assertj.core.api.Assertions.assertThat(schemas.has(envelope)).as(envelope).isTrue();
+        }
+    }
+
+    @Test
     void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
         String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
