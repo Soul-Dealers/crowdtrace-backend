@@ -28,6 +28,10 @@ abstract class ModerationTestSupport extends CasePostgresTestSupport {
         return id;
     }
 
+    protected String emailOf(long userId) {
+        return jdbc.queryForObject("SELECT email FROM users WHERE id = ?", String.class, userId);
+    }
+
     protected String bearer(long userId) {
         return "Bearer " + jwt.generateToken(new SecurityUser(users.findById(userId).orElseThrow()));
     }

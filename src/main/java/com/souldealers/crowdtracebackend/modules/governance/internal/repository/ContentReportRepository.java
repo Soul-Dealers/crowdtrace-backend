@@ -4,7 +4,9 @@ import com.souldealers.crowdtracebackend.modules.governance.internal.model.Conte
 import com.souldealers.crowdtracebackend.modules.governance.ReportReason;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.souldealers.crowdtracebackend.modules.governance.internal.model.ReportResolution;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,6 +37,21 @@ public interface ContentReportRepository extends JpaRepository<ContentReport, Lo
     List<ReasonCount> countOpenByReason(@Param("commentIds") Collection<Long> commentIds);
 
     List<ContentReport> findByCommentIdOrderByCreatedAtAscIdAsc(long commentId);
+
+    @Query("SELECT r FROM ContentReport r WHERE r.commentId = :commentId"
+            + " AND r.status = com.souldealers.crowdtracebackend.modules.governance.internal.model.ReportStatus.OPEN"
+            + " ORDER BY r.id")
+    List<ContentReport> findOpenByCommentIdOrderById(@Param("commentId") long commentId);
+
+    /** The one change V17 allows: every open report on the comment becomes resolved, all fields at once. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE ContentReport r SET r.status = com.souldealers.crowdtracebackend.modules.governance.internal.model"
+            + ".ReportStatus.RESOLVED, r.resolution = :resolution, r.moderatorId = :moderatorId,"
+            + " r.resolutionNotes = :notes, r.resolvedAt = :at WHERE r.commentId = :commentId"
+            + " AND r.status = com.souldealers.crowdtracebackend.modules.governance.internal.model.ReportStatus.OPEN")
+    int resolveOpen(@Param("commentId") long commentId, @Param("resolution") ReportResolution resolution,
+                    @Param("moderatorId") long moderatorId, @Param("notes") String notes,
+                    @Param("at") LocalDateTime at);
 
     interface OpenReportGroup {
         Long getCommentId();

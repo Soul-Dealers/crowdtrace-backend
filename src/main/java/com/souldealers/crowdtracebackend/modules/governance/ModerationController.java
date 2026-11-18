@@ -10,7 +10,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -63,5 +67,51 @@ public class ModerationController {
                     content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
     public ApiResponse<CommentModerationDetail> detail(@PathVariable Long commentId) {
         return ApiResponse.success(moderationService.getDetail(commentId), "Reported comment retrieved successfully");
+    }
+
+    @PostMapping("/{commentId}/remove")
+    @RequiresModerator
+    @Operation(summary = "Remove a reported comment", description = "Hides the comment's text and author from the "
+            + "public thread (its replies stay), resolves every open report on it as REMOVED with these notes, and "
+            + "tells each reporter. Notes are trimmed, 1–2000 characters.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Removed",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ModerationDecisionApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid notes",
+                    content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Moderator role "
+                    + "required, or your own comment", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown comment",
+                    content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Already "
+                    + "removed, or no open reports", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(ref = PROBLEM)))})
+    public ApiResponse<ModerationDecisionResponse> remove(Authentication authentication, @PathVariable Long commentId,
+                                                          @Valid @RequestBody RemoveCommentRequest request) {
+        return ApiResponse.success(moderationService.remove(authentication.getName(), commentId, request),
+                "Comment removed");
+    }
+
+    @PostMapping("/{commentId}/keep")
+    @RequiresModerator
+    @Operation(summary = "Keep a reported comment", description = "Leaves the comment up and resolves every open "
+            + "report on it as DISMISSED. Notes are optional, trimmed, at most 2000 characters. Reporters are not told.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Kept",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/ModerationDecisionApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid notes",
+                    content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Moderator role "
+                    + "required, or your own comment", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown comment",
+                    content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "No open reports",
+                    content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
+    public ApiResponse<ModerationDecisionResponse> keep(Authentication authentication, @PathVariable Long commentId,
+                                                        @Valid @RequestBody KeepCommentRequest request) {
+        return ApiResponse.success(moderationService.keep(authentication.getName(), commentId, request),
+                "Comment kept");
     }
 }

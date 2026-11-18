@@ -2,6 +2,7 @@ package com.souldealers.crowdtracebackend.modules.governance.internal;
 
 import com.souldealers.crowdtracebackend.modules.governance.CommentModerationDetail;
 import com.souldealers.crowdtracebackend.modules.governance.CommentModerationQueueItem;
+import com.souldealers.crowdtracebackend.modules.governance.ModerationDecisionResponse;
 import io.swagger.v3.core.converter.AnnotatedType;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.models.media.ArraySchema;
@@ -24,7 +25,8 @@ class ModerationOpenApiSchemas implements OpenApiCustomizer {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void customise(io.swagger.v3.oas.models.OpenAPI openApi) {
         var schemas = openApi.getComponents().getSchemas();
-        for (Class<?> type : List.of(CommentModerationQueueItem.class, CommentModerationDetail.class)) {
+        for (Class<?> type : List.of(CommentModerationQueueItem.class, CommentModerationDetail.class,
+                ModerationDecisionResponse.class)) {
             // Hand-written schemas (PublicUserResponse, ...) win over derived ones.
             ModelConverters.getInstance().readAll(new AnnotatedType(type)).forEach(schemas::putIfAbsent);
         }
@@ -38,6 +40,7 @@ class ModerationOpenApiSchemas implements OpenApiCustomizer {
                 .required(List.of("content", "page", "size", "totalElements", "totalPages", "last")));
         schemas.put("CommentModerationQueueListResponse", envelope("Reported comment page",
                 "CommentModerationQueuePageResponse"));
+        schemas.put("ModerationDecisionApiResponse", envelope("Moderation decision", "ModerationDecisionResponse"));
         schemas.put("CommentModerationDetailApiResponse", envelope("Reported comment with its reports",
                 "CommentModerationDetail"));
     }
