@@ -55,6 +55,19 @@ public class CommentController {
         return ApiResponse.success(commentService.listPublic(caseId, parentCommentId, cursor, size), "Comments retrieved successfully");
     }
 
+    @GetMapping("/api/public/cases/{caseId}/comments/count")
+    @Operation(summary = "Count case comments", description = "Returns how many top-level comments an approved "
+            + "case's thread shows, author-deleted placeholders included and removed comments excluded.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(schema = @Schema(ref = "#/components/schemas/CommentCountApiResponse"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "No approved "
+                    + "case with this id", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(ref = PROBLEM)))})
+    public ApiResponse<CommentCountResponse> count(@PathVariable Long caseId) {
+        return ApiResponse.success(commentService.countPublic(caseId), "Comment count retrieved successfully");
+    }
+
     @RequiresRegisteredUser
     @PostMapping(path = "/api/user/cases/{caseId}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)

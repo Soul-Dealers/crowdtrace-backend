@@ -920,6 +920,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/public/cases/{caseId}/comments/count': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Count case comments
+     * @description Returns how many top-level comments an approved case's thread shows, author-deleted placeholders included and removed comments excluded.
+     */
+    get: operations['count'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/user/cases/{caseId}/comments/{commentId}': {
     parameters: {
       query?: never;
@@ -1534,6 +1554,17 @@ export interface components {
       success?: boolean;
       message?: string;
       data?: components['schemas']['CommentResponse'];
+      errors?: Record<string, never>;
+    };
+    CommentCountResponse: {
+      /** Format: int64 */
+      topLevel: number;
+    };
+    /** @description Case comment count */
+    CommentCountApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentCountResponse'];
       errors?: Record<string, never>;
     };
     FollowedCaseResponse: {
@@ -3859,6 +3890,37 @@ export interface operations {
         };
       };
       /** @description No approved case with this id, or no visible parent comment on it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  count: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentCountApiResponse'];
+        };
+      };
+      /** @description No approved case with this id */
       404: {
         headers: {
           [name: string]: unknown;

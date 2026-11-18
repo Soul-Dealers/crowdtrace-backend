@@ -14,7 +14,7 @@ import { Pill, type PillTone } from '@/components/ct/pill';
 import { SightingsBars } from '@/components/ct/sightings-bars';
 import { api, errorMessage, unwrap, type Schemas } from '@/lib/api/client';
 import { useSession } from '@/lib/auth';
-import { useMyAvatarSeed } from '@/lib/case-comments';
+import { useMyAvatarSeed, useTopLevelCommentCount } from '@/lib/case-comments';
 import { useFollowState, useToggleFollow } from '@/lib/case-follow';
 import { caseKindLabel, daysSince, formatShortDate, humanRegion } from '@/lib/case-display';
 import { cn } from '@/lib/utils';
@@ -102,6 +102,7 @@ function Discussion({ caseId, name }: { caseId: number; name: string }) {
 export default function PublicCasePage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<'profile' | 'discussion'>('profile');
+  const commentCount = useTopLevelCommentCount(Number(id)).data;
   const query = useQuery({
     queryKey: ['public-case', id],
     queryFn: async () =>
@@ -169,6 +170,12 @@ export default function PublicCasePage() {
             className={cn('-mb-px border-b-2 px-1 pb-2 text-[15px]',
               tab === key ? 'border-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground')}>
             {label}
+            {key === 'discussion' && commentCount !== undefined && (
+              <span data-testid="comment-count" aria-label={`${commentCount} comments`}
+                className="ml-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full bg-secondary px-1.5 text-xs leading-none text-text-secondary">
+                {commentCount}
+              </span>
+            )}
           </button>
         ))}
       </div>

@@ -27,6 +27,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findRootsAfter(@Param("caseId") long caseId, @Param("createdAt") LocalDateTime createdAt,
                                  @Param("id") long id, Limit limit);
 
+    /** The same rows the root pages return, so the count matches the thread. */
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.caseId = :caseId AND c.parentCommentId IS NULL"
+            + " AND c.moderationStatus = " + VISIBLE)
+    long countRoots(@Param("caseId") long caseId);
+
     @Query("SELECT c FROM Comment c WHERE c.parentCommentId = :parentId AND c.moderationStatus = " + VISIBLE
             + " ORDER BY c.createdAt DESC, c.id DESC")
     List<Comment> findFirstReplies(@Param("parentId") long parentId, Limit limit);
