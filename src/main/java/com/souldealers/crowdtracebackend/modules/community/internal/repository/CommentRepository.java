@@ -48,6 +48,31 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("SELECT c FROM Comment c WHERE c.id = :id AND c.caseId = :caseId AND c.moderationStatus = " + VISIBLE)
     Optional<Comment> findVisibleForUpdate(@Param("id") long id, @Param("caseId") long caseId);
 
+    @Query("SELECT c.caseId FROM Comment c WHERE c.id = :id")
+    Optional<Long> findCaseIdById(@Param("id") long id);
+
+    /** Locks a comment that can still be reported: visible and not deleted by its author. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Comment c WHERE c.id = :id AND c.moderationStatus = " + VISIBLE + " AND c.deletedAt IS NULL")
+    Optional<Comment> findReportableForUpdate(@Param("id") long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Comment c WHERE c.id = :id")
+    Optional<Comment> findForUpdate(@Param("id") long id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Comment c SET c.reportCount = c.reportCount + 1 WHERE c.id = :id")
+    void incrementReportCount(@Param("id") long id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Comment c SET c.moderationStatus = com.souldealers.crowdtracebackend.modules.community.internal"
+            + ".model.ModerationStatus.REMOVED, c.removedAt = :at, c.reportCount = 0 WHERE c.id = :id")
+    void markRemoved(@Param("id") long id, @Param("at") LocalDateTime at);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Comment c SET c.reportCount = 0 WHERE c.id = :id")
+    void zeroReportCount(@Param("id") long id);
+
     /** Author deletion: erases the text and keeps the row so replies stay attached. A second call changes nothing. */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE Comment c SET c.body = '" + Comment.DELETED_BODY + "', c.deletedAt = :now"
