@@ -812,7 +812,7 @@ export interface paths {
     };
     /**
      * Get a download link for case evidence
-     * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
+     * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments unless inline=true, which signs the link for in-app preview. Each link issued is recorded in the audit log. Responses are not cacheable.
      */
     get: operations['fileUrl'];
     put?: never;
@@ -3609,7 +3609,9 @@ export interface operations {
   };
   fileUrl: {
     parameters: {
-      query?: never;
+      query?: {
+        inline?: boolean;
+      };
       header?: never;
       path: {
         id: number;

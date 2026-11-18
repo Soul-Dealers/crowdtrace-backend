@@ -65,7 +65,7 @@ public class S3FileStorage implements FileStorage, SignedFileAccess {
     }
 
     @Override
-    public URI signedDownloadUrl(StoredObject object, Duration ttl) {
+    public URI signedDownloadUrl(StoredObject object, Duration ttl, boolean inline) {
         if (ttl == null || ttl.isNegative() || ttl.isZero() || ttl.compareTo(maxDownloadTtl) > 0) {
             throw new IllegalArgumentException("Download URL lifetime must be positive and at most " + maxDownloadTtl);
         }
@@ -74,7 +74,7 @@ public class S3FileStorage implements FileStorage, SignedFileAccess {
                 .bucket(bucket)
                 .key(object.key().value())
                 .responseContentType(object.contentType())
-                .responseContentDisposition(isPrivate ? "attachment" : "inline")
+                .responseContentDisposition(isPrivate && !inline ? "attachment" : "inline")
                 // Private files must not linger in caches; public photos may be cached only as long as the URL lives.
                 .responseCacheControl(isPrivate ? "no-store" : "private, max-age=" + ttl.toSeconds())
                 .build();

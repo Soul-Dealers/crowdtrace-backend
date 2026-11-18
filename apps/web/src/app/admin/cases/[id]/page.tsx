@@ -1,11 +1,12 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Download, FileText, Lock } from 'lucide-react';
+import { ArrowLeft, Download, Eye, FileText, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { DetailList } from '@/components/app/detail-list';
+import { EvidencePreview } from '@/components/app/evidence-preview';
 import { FormMessage } from '@/components/app/form';
 import { LifecycleActions } from '@/components/app/lifecycle-actions';
 import { RequireAuth } from '@/components/app/require-auth';
@@ -51,6 +52,7 @@ function AdminCaseView({ id }: { id: number }) {
   const qc = useQueryClient();
   const queryKey = ['admin-case', id];
   const [error, setError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<Schemas['CaseFileMetadataResponse']>();
   const query = useQuery({
     queryKey,
     queryFn: async () =>
@@ -83,8 +85,11 @@ function AdminCaseView({ id }: { id: number }) {
     qc.invalidateQueries({ queryKey });
   }
 
-  /** Opens the tab first so the popup isn't blocked after the await; the signed link lasts one minute. */
-  async function openFile(fileId: number) {
+  /**
+   * Opens the tab first so the popup isn't blocked after the await; the signed link lasts one minute.
+   * Resolves to the error shown, if any, so the preview can repeat it above its backdrop.
+   */
+  async function openFile(fileId: number): Promise<string | null> {
     setError(null);
     const tab = window.open('', '_blank');
     if (tab) tab.opener = null;
@@ -96,9 +101,11 @@ function AdminCaseView({ id }: { id: number }) {
       );
       if (tab) tab.location.href = url;
       else window.location.assign(url);
+      return null;
     } catch (err) {
       tab?.close();
       setError((err as Error).message);
+      return (err as Error).message;
     }
   }
 
@@ -233,15 +240,28 @@ function AdminCaseView({ id }: { id: number }) {
                     </div>
                   </div>
                   {e.accessAvailable ? (
-                    <Button size="sm" variant="outline" onClick={() => openFile(e.file!.id!)}>
-                      <Download aria-hidden /> Open
-                    </Button>
+                    <span className="flex gap-1.5">
+                      <Button size="sm" onClick={() => setPreviewing(e.file)}>
+                        <Eye aria-hidden /> Preview
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openFile(e.file!.id!)}>
+                        <Download aria-hidden /> Download
+                      </Button>
+                    </span>
                   ) : (
                     <span className="text-xs text-text-subtle">Storage unavailable</span>
                   )}
                 </div>
               ))}
             </Panel>
+          )}
+          {previewing && (
+            <EvidencePreview
+              caseId={id}
+              file={previewing}
+              onDownload={() => openFile(previewing.id!)}
+              onClose={() => setPreviewing(undefined)}
+            />
           )}
 
           {!!d.duplicateMatches?.length && (
