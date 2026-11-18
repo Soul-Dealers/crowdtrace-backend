@@ -320,6 +320,21 @@ class OpenApiContractTest {
     }
 
     @Test
+    void commentSchemaHasExactlyTheCommentResponseFields() throws Exception {
+        String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var schema = new com.fasterxml.jackson.databind.ObjectMapper().readTree(document)
+                .path("components").path("schemas").path("CommentResponse");
+        java.util.Set<String> names = new java.util.HashSet<>();
+        schema.path("properties").fieldNames().forEachRemaining(names::add);
+        java.util.Set<String> recordFields = java.util.Arrays.stream(
+                com.souldealers.crowdtracebackend.modules.community.CommentResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).collect(java.util.stream.Collectors.toSet());
+        org.assertj.core.api.Assertions.assertThat(names).isEqualTo(recordFields);
+        org.assertj.core.api.Assertions.assertThat(schema.path("required").toString()).contains("\"removed\"");
+    }
+
+    @Test
     void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
         String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

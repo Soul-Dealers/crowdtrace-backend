@@ -305,13 +305,17 @@ public class OpenApiConfig {
                 .addProperties("parentCommentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
                         .format("int64").description("Null for a top-level comment"))
                 .addProperties("author", nullableRef("#/components/schemas/PublicUserResponse")
-                        .description("Null when the author deleted the comment"))
-                .addProperties("body", nullableString().description("Null when the author deleted the comment"))
+                        .description("Null when the comment was removed or its author deleted it"))
+                .addProperties("body", nullableString()
+                        .description("Null when the comment was removed or its author deleted it"))
                 .addProperties("createdAt", new StringSchema().format("date-time"))
                 .addProperties("replyCount", new IntegerSchema().format("int64")
-                        .description("Visible direct replies, not all descendants"))
+                        .description("Direct replies, not all descendants"))
                 .addProperties("deleted", new BooleanSchema().description("The author deleted this comment"))
-                .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted"));
+                .addProperties("removed", new BooleanSchema()
+                        .description("A moderator removed this comment; takes precedence over deleted"))
+                .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted",
+                        "removed"));
     }
 
     private Schema inAppNotificationSchema() {
