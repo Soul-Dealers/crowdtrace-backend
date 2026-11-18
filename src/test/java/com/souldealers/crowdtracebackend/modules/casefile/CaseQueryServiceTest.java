@@ -300,4 +300,32 @@ class CaseQueryServiceTest extends CasePostgresTestSupport {
                 .extracting(AdminCaseSummaryResponse::id).containsExactly(c.getId());
     }
 
+    @Test
+    @WithMockUser(authorities = "MODERATOR")
+    void moderationCaseRefsIncludeTakenDownCases() {
+        long r = user("refs@example.com");
+        CaseRecord live = cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.APPROVED)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(9)).build());
+        CaseRecord down = cases.saveAndFlush(aCase(r).reviewStatus(ReviewStatus.TAKEN_DOWN)
+                .caseStatus(CaseStatus.MISSING).approvedAt(at(9)).takedownReason("Hoax").takenDownBy(r)
+                .takenDownAt(at(10)).build());
+        var refs = service.getModerationCaseRefs(List.of(live.getId(), down.getId()));
+        assertThat(refs.get(live.getId())).isEqualTo(new ModerationCaseRef(live.getId(), "Kofi Mensah", true));
+        assertThat(refs.get(down.getId())).isEqualTo(new ModerationCaseRef(down.getId(), "Kofi Mensah", false));
+    }
+
+    @Test
+    @WithMockUser(authorities = "MODERATOR")
+    void unknownIdsAreOmitted() {
+        assertThat(service.getModerationCaseRefs(List.of(999_999L))).isEmpty();
+        assertThat(service.getModerationCaseRefs(List.of())).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(authorities = "REGISTERED_USER")
+    void moderationCaseRefsRequireModerator() {
+        assertThatThrownBy(() -> service.getModerationCaseRefs(List.of(1L)))
+                .isInstanceOf(AuthorizationDeniedException.class);
+    }
+
 }

@@ -11,6 +11,7 @@ import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSearchQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.PublicCaseSummaryResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReporterCaseSummaryResponse;
+import com.souldealers.crowdtracebackend.modules.casefile.ModerationCaseRef;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
 import com.souldealers.crowdtracebackend.modules.casefile.internal.repository.CaseConsentRepository;
@@ -82,6 +83,16 @@ public class CaseQueryServiceImpl implements CaseQueryService {
         }
         return toPublicSummaries(caseRepository.findByIdInAndReviewStatus(caseIds, ReviewStatus.APPROVED)).stream()
                 .collect(Collectors.toMap(PublicCaseSummaryResponse::id, summary -> summary));
+    }
+
+    @Override
+    @RequiresModerator
+    public Map<Long, ModerationCaseRef> getModerationCaseRefs(Collection<Long> caseIds) {
+        if (caseIds.isEmpty()) {
+            return Map.of();
+        }
+        return caseRepository.findAllById(caseIds).stream().collect(Collectors.toMap(CaseRecord::getId,
+                c -> new ModerationCaseRef(c.getId(), c.getFullName(), c.getReviewStatus() == ReviewStatus.APPROVED)));
     }
 
     private List<PublicCaseSummaryResponse> toPublicSummaries(List<CaseRecord> approved) {
