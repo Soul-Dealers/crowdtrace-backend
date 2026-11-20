@@ -62,18 +62,18 @@ public class CaseFileAccessServiceImpl implements CaseFileAccessService {
                 .filter(found -> found.getPurpose() == CaseFilePurpose.PHOTO
                         && found.getVisibility() == FileVisibility.PUBLIC)
                 .orElseThrow(() -> new NotFoundException(FILE_NOT_FOUND));
-        return sign(file, PUBLIC_TTL);
+        return sign(file, PUBLIC_TTL, false);
     }
 
     @Override
     @Transactional
     @RequiresModerator
     @AuditedOperation(AuditAction.CASE_FILE_PRIVATE_ACCESS_GRANTED)
-    public SignedFileUrl reviewerFileUrl(String actorEmail, Long caseId, Long fileId) {
+    public SignedFileUrl reviewerFileUrl(String actorEmail, Long caseId, Long fileId, boolean inline) {
         ActorView actor = actorLookup.byEmail(actorEmail);
         CaseFile file = files.findByIdAndCaseIdAndDeletedAtIsNull(fileId, caseId)
                 .orElseThrow(() -> new NotFoundException(FILE_NOT_FOUND));
-        SignedFileUrl url = sign(file, REVIEWER_TTL);
+        SignedFileUrl url = sign(file, REVIEWER_TTL, inline);
         auditRecorder.record(auditActor(actor), AuditAction.CASE_FILE_PRIVATE_ACCESS_GRANTED, file.getId(),
                 AuditMetadata.of(AuditAction.CASE_FILE_PRIVATE_ACCESS_GRANTED).put("caseId", caseId).build());
         return url;
@@ -84,13 +84,13 @@ public class CaseFileAccessServiceImpl implements CaseFileAccessService {
         return signer != null;
     }
 
-    private SignedFileUrl sign(CaseFile file, Duration ttl) {
+    private SignedFileUrl sign(CaseFile file, Duration ttl, boolean inline) {
         if (signer == null) {
             throw new FileAccessUnavailableException("File downloads are not available");
         }
         StoredObject object = new StoredObject(StorageKey.parse(file.getStorageKey(), file.getPurpose()),
                 file.getVisibility(), file.getContentType(), file.getSizeBytes(), file.getChecksumSha256());
-        return new SignedFileUrl(signer.signedDownloadUrl(object, ttl), clock.instant().plus(ttl));
+        return new SignedFileUrl(signer.signedDownloadUrl(object, ttl, inline), clock.instant().plus(ttl));
     }
 
     private static AuditActor auditActor(ActorView actor) {

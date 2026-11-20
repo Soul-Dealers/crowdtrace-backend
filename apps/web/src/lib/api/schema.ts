@@ -812,7 +812,7 @@ export interface paths {
     };
     /**
      * Get a download link for case evidence
-     * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments. Each link issued is recorded in the audit log. Responses are not cacheable.
+     * @description Returns a signed URL for any live file attached to the case, valid for one minute. Private reports download as attachments unless inline=true, which signs the link for in-app preview. Each link issued is recorded in the audit log. Responses are not cacheable.
      */
     get: operations['fileUrl'];
     put?: never;
@@ -912,6 +912,26 @@ export interface paths {
      * @description Returns an approved case's top-level comments, or one comment's direct replies when parentCommentId is set, newest first, under each author's display name and badge only. Removed comments are never returned. A comment its author deleted keeps its place with deleted=true and no author or body, so its replies stay readable. Use nextCursor to load older ones.
      */
     get: operations['list_1'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/public/cases/{caseId}/comments/count': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Count case comments
+     * @description Returns how many top-level comments an approved case's thread shows, author-deleted placeholders included and removed comments excluded.
+     */
+    get: operations['count'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1534,6 +1554,17 @@ export interface components {
       success?: boolean;
       message?: string;
       data?: components['schemas']['CommentResponse'];
+      errors?: Record<string, never>;
+    };
+    CommentCountResponse: {
+      /** Format: int64 */
+      topLevel: number;
+    };
+    /** @description Case comment count */
+    CommentCountApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['CommentCountResponse'];
       errors?: Record<string, never>;
     };
     FollowedCaseResponse: {
@@ -3609,7 +3640,9 @@ export interface operations {
   };
   fileUrl: {
     parameters: {
-      query?: never;
+      query?: {
+        inline?: boolean;
+      };
       header?: never;
       path: {
         id: number;
@@ -3857,6 +3890,37 @@ export interface operations {
         };
       };
       /** @description No approved case with this id, or no visible parent comment on it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['ProblemDetail'];
+        };
+      };
+    };
+  };
+  count: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['CommentCountApiResponse'];
+        };
+      };
+      /** @description No approved case with this id */
       404: {
         headers: {
           [name: string]: unknown;

@@ -96,11 +96,12 @@ public class ReviewController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown case, or the file is not attached to it", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "File storage cannot issue download links", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
     @Operation(summary = "Get a download link for case evidence", description = "Returns a signed URL for any live "
-            + "file attached to the case, valid for one minute. Private reports download as attachments. Each "
+            + "file attached to the case, valid for one minute. Private reports download as attachments unless "
+            + "inline=true, which signs the link for in-app preview. Each "
             + "link issued is recorded in the audit log. Responses are not cacheable.")
     public ResponseEntity<ApiResponse<SignedFileUrl>> fileUrl(Authentication authentication, @PathVariable Long id,
-            @PathVariable Long fileId) {
-        SignedFileUrl url = fileAccess.reviewerFileUrl(authentication.getName(), id, fileId);
+            @PathVariable Long fileId, @RequestParam(defaultValue = "false") boolean inline) {
+        SignedFileUrl url = fileAccess.reviewerFileUrl(authentication.getName(), id, fileId, inline);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(ApiResponse.success(url, "Download link issued"));
     }

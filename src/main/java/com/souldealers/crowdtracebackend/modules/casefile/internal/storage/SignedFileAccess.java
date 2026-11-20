@@ -11,7 +11,9 @@ import java.time.Duration;
 public interface SignedFileAccess {
     /**
      * @param ttl positive and no longer than the provider's configured maximum
+     * @param inline serve a private file for display in the browser instead of as a download
      * @return a GET URL serving the object with its stored content type; private files download as attachments
+     *         unless {@code inline}
      */
-    URI signedDownloadUrl(StoredObject object, Duration ttl);
+    URI signedDownloadUrl(StoredObject object, Duration ttl, boolean inline);
 }
