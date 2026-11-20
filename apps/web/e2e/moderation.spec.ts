@@ -40,6 +40,9 @@ test('a reported comment removed by a moderator shows as a placeholder and tells
   await moderator.goto('/admin/moderation/comments');
   const row = moderator.getByRole('listitem').filter({ hasText: text });
   await row.getByRole('button', { name: 'Review' }).click();
+  const context = row.getByRole('link', { name: 'See it in the discussion' });
+  await expect(context).toHaveAttribute('href', `${CASE}?tab=discussion`);
+  await expect(context).toHaveAttribute('target', '_blank');
   await row.getByLabel('Notes').fill('Insults another user');
   await row.getByRole('button', { name: 'Remove comment' }).click();
   await expect(moderator.getByText(text)).toHaveCount(0);

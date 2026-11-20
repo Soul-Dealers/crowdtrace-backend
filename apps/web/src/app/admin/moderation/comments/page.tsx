@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { FormMessage } from '@/components/app/form';
@@ -49,12 +50,13 @@ function useDecision(commentId: number, onConflict: (message: string) => void) {
 }
 
 function Detail({
-  commentId,
+  item,
   onConflict,
 }: {
-  commentId: number;
+  item: Item;
   onConflict: (message: string) => void;
 }) {
+  const commentId = item.commentId!;
   const mySeed = useMyAvatarSeed();
   const decide = useDecision(commentId, onConflict);
   const [notes, setNotes] = useState('');
@@ -75,6 +77,17 @@ function Detail({
 
   return (
     <div className="space-y-4 border-t border-border pt-4">
+      {/* A new tab keeps the moderator's place in the queue; a case that isn't public has no thread to show. */}
+      {item.casePublic && (
+        <a
+          href={`/cases/${item.caseId}?tab=discussion`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
+        >
+          See it in the discussion <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+      )}
       <p className="whitespace-pre-line break-words text-sm">
         {comment?.deleted ? (
           <i className="text-muted-foreground">Deleted by author</i>
@@ -181,7 +194,7 @@ function Row({ item, onConflict }: { item: Item; onConflict: (message: string) =
           {open ? 'Hide' : 'Review'}
         </button>
       </div>
-      {open && <Detail commentId={item.commentId!} onConflict={onConflict} />}
+      {open && <Detail item={item} onConflict={onConflict} />}
     </li>
   );
 }

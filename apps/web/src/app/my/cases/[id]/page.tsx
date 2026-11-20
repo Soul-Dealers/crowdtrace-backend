@@ -1,12 +1,15 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { MessagesSquare } from 'lucide-react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { DetailList } from '@/components/app/detail-list';
 import { FormMessage } from '@/components/app/form';
 import { LifecycleActions } from '@/components/app/lifecycle-actions';
 import { RequireAuth } from '@/components/app/require-auth';
 import { StatusBadge } from '@/components/app/status-badge';
+import { buttonVariants } from '@/components/ui/button';
 import { api, unwrap, type Schemas } from '@/lib/api/client';
 import { formatDate, humanize } from '@/lib/enums';
 
@@ -30,6 +33,15 @@ function ReporterCase({ id }: { id: number }) {
         <h1 className="text-2xl font-semibold sm:text-3xl">{c.fullName}</h1>
         <StatusBadge status={c.reviewStatus} />
         <StatusBadge status={c.caseStatus} />
+        {/* Only approved cases have a public page. */}
+        {c.reviewStatus === 'APPROVED' && (
+          <Link
+            href={`/cases/${c.id}?tab=discussion`}
+            className={buttonVariants({ size: 'sm', variant: 'outline', className: 'ml-auto' })}
+          >
+            <MessagesSquare aria-hidden /> Go to case page
+          </Link>
+        )}
       </div>
       <DetailList
         items={[
