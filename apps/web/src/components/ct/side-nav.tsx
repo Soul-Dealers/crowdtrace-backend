@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   BadgeCheck, CheckCheck, ClipboardList, FileText, FolderOpen, House, Megaphone, MessageCircle, SearchCheck,
-  ShieldCheck, UsersRound,
+  ShieldCheck, UsersRound, Flag,
 } from 'lucide-react';
 import { isAdmin, useSession } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -78,6 +78,8 @@ export function SideNav({ browseCount, onNavigate }: { browseCount?: number; onN
         { label: 'Review Queue', icon: ClipboardList, href: '/admin/review', active: pathname.startsWith('/admin/review') },
         { label: 'Verifications', icon: ShieldCheck, href: '/admin/verifications',
           active: pathname.startsWith('/admin/verifications') },
+        { label: 'Reported Comments', icon: Flag, href: '/admin/moderation/comments',
+          active: pathname.startsWith('/admin/moderation') },
       ],
     }] : []),
   ];

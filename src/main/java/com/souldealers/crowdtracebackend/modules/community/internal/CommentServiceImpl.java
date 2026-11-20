@@ -78,7 +78,7 @@ class CommentServiceImpl implements CommentService {
         }
         SeekCursor cursor = token == null ? null : SeekCursor.decode(token);
         requirePublicCase(caseId);
-        if (parentId != null && comments.findVisible(parentId, caseId).isEmpty()) {
+        if (parentId != null && !comments.existsByIdAndCaseId(parentId, caseId)) {
             throw new NotFoundException(COMMENT_NOT_FOUND);
         }
         Limit limit = Limit.of(size + 1);
@@ -92,11 +92,11 @@ class CommentServiceImpl implements CommentService {
         if (page.isEmpty()) {
             return new CursorResponse<>(List.of(), size, false, null);
         }
-        Map<Long, Long> replyCounts = comments.countVisibleReplies(page.stream().map(Comment::getId).toList())
+        Map<Long, Long> replyCounts = comments.countReplies(page.stream().map(Comment::getId).toList())
                 .stream().collect(Collectors.toMap(ReplyCount::getParentId, ReplyCount::getReplies));
-        // A deleted comment's author is never looked up, let alone returned.
+        // A removed or deleted comment's author is never looked up, let alone returned.
         Map<Long, PublicUserResponse> authors = userService.getPublicProfiles(
-                page.stream().filter(c -> !c.isDeleted()).map(Comment::getAuthorId).distinct().toList());
+                page.stream().filter(c -> !c.isRemoved() && !c.isDeleted()).map(Comment::getAuthorId).distinct().toList());
         List<CommentResponse> content = page.stream()
                 .map(c -> toResponse(c, authors.get(c.getAuthorId()), replyCounts.getOrDefault(c.getId(), 0L)))
                 .toList();
@@ -126,11 +126,15 @@ class CommentServiceImpl implements CommentService {
     }
 
     private static CommentResponse toResponse(Comment comment, PublicUserResponse author, long replyCount) {
+        if (comment.isRemoved()) {
+            return new CommentResponse(comment.getId(), comment.getParentCommentId(), null, null,
+                    comment.getCreatedAt(), replyCount, false, true);
+        }
         if (comment.isDeleted()) {
             return new CommentResponse(comment.getId(), comment.getParentCommentId(), null, null,
-                    comment.getCreatedAt(), replyCount, true);
+                    comment.getCreatedAt(), replyCount, true, false);
         }
         return new CommentResponse(comment.getId(), comment.getParentCommentId(), author, comment.getBody(),
-                comment.getCreatedAt(), replyCount, false);
+                comment.getCreatedAt(), replyCount, false, false);
     }
 }

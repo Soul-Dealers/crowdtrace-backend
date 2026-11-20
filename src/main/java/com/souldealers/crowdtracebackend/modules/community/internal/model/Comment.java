@@ -66,6 +66,10 @@ public class Comment {
         return comment;
     }
 
+    public boolean isRemoved() {
+        return moderationStatus == ModerationStatus.REMOVED;
+    }
+
     public boolean isDeleted() {
         return deletedAt != null;
     }

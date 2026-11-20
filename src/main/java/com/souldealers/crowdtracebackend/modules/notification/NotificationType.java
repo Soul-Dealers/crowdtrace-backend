@@ -5,5 +5,7 @@ public enum NotificationType {
     NEW_COMMENT,
     /** A reply in a thread the recipient wrote in. */
     COMMENT_REPLY,
-    CASE_STATUS_CHANGED
+    CASE_STATUS_CHANGED,
+    /** A moderator removed a comment the recipient reported. Names the case only. */
+    COMMENT_REMOVED
 }

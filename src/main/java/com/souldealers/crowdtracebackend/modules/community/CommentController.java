@@ -35,8 +35,8 @@ public class CommentController {
     @GetMapping("/api/public/cases/{caseId}/comments")
     @Operation(summary = "List case comments", description = "Returns an approved case's top-level comments, or one "
             + "comment's direct replies when parentCommentId is set, newest first, under each author's display name and "
-            + "badge only. Removed comments are never returned. A comment its author deleted keeps its place with "
-            + "deleted=true and no author or body, so its replies stay readable. Use nextCursor to load older ones.")
+            + "badge only. A comment a moderator removed keeps its place with removed=true, and one its author "
+            + "deleted keeps its place with deleted=true; neither has an author or body, and their replies stay readable. Use nextCursor to load older ones.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK",
                     content = @Content(schema = @Schema(ref = "#/components/schemas/CommentListResponse"))),
@@ -44,7 +44,7 @@ public class CommentController {
                     + "cursor or parentCommentId", content = @Content(mediaType = "application/problem+json",
                     schema = @Schema(ref = PROBLEM))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "No approved "
-                    + "case with this id, or no visible parent comment on it", content = @Content(mediaType =
+                    + "case with this id, or no such parent comment on it", content = @Content(mediaType =
                     "application/problem+json", schema = @Schema(ref = PROBLEM)))})
     public ApiResponse<CursorResponse<CommentResponse>> list(
             @PathVariable Long caseId,

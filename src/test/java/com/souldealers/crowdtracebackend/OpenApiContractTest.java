@@ -320,6 +320,58 @@ class OpenApiContractTest {
     }
 
     @Test
+    void commentSchemaHasExactlyTheCommentResponseFields() throws Exception {
+        String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var schema = new com.fasterxml.jackson.databind.ObjectMapper().readTree(document)
+                .path("components").path("schemas").path("CommentResponse");
+        java.util.Set<String> names = new java.util.HashSet<>();
+        schema.path("properties").fieldNames().forEachRemaining(names::add);
+        java.util.Set<String> recordFields = java.util.Arrays.stream(
+                com.souldealers.crowdtracebackend.modules.community.CommentResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).collect(java.util.stream.Collectors.toSet());
+        org.assertj.core.api.Assertions.assertThat(names).isEqualTo(recordFields);
+        org.assertj.core.api.Assertions.assertThat(schema.path("required").toString()).contains("\"removed\"");
+    }
+
+    @Test
+    void moderationSchemasMatchTheirRecords() throws Exception {
+        var schemas = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("components")
+                .path("schemas");
+        for (Class<?> type : new Class<?>[]{
+                com.souldealers.crowdtracebackend.modules.governance.CommentReportResponse.class,
+                com.souldealers.crowdtracebackend.modules.governance.CommentModerationQueueItem.class,
+                com.souldealers.crowdtracebackend.modules.governance.ContentReportView.class,
+                com.souldealers.crowdtracebackend.modules.governance.CommentModerationDetail.class,
+                com.souldealers.crowdtracebackend.modules.community.CommentModerationView.class}) {
+            java.util.Set<String> names = new java.util.HashSet<>();
+            schemas.path(type.getSimpleName()).path("properties").fieldNames().forEachRemaining(names::add);
+            org.assertj.core.api.Assertions.assertThat(names).as(type.getSimpleName()).isEqualTo(
+                    java.util.Arrays.stream(type.getRecordComponents())
+                            .map(java.lang.reflect.RecordComponent::getName)
+                            .collect(java.util.stream.Collectors.toSet()));
+        }
+        for (String envelope : new String[]{"CommentReportApiResponse", "CommentModerationQueueListResponse",
+                "CommentModerationDetailApiResponse"}) {
+            org.assertj.core.api.Assertions.assertThat(schemas.has(envelope)).as(envelope).isTrue();
+        }
+    }
+
+    @Test
+    void notificationTypeSchemaListsEveryNotificationType() throws Exception {
+        var schemas = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("components")
+                .path("schemas");
+        java.util.List<String> documented = new java.util.ArrayList<>();
+        schemas.path("InAppNotificationResponse").path("properties").path("type").path("enum")
+                .forEach(node -> documented.add(node.asText()));
+        org.assertj.core.api.Assertions.assertThat(documented).containsExactlyInAnyOrderElementsOf(
+                java.util.Arrays.stream(com.souldealers.crowdtracebackend.modules.notification.NotificationType.values())
+                        .map(Enum::name).toList());
+    }
+
+    @Test
     void publicListingSchemaHasExactlyThePublicSummaryFields() throws Exception {
         String document = mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

@@ -35,12 +35,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CommentEndpointTest extends CasePostgresTestSupport {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String[] COMMENT_FIELDS =
-            {"id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted"};
+            {"id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted", "removed"};
 
     @Autowired private MockMvc mvc;
     @Autowired private JwtService jwt;
     @Autowired private UserRepository users;
     @Autowired private CaseRecordRepository cases;
+    @Autowired private jakarta.persistence.EntityManager em;
 
     private String authorEmail;
     private long authorId;
@@ -59,13 +60,13 @@ class CommentEndpointTest extends CasePostgresTestSupport {
         long root = insert(liveCase, "first", 1, false);
         long deleted = insert(liveCase, "second", 2, false);
         jdbc.update("UPDATE comments SET body = '[deleted]', deleted_at = ? WHERE id = ?", at(12), deleted);
-        insert(liveCase, "removed", 3, true);
+        insert(liveCase, "removed", 3, true); // shown as a "Removed by a moderator" placeholder
         reply(root, "a reply", 4);
         insert(approvedCase(CaseStatus.MISSING), "elsewhere", 5, false);
 
         mvc.perform(get(listPath(liveCase) + "/count"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.topLevel").value(2));
+                .andExpect(jsonPath("$.data.topLevel").value(3));
         mvc.perform(get(listPath(caseWith(ReviewStatus.SUBMITTED)) + "/count")).andExpect(status().isNotFound());
     }
 
@@ -137,7 +138,6 @@ class CommentEndpointTest extends CasePostgresTestSupport {
     void guestReadsVisibleCommentsNewestFirstAcrossPages() throws Exception {
         long first = insert(liveCase, "first", 1, false);
         long second = insert(liveCase, "second", 2, false);
-        insert(liveCase, "removed", 3, true);
         long third = insert(liveCase, "third", 4, false);
         insert(approvedCase(CaseStatus.MISSING), "other case", 5, false);
 
@@ -149,7 +149,7 @@ class CommentEndpointTest extends CasePostgresTestSupport {
                 .andExpect(jsonPath("$.data.content[0].author.displayName").value("Kwame_Tips"))
                 .andExpect(jsonPath("$.data.hasNext").value(true))
                 .andReturn().getResponse().getContentAsString();
-        assertThat(page1).doesNotContain(authorEmail).doesNotContain("removed");
+        assertThat(page1).doesNotContain(authorEmail);
         assertThat(fields(JSON.readTree(page1).at("/data/content/0"))).containsExactlyInAnyOrder(COMMENT_FIELDS);
 
         String cursor = JSON.readTree(page1).at("/data/nextCursor").asText();
@@ -235,6 +235,8 @@ class CommentEndpointTest extends CasePostgresTestSupport {
         for (long parent : new long[]{foreign, removed, 999_999_999L}) {
             mvc.perform(as(post(postPath(liveCase)), authorEmail).content(body("hi", parent)))
                     .andExpect(status().isNotFound());
+        }
+        for (long parent : new long[]{foreign, 999_999_999L}) {
             mvc.perform(get(listPath(liveCase)).param("parentCommentId", String.valueOf(parent)))
                     .andExpect(status().isNotFound());
         }
@@ -331,6 +333,67 @@ class CommentEndpointTest extends CasePostgresTestSupport {
         long root = insert(liveCase, "root", 1, false);
         assertThatThrownBy(() -> jdbc.update("UPDATE comments SET deleted_at = now() WHERE id = ?", root))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void removedRootStaysInListAsPlaceholder() throws Exception {
+        long root = posted(liveCase, "abusive text", null);
+        removeByModerator(root);
+        String page = mvc.perform(get(listPath(liveCase)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].id").value(root))
+                .andExpect(jsonPath("$.data.content[0].removed").value(true))
+                .andExpect(jsonPath("$.data.content[0].deleted").value(false))
+                .andExpect(jsonPath("$.data.content[0].body").value(nullValue()))
+                .andExpect(jsonPath("$.data.content[0].author").value(nullValue()))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(page).doesNotContain("abusive text").doesNotContain("Kwame_Tips");
+    }
+
+    @Test
+    void repliesUnderRemovedCommentStayListable() throws Exception {
+        long root = posted(liveCase, "root", null);
+        long reply = posted(liveCase, "fine reply", root);
+        removeByModerator(root);
+        mvc.perform(get(listPath(liveCase)).param("parentCommentId", String.valueOf(root)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].id").value(reply))
+                .andExpect(jsonPath("$.data.content[0].body").value("fine reply"));
+    }
+
+    @Test
+    void replyCountIncludesRemovedReplies() throws Exception {
+        long root = posted(liveCase, "root", null);
+        posted(liveCase, "kept", root);
+        removeByModerator(posted(liveCase, "gone", root));
+        mvc.perform(get(listPath(liveCase)))
+                .andExpect(jsonPath("$.data.content[0].replyCount").value(2));
+    }
+
+    @Test
+    void authorDeletedThenRemovedShowsRemoved() throws Exception {
+        long root = posted(liveCase, "root", null);
+        mvc.perform(as(delete(deletePath(liveCase, root)), authorEmail)).andExpect(status().isNoContent());
+        removeByModerator(root);
+        mvc.perform(get(listPath(liveCase)))
+                .andExpect(jsonPath("$.data.content[0].removed").value(true))
+                .andExpect(jsonPath("$.data.content[0].deleted").value(false));
+    }
+
+    @Test
+    void cannotReplyToOrDeleteRemovedComment() throws Exception {
+        long root = posted(liveCase, "root", null);
+        removeByModerator(root);
+        mvc.perform(as(post(postPath(liveCase)), authorEmail).content(body("late", root)))
+                .andExpect(status().isNotFound());
+        mvc.perform(as(delete(deletePath(liveCase, root)), authorEmail)).andExpect(status().isNotFound());
+    }
+
+    private void removeByModerator(long commentId) {
+        em.flush();
+        em.clear();
+        jdbc.update("UPDATE comments SET moderation_status='REMOVED', removed_at=now() AT TIME ZONE 'UTC' WHERE id=?",
+                commentId);
     }
 
     private long posted(long caseId, String text, Long parentId) throws Exception {

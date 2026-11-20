@@ -148,6 +148,12 @@ public class OpenApiConfig {
                 "#/components/schemas/CommentCursorResponse"));
         schemas.put("CommentApiResponse", caseResponseEnvelope("Posted comment",
                 "#/components/schemas/CommentResponse"));
+        schemas.put("CommentReportResponse", new ObjectSchema()
+                .addProperties("reportId", new IntegerSchema().format("int64"))
+                .addProperties("status", new StringSchema()._enum(List.of("OPEN")))
+                .required(List.of("reportId", "status")));
+        schemas.put("CommentReportApiResponse", caseResponseEnvelope("The caller's open report",
+                "#/components/schemas/CommentReportResponse"));
         schemas.put("CommentCountResponse", new ObjectSchema()
                 .addProperties("topLevel", new IntegerSchema().format("int64")).required(List.of("topLevel")));
         schemas.put("CommentCountApiResponse", caseResponseEnvelope("Case comment count",
@@ -309,20 +315,25 @@ public class OpenApiConfig {
                 .addProperties("parentCommentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
                         .format("int64").description("Null for a top-level comment"))
                 .addProperties("author", nullableRef("#/components/schemas/PublicUserResponse")
-                        .description("Null when the author deleted the comment"))
-                .addProperties("body", nullableString().description("Null when the author deleted the comment"))
+                        .description("Null when the comment was removed or its author deleted it"))
+                .addProperties("body", nullableString()
+                        .description("Null when the comment was removed or its author deleted it"))
                 .addProperties("createdAt", new StringSchema().format("date-time"))
                 .addProperties("replyCount", new IntegerSchema().format("int64")
-                        .description("Visible direct replies, not all descendants"))
+                        .description("Direct replies, not all descendants"))
                 .addProperties("deleted", new BooleanSchema().description("The author deleted this comment"))
-                .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted"));
+                .addProperties("removed", new BooleanSchema()
+                        .description("A moderator removed this comment; takes precedence over deleted"))
+                .required(List.of("id", "parentCommentId", "author", "body", "createdAt", "replyCount", "deleted",
+                        "removed"));
     }
 
     private Schema inAppNotificationSchema() {
         return new ObjectSchema()
                 .description("Ids only; load the case or comment for details.")
                 .addProperties("id", new IntegerSchema().format("int64"))
-                .addProperties("type", new StringSchema()._enum(List.of("NEW_COMMENT", "COMMENT_REPLY", "CASE_STATUS_CHANGED")))
+                .addProperties("type", new StringSchema()._enum(List.of("NEW_COMMENT", "COMMENT_REPLY", "CASE_STATUS_CHANGED",
+                        "COMMENT_REMOVED")))
                 .addProperties("caseId", new IntegerSchema().format("int64"))
                 .addProperties("commentId", new JsonSchema().types(new LinkedHashSet<>(List.of("integer", "null")))
                         .format("int64").description("Set for NEW_COMMENT and COMMENT_REPLY only"))

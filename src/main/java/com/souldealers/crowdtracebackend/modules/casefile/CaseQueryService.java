@@ -49,4 +49,8 @@ public interface CaseQueryService {
     @RequiresModerator
     List<DuplicateMatchResponse> listDuplicateMatches(Long caseId);
 
+    /** Name and visibility of each known case among caseIds, taken-down ones included; unknown ids are left out. */
+    @RequiresModerator
+    Map<Long, ModerationCaseRef> getModerationCaseRefs(Collection<Long> caseIds);
+
 }
