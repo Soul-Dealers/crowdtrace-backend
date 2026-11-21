@@ -5,10 +5,7 @@ import com.souldealers.crowdtracebackend.modules.identity.internal.repository.Us
 import com.souldealers.crowdtracebackend.shared.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
@@ -24,10 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "cors.allowed-origins=http://localhost")
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class AdminUserListTest {
+class AdminUserListTest extends AdminUserPostgresTest {
 
     private static final String USERS = "/api/v1/admin/users";
 

@@ -185,6 +185,11 @@ public class OpenApiConfig {
         schemas.put("AdminUserCursorResponse", cursorSchema("#/components/schemas/AdminUserResponse"));
         schemas.put("AdminUserListResponse", caseResponseEnvelope("Super Admin user cursor page",
                 "#/components/schemas/AdminUserCursorResponse"));
+        schemas.put("AdminUserApiResponse", caseResponseEnvelope("The updated user",
+                "#/components/schemas/AdminUserResponse"));
+        schemas.put("ChangeRoleRequest", new ObjectSchema()
+                .addProperties("role", new StringSchema()._enum(List.of("REGISTERED_USER", "MODERATOR")))
+                .required(List.of("role")));
         schemas.put("UnreadCountResponse", new ObjectSchema()
                 .addProperties("unreadCount", new IntegerSchema().format("int64")).required(List.of("unreadCount")));
         schemas.put("UnreadCountApiResponse", caseResponseEnvelope("Unread notification count",
