@@ -542,6 +542,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/users/{id}/role': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Change a user's role between REGISTERED_USER and MODERATOR
+     * @description 403 on yourself or a Super Admin; 400 for SUPER_ADMIN; 409 if unchanged or not ACTIVE.
+     */
+    post: operations['changeRole'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/users/{id}/deactivate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Deactivate a user
+     * @description Signs them out everywhere. 403 on yourself or a Super Admin; 409 if already deactivated.
+     */
+    post: operations['deactivate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/review/cases/{id}/reject': {
     parameters: {
       query?: never;
@@ -823,6 +863,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/users': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List users, newest first
+     * @description Keyset-paged. q is a case-insensitive prefix of the email or display name. Pass nextCursor back as cursor with the same filters. size is 1 to 50.
+     */
+    get: operations['list_1'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/review/cases': {
     parameters: {
       query?: never;
@@ -1011,7 +1071,7 @@ export interface paths {
      * List case comments
      * @description Returns an approved case's top-level comments, or one comment's direct replies when parentCommentId is set, newest first, under each author's display name and badge only. A comment a moderator removed keeps its place with removed=true, and one its author deleted keeps its place with deleted=true; neither has an author or body, and their replies stay readable. Use nextCursor to load older ones.
      */
-    get: operations['list_1'];
+    get: operations['list_2'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1743,6 +1803,43 @@ export interface components {
       message?: string;
       data?: components['schemas']['InAppNotificationCursorResponse'];
       errors?: Record<string, never>;
+    };
+    AdminUserResponse: {
+      /** Format: int64 */
+      id: number;
+      displayName: string;
+      email: string;
+      /** @enum {string} */
+      role: 'REGISTERED_USER' | 'MODERATOR' | 'SUPER_ADMIN';
+      /** @enum {string} */
+      status: 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE' | 'DEACTIVATED';
+      /** Format: date-time */
+      createdAt: string;
+    };
+    AdminUserCursorResponse: {
+      content?: components['schemas']['AdminUserResponse'][];
+      /** Format: int32 */
+      size?: number;
+      hasNext?: boolean;
+      nextCursor?: string | null;
+    };
+    /** @description Super Admin user cursor page */
+    AdminUserListResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['AdminUserCursorResponse'];
+      errors?: Record<string, never>;
+    };
+    /** @description The updated user */
+    AdminUserApiResponse: {
+      success?: boolean;
+      message?: string;
+      data?: components['schemas']['AdminUserResponse'];
+      errors?: Record<string, never>;
+    };
+    ChangeRoleRequest: {
+      /** @enum {string} */
+      role: 'REGISTERED_USER' | 'MODERATOR';
     };
     UnreadCountResponse: {
       /** Format: int64 */
@@ -3205,6 +3302,54 @@ export interface operations {
       };
     };
   };
+  changeRole: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangeRoleRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['AdminUserApiResponse'];
+        };
+      };
+    };
+  };
+  deactivate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['AdminUserApiResponse'];
+        };
+      };
+    };
+  };
   reject_1: {
     parameters: {
       query?: never;
@@ -3948,6 +4093,32 @@ export interface operations {
       };
     };
   };
+  list_1: {
+    parameters: {
+      query?: {
+        role?: 'REGISTERED_USER' | 'MODERATOR' | 'SUPER_ADMIN';
+        status?: 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE' | 'DEACTIVATED';
+        q?: string;
+        cursor?: string;
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          '*/*': components['schemas']['AdminUserListResponse'];
+        };
+      };
+    };
+  };
   queue: {
     parameters: {
       query?: {
@@ -4364,7 +4535,7 @@ export interface operations {
       };
     };
   };
-  list_1: {
+  list_2: {
     parameters: {
       query?: {
         /** @description List this comment's direct replies instead of top-level comments */

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
-import { isAdmin, useSession } from '@/lib/auth';
+import { isAdmin, isSuperAdmin, useSession } from '@/lib/auth';
 
 function Gate({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
@@ -16,7 +16,15 @@ function Gate({ title, body, action }: { title: string; body: string; action?: R
 }
 
 /** Client-side gate. The API enforces roles; this only avoids rendering pages that would 401/403. */
-export function RequireAuth({ admin, children }: { admin?: boolean; children: React.ReactNode }) {
+export function RequireAuth({
+  admin,
+  superAdmin,
+  children,
+}: {
+  admin?: boolean;
+  superAdmin?: boolean;
+  children: React.ReactNode;
+}) {
   const session = useSession();
   if (!session) {
     return (
@@ -36,6 +44,9 @@ export function RequireAuth({ admin, children }: { admin?: boolean; children: Re
   }
   if (admin && !isAdmin(session)) {
     return <Gate title="No access" body="This page is for moderators only." />;
+  }
+  if (superAdmin && !isSuperAdmin(session)) {
+    return <Gate title="No access" body="This page is for Super Admins only." />;
   }
   return <>{children}</>;
 }

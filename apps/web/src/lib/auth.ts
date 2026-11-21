@@ -40,12 +40,20 @@ export function clearSession() {
   emit();
 }
 
+export function getSession(): Session | null {
+  return typeof window === 'undefined' ? null : read();
+}
+
 export function getToken(): string | null {
   return typeof window === 'undefined' ? null : (read()?.token ?? null);
 }
 
 export function isAdmin(session: Session | null) {
   return session?.role === 'MODERATOR' || session?.role === 'SUPER_ADMIN';
+}
+
+export function isSuperAdmin(session: Session | null) {
+  return session?.role === 'SUPER_ADMIN';
 }
 
 export function useSession(): Session | null {
