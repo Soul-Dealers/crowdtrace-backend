@@ -49,10 +49,12 @@ public class UserServiceImpl implements UserService {
             throw new ValidationException("Display name is required");
         }
 
-        Long id = findUser(email).getId();
-        userRepository.updateDisplayName(email, request.displayName().trim(), LocalDateTime.now());
-        return buildUserResponse(userRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND_MSG)));
+        User user = findUser(email);
+        String displayName = request.displayName().trim();
+        userRepository.updateDisplayName(email, displayName, LocalDateTime.now());
+        // The update cleared the persistence context, so this copy is detached and never written back.
+        user.setDisplayName(displayName);
+        return buildUserResponse(user);
     }
 
     @Override
