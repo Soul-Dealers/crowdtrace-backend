@@ -26,6 +26,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -80,7 +82,6 @@ class UserServiceImplTest {
         User user = user();
         user.setBadgeType(VerificationType.POLICE);
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(userRepository.save(user)).thenReturn(user);
 
         UserResponse response = userService.updateProfile(
                 user.getEmail(), new UpdateUserProfileRequest("Same Badge"));
@@ -120,14 +121,13 @@ class UserServiceImplTest {
     void updateProfileTrimsAndPersistsTheNewDisplayName() {
         User user = user();
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(userRepository.save(user)).thenReturn(user);
 
         UserResponse response = userService.updateProfile(
                 user.getEmail(), new UpdateUserProfileRequest("  Updated User  "));
 
         assertThat(user.getDisplayName()).isEqualTo("Updated User");
         assertThat(response.displayName()).isEqualTo("Updated User");
-        verify(userRepository).save(user);
+        verify(userRepository).updateDisplayName(eq(user.getEmail()), eq("Updated User"), any());
     }
 
     @Test
