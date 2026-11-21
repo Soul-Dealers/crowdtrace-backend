@@ -23,9 +23,13 @@ export function useAdminUsers(filters: UserFilters, size = 20) {
   });
 }
 
-/** The actions a Super Admin may take on a row; none on their own row, a Super Admin, or an inactive account. */
+/**
+ * The actions a Super Admin may take on a row: none on their own row or another Super Admin. Role changes need an
+ * active account; any account that isn't already deactivated can be deactivated.
+ */
 export function availableActions(user: AdminUser, myEmail: string | undefined): UserAction[] {
-  if (user.email === myEmail || user.role === 'SUPER_ADMIN' || user.status !== 'ACTIVE') return [];
+  if (user.email === myEmail || user.role === 'SUPER_ADMIN' || user.status === 'DEACTIVATED') return [];
+  if (user.status !== 'ACTIVE') return ['deactivate'];
   return [user.role === 'MODERATOR' ? 'demote' : 'promote', 'deactivate'];
 }
 
