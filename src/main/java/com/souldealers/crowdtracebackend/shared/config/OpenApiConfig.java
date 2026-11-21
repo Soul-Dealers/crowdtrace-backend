@@ -173,6 +173,23 @@ public class OpenApiConfig {
         schemas.put("InAppNotificationCursorResponse", cursorSchema("#/components/schemas/InAppNotificationResponse"));
         schemas.put("InAppNotificationListResponse", caseResponseEnvelope("Notification cursor page",
                 "#/components/schemas/InAppNotificationCursorResponse"));
+        schemas.put("AdminUserResponse", new ObjectSchema()
+                .addProperties("id", new IntegerSchema().format("int64"))
+                .addProperties("displayName", new StringSchema())
+                .addProperties("email", new StringSchema())
+                .addProperties("role", new StringSchema()._enum(List.of("REGISTERED_USER", "MODERATOR", "SUPER_ADMIN")))
+                .addProperties("status", new StringSchema()._enum(List.of("PENDING_VERIFICATION", "ACTIVE", "SUSPENDED",
+                        "INACTIVE", "DEACTIVATED")))
+                .addProperties("createdAt", new StringSchema().format("date-time"))
+                .required(List.of("id", "displayName", "email", "role", "status", "createdAt")));
+        schemas.put("AdminUserCursorResponse", cursorSchema("#/components/schemas/AdminUserResponse"));
+        schemas.put("AdminUserListResponse", caseResponseEnvelope("Super Admin user cursor page",
+                "#/components/schemas/AdminUserCursorResponse"));
+        schemas.put("AdminUserApiResponse", caseResponseEnvelope("The updated user",
+                "#/components/schemas/AdminUserResponse"));
+        schemas.put("ChangeRoleRequest", new ObjectSchema()
+                .addProperties("role", new StringSchema()._enum(List.of("REGISTERED_USER", "MODERATOR")))
+                .required(List.of("role")));
         schemas.put("UnreadCountResponse", new ObjectSchema()
                 .addProperties("unreadCount", new IntegerSchema().format("int64")).required(List.of("unreadCount")));
         schemas.put("UnreadCountApiResponse", caseResponseEnvelope("Unread notification count",

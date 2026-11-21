@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   BadgeCheck, CheckCheck, ClipboardList, FileText, FolderOpen, House, Megaphone, MessageCircle, SearchCheck,
-  ShieldCheck, UsersRound, Flag,
+  ShieldCheck, UsersRound, Flag, UserCog,
 } from 'lucide-react';
-import { isAdmin, useSession } from '@/lib/auth';
+import { isAdmin, isSuperAdmin, useSession } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { CountBadge } from './pill';
 
@@ -80,6 +80,9 @@ export function SideNav({ browseCount, onNavigate }: { browseCount?: number; onN
           active: pathname.startsWith('/admin/verifications') },
         { label: 'Reported Comments', icon: Flag, href: '/admin/moderation/comments',
           active: pathname.startsWith('/admin/moderation') },
+        ...(isSuperAdmin(session)
+          ? [{ label: 'Users', icon: UserCog, href: '/admin/users', active: pathname.startsWith('/admin/users') }]
+          : []),
       ],
     }] : []),
   ];

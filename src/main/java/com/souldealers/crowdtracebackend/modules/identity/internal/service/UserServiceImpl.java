@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -41,15 +43,18 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponse updateProfile(String email, UpdateUserProfileRequest request) {
         if (request == null || request.displayName() == null || request.displayName().isBlank()) {
             throw new ValidationException("Display name is required");
         }
 
         User user = findUser(email);
-        user.setDisplayName(request.displayName().trim());
-        User saved = userRepository.save(user);
-        return buildUserResponse(saved);
+        String displayName = request.displayName().trim();
+        userRepository.updateDisplayName(email, displayName, LocalDateTime.now());
+        // The update cleared the persistence context, so this copy is detached and never written back.
+        user.setDisplayName(displayName);
+        return buildUserResponse(user);
     }
 
     @Override
