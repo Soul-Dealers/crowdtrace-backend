@@ -37,6 +37,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -70,7 +71,8 @@ class CaseFileAccessEndpointTest extends CasePostgresTestSupport {
         mvc.perform(get("/api/public/cases/" + approved.getId() + "/photos/" + photo))
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "https://signed.test/photo"))
-                .andExpect(header().string("Cache-Control", "no-store"));
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().string(""));
 
         assertThat(signer.lastTtl).isEqualTo(Duration.ofMinutes(5));
         assertThat(signer.last.visibility()).isEqualTo(FileVisibility.PUBLIC);
