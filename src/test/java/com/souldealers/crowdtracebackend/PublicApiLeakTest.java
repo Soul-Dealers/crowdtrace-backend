@@ -25,7 +25,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @AutoConfigureMockMvc
 class PublicApiLeakTest extends CasePostgresTestSupport {
     private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final String ERRORS_MAP = "<parameter -> message>";
 
     private static final Set<String> ENVELOPE = Set.of("success", "message", "data", "errors");
     private static final Set<String> PAGE = Set.of("content", "size", "hasNext", "nextCursor");
@@ -48,7 +47,7 @@ class PublicApiLeakTest extends CasePostgresTestSupport {
     private static final Map<String, Set<String>> COMMENT_PAGE = Map.of("$", ENVELOPE, "$.data", PAGE,
             "$.data.content[*]", COMMENT, "$.data.content[*].author", AUTHOR);
     private static final Map<String, Set<String>> COMMENT_COUNT = Map.of("$", ENVELOPE, "$.data", COUNT);
-    private static final Map<String, Set<String>> ERROR = Map.of("$", PROBLEM, "$.errors", Set.of(ERRORS_MAP));
+    private static final Map<String, Set<String>> ERROR = Map.of("$", PROBLEM); // no public GET returns an errors map
 
     @Autowired private MockMvc mvc;
     @Autowired private CaseRecordRepository cases;
@@ -100,6 +99,14 @@ class PublicApiLeakTest extends CasePostgresTestSupport {
         assertThat(violations).isEmpty();
     }
 
+    @Test
+    void anErrorsMapOnAPublicProblemIsAViolation() {
+        List<String> violations = new ArrayList<>();
+        walk(JSON.readTree("{\"status\":400,\"errors\":{\"reporterId\":[\"invalid\"]}}"), "$", "$", ERROR,
+                violations, new java.util.HashSet<>());
+        assertThat(violations).containsExactly("$.errors is an object no rule allows");
+    }
+
     /** Fetches as a guest, walks the body, and requires {@code mustReach} to be visited so a rule can't go stale. */
     private List<String> check(String url, int status, Map<String, Set<String>> rules, String mustReach)
             throws Exception {
@@ -135,30 +142,11 @@ class PublicApiLeakTest extends CasePostgresTestSupport {
         reached.add(rule);
         for (String key : node.propertyNames()) {
             JsonNode value = node.get(key);
-            if (allowed.contains(ERRORS_MAP)) {
-                if (!isStringOrStrings(value)) {
-                    violations.add(path + "." + key + " is not a message string");
-                }
-            } else if (!allowed.contains(key)) {
+            if (!allowed.contains(key)) {
                 violations.add(path + " has unexpected key '" + key + "'");
             } else {
                 walk(value, path + "." + key, rule + "." + key, rules, violations, reached);
             }
         }
-    }
-
-    private static boolean isStringOrStrings(JsonNode value) {
-        if (value.isString()) {
-            return true;
-        }
-        if (!value.isArray()) {
-            return false;
-        }
-        for (JsonNode item : value) {
-            if (!item.isString()) {
-                return false;
-            }
-        }
-        return true;
     }
 }

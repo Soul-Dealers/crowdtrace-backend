@@ -41,7 +41,7 @@ class PublicCaseSearchPerformanceTest extends CasePostgresTestSupport {
                     content_type, size_bytes, checksum_sha256, attached_at)
                 SELECT id, ?, 'PHOTO', 'PUBLIC', 'cases/' || id || '/photo.jpg', 'image/jpeg', 1024, repeat('a', 64),
                     approved_at
-                FROM cases WHERE review_status = 'APPROVED' AND id % 3 = 0""", reporter);
+                FROM cases WHERE review_status = 'APPROVED'""", reporter);
         jdbc.execute("SELECT gin_clean_pending_list('idx_cases_public_name_trgm'::regclass)");
         jdbc.execute("ANALYZE cases");
         jdbc.execute("ANALYZE case_files");
@@ -82,8 +82,10 @@ class PublicCaseSearchPerformanceTest extends CasePostgresTestSupport {
 
     private void run(Search search) {
         var page = caseQueryService.searchPublicCases(search.query(), search.cursor(), PAGE);
-        if (page.content().isEmpty()) {
-            throw new AssertionError("search returned nothing, so it measured nothing: " + search);
+        // A full page with a thumbnail on every case is the heaviest page a guest can ask for.
+        if (page.content().size() != PAGE
+                || page.content().stream().anyMatch(item -> item.thumbnailPhotoId() == null)) {
+            throw new AssertionError("not a full page of cases with photos, so not the worst case: " + search);
         }
     }
 
