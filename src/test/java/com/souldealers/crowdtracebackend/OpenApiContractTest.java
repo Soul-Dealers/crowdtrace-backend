@@ -335,6 +335,43 @@ class OpenApiContractTest {
     }
 
     @Test
+    void publicCaseDetailSchemaHasExactlyThePublicCaseResponseFields() throws Exception {
+        org.assertj.core.api.Assertions.assertThat(schemaProperties("PublicCaseResponse")).isEqualTo(
+                recordFields(com.souldealers.crowdtracebackend.modules.casefile.PublicCaseResponse.class));
+    }
+
+    @Test
+    void commentCountSchemaHasExactlyTheCountFields() throws Exception {
+        org.assertj.core.api.Assertions.assertThat(schemaProperties("CommentCountResponse")).isEqualTo(
+                recordFields(com.souldealers.crowdtracebackend.modules.community.CommentCountResponse.class));
+    }
+
+    @Test
+    void commentCountDescriptionMatchesTheCountedRows() throws Exception {
+        String description = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(
+                        get("/v3/api-docs")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .path("paths").path("/api/public/cases/{caseId}/comments/count").path("get").path("description")
+                .asText();
+        org.assertj.core.api.Assertions.assertThat(description)
+                .contains("removed comments included as placeholders")
+                .doesNotContain("removed comments excluded");
+    }
+
+    private java.util.Set<String> schemaProperties(String name) throws Exception {
+        var schema = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(get("/v3/api-docs"))
+                        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .path("components").path("schemas").path(name);
+        java.util.Set<String> names = new java.util.HashSet<>();
+        schema.path("properties").fieldNames().forEachRemaining(names::add);
+        return names;
+    }
+
+    private static java.util.Set<String> recordFields(Class<? extends Record> type) {
+        return java.util.Arrays.stream(type.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).collect(java.util.stream.Collectors.toSet());
+    }
+
+    @Test
     void moderationSchemasMatchTheirRecords() throws Exception {
         var schemas = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("components")

@@ -182,6 +182,28 @@ class CommentEndpointTest extends CasePostgresTestSupport {
     }
 
     @Test
+    void rejectsInvalidReplyPagingInput() throws Exception {
+        String parent = String.valueOf(insert(liveCase, "root", 1, false));
+        for (String size : new String[]{"0", "51", "10000"}) {
+            mvc.perform(get(listPath(liveCase)).param("parentCommentId", parent).param("size", size))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(get(listPath(liveCase)).param("parentCommentId", parent).param("cursor", "not-a-cursor"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rootPageNeverExceedsFifty() throws Exception {
+        for (int i = 0; i < 51; i++) {
+            insert(liveCase, "root " + i, i, false);
+        }
+        mvc.perform(get(listPath(liveCase)).param("size", "50"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(50))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
+    }
+
+    @Test
     void registeredUserCanReplyToACommentAndANestedReply() throws Exception {
         long root = posted(liveCase, "root", null);
         long reply = posted(liveCase, "reply", root);

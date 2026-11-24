@@ -57,7 +57,7 @@ public class CommentController {
 
     @GetMapping("/api/public/cases/{caseId}/comments/count")
     @Operation(summary = "Count case comments", description = "Returns how many top-level comments an approved "
-            + "case's thread shows, author-deleted placeholders included and removed comments excluded.")
+            + "case's thread shows, author-deleted and removed comments included as placeholders.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK",
                     content = @Content(schema = @Schema(ref = "#/components/schemas/CommentCountApiResponse"))),
