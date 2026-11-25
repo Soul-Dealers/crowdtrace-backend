@@ -29,6 +29,7 @@ public enum AuditAction {
     CASE_RESTORED("CASE.RESTORED", AuditTargetType.CASE, empty()),
     CASE_PHOTO_ADDED("CASE.PHOTO_ADDED", AuditTargetType.CASE,
             required("fileId", AuditValueType.ID)),
+    CASE_SENSITIVE_DETAILS_VIEWED("CASE.SENSITIVE_DETAILS_VIEWED", AuditTargetType.CASE, empty()),
     CASE_FILE_PRIVATE_ACCESS_GRANTED("CASE_FILE.PRIVATE_ACCESS_GRANTED", AuditTargetType.CASE_FILE,
             required("caseId", AuditValueType.ID)),
     COMMENT_REMOVED("COMMENT.REMOVED", AuditTargetType.COMMENT,

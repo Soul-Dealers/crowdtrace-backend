@@ -44,6 +44,15 @@ class ReviewAuditFailureTest extends ReviewDecisionTestSupport {
         assertUndecided(before);
     }
 
+    @Test
+    void aFailedAuditReturnsNoDetail() {
+        String email = failingModerator();
+        CaseRecord c = pendingCaseWithReport();
+
+        assertThatThrownBy(() -> reviewService.getCaseDetail(email, c.getId()))
+                .isInstanceOf(AuditRecordingException.class);
+    }
+
     private String failingModerator() {
         doThrow(new AuditRecordingException("audit storage unavailable"))
                 .when(auditRecorder).record(any(AuditActor.class), any(), anyLong(), any(AuditMetadata.class));

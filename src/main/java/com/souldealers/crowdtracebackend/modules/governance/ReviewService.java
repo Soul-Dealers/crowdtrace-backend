@@ -19,12 +19,13 @@ public interface ReviewService {
 
     /**
      * The admin projection, version, evidence metadata, duplicate matches and review history, all read in one
-     * REPEATABLE READ snapshot so a concurrent decision never shows half-applied.
+     * REPEATABLE READ snapshot so a concurrent decision never shows half-applied. Each successful read is audited
+     * before the details are returned.
      *
      * @throws com.souldealers.crowdtracebackend.shared.NotFoundException unknown case
      */
     @RequiresModerator
-    ReviewCaseDetailResponse getCaseDetail(Long caseId);
+    ReviewCaseDetailResponse getCaseDetail(String actorEmail, Long caseId);
 
     /**
      * Approves a pending case, appends its review, audits it and notifies the reporter, all in one transaction.
