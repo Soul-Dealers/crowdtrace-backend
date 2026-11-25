@@ -1,7 +1,7 @@
 package com.souldealers.crowdtracebackend.modules.governance;
 
 import com.souldealers.crowdtracebackend.modules.casefile.internal.model.CaseRecord;
-import com.souldealers.crowdtracebackend.modules.governance.internal.ReviewServiceImpl;
+import com.souldealers.crowdtracebackend.modules.governance.internal.ReviewDetailAudit;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.shared.NotFoundException;
 import com.souldealers.crowdtracebackend.shared.audit.AuditAction;
@@ -45,8 +45,8 @@ class ReviewDetailAuditTest extends ReviewDecisionTestSupport {
     }
 
     @Test
-    void getCaseDetailIsAnAuditedOperation() throws NoSuchMethodException {
-        assertThat(ReviewServiceImpl.class.getMethod("getCaseDetail", String.class, Long.class)
+    void theDetailViewIsAnAuditedOperation() throws NoSuchMethodException {
+        assertThat(ReviewDetailAudit.class.getMethod("recordView", String.class, Long.class)
                 .getAnnotation(AuditedOperation.class).value())
                 .containsExactly(AuditAction.CASE_SENSITIVE_DETAILS_VIEWED);
     }

@@ -32,7 +32,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -52,6 +51,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final AuditRecorder auditRecorder;
     private final ApplicationEventPublisher events;
     private final ReviewDetailSnapshot snapshot;
+    private final ReviewDetailAudit detailAudit;
 
     @Override
     @Transactional(readOnly = true)
@@ -61,20 +61,15 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * Reads the snapshot first, so an unknown case throws before anything is written, then audits the read in this
-     * write transaction. The audit commits before the controller returns the details; if it fails, nothing is shown.
-     * REQUIRES_NEW keeps the caller's transaction out of it, as the snapshot does.
+     * No transaction here: the snapshot commits and releases its connection, then the view is audited in its own
+     * transaction, so a load never holds two connections. An unknown case throws before anything is written, and
+     * the details are returned only after the audit has committed.
      */
     @Override
     @RequiresModerator
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @AuditedOperation(AuditAction.CASE_SENSITIVE_DETAILS_VIEWED)
     public ReviewCaseDetailResponse getCaseDetail(String actorEmail, Long caseId) {
         ReviewCaseDetailResponse detail = snapshot.read(caseId);
-        ActorView actor = actorLookup.byEmail(actorEmail);
-        auditRecorder.record(AuditActor.user(actor.userId(), auditRole(actor.role())),
-                AuditAction.CASE_SENSITIVE_DETAILS_VIEWED, caseId,
-                AuditMetadata.of(AuditAction.CASE_SENSITIVE_DETAILS_VIEWED).build());
+        detailAudit.recordView(actorEmail, caseId);
         return detail;
     }
 
@@ -121,7 +116,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /** Mirrors identity's AuditRoleMapper, which is internal to identity. */
-    private static AuditActorRole auditRole(UserRoles role) {
+    static AuditActorRole auditRole(UserRoles role) {
         return switch (role) {
             case REGISTERED_USER -> AuditActorRole.REGISTERED_USER;
             case MODERATOR -> AuditActorRole.MODERATOR;
