@@ -1,27 +1,23 @@
 package com.souldealers.crowdtracebackend.modules.governance.internal;
 
-import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.AdminCaseSummaryResponse;
-import com.souldealers.crowdtracebackend.modules.casefile.CaseFileAccessService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseQueryService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewDecision;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewMutationService;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewQueueQuery;
 import com.souldealers.crowdtracebackend.modules.casefile.CaseReviewTransition;
-import com.souldealers.crowdtracebackend.modules.casefile.DuplicateMatchResponse;
 import com.souldealers.crowdtracebackend.modules.casefile.ReviewStatus;
 import com.souldealers.crowdtracebackend.modules.governance.ApproveCaseRequest;
 import com.souldealers.crowdtracebackend.modules.governance.CaseReviewDecisionResponse;
-import com.souldealers.crowdtracebackend.modules.governance.CaseReviewHistoryResponse;
 import com.souldealers.crowdtracebackend.modules.governance.RejectCaseRequest;
 import com.souldealers.crowdtracebackend.modules.governance.ReviewCaseDetailResponse;
-import com.souldealers.crowdtracebackend.modules.governance.ReviewEvidenceResponse;
 import com.souldealers.crowdtracebackend.modules.governance.ReviewQueueFilter;
 import com.souldealers.crowdtracebackend.modules.governance.ReviewService;
 import com.souldealers.crowdtracebackend.modules.governance.internal.model.CaseReview;
 import com.souldealers.crowdtracebackend.modules.governance.internal.repository.CaseReviewRepository;
 import com.souldealers.crowdtracebackend.modules.identity.ActorLookup;
 import com.souldealers.crowdtracebackend.modules.identity.ActorView;
+import com.souldealers.crowdtracebackend.modules.identity.RequiresModerator;
 import com.souldealers.crowdtracebackend.modules.identity.UserRoles;
 import com.souldealers.crowdtracebackend.modules.notification.CaseReviewDecidedEvent;
 import com.souldealers.crowdtracebackend.shared.PagedResponse;
@@ -32,16 +28,12 @@ import com.souldealers.crowdtracebackend.shared.audit.AuditActorRole;
 import com.souldealers.crowdtracebackend.shared.audit.AuditMetadata;
 import com.souldealers.crowdtracebackend.shared.audit.AuditRecorder;
 import com.souldealers.crowdtracebackend.shared.audit.AuditedOperation;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.Session;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Statement;
 import java.util.List;
 
 /**
@@ -55,11 +47,11 @@ public class ReviewServiceImpl implements ReviewService {
     private final ActorLookup actorLookup;
     private final CaseReviewMutationService caseReviews;
     private final CaseQueryService caseQueries;
-    private final CaseFileAccessService fileAccess;
     private final CaseReviewRepository reviewRepository;
     private final AuditRecorder auditRecorder;
     private final ApplicationEventPublisher events;
-    private final EntityManager entityManager;
+    private final ReviewDetailSnapshot snapshot;
+    private final ReviewDetailAudit detailAudit;
 
     @Override
     @Transactional(readOnly = true)
@@ -69,34 +61,16 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * One read-only REPEATABLE READ snapshot, so the case, its files, matches and history all come from one point
-     * in time; the casefile and history reads join this transaction. Spring can't set the isolation itself: the
-     * connection is released after each transaction (application.yaml, CT-014 D10a), which HibernateJpaDialect
-     * rejects for custom isolation, and the JDBC read-only hint is skipped too. So both are set in SQL, which
-     * Postgres only accepts as a transaction's first statement. REQUIRES_NEW guarantees that: the detail never joins
-     * a caller's transaction, so it can't fail after the caller queried or turn the caller's transaction read-only.
-     * The settings end with this transaction and never reach the pooled connection's next user.
+     * No transaction here: the snapshot commits and releases its connection, then the view is audited in its own
+     * transaction, so a load never holds two connections. An unknown case throws before anything is written, and
+     * the details are returned only after the audit has committed.
      */
     @Override
-    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
-    public ReviewCaseDetailResponse getCaseDetail(Long caseId) {
-        entityManager.unwrap(Session.class).doWork(connection -> {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
-            }
-        });
-        AdminCaseResponse caseDetails = caseQueries.getAdminCase(caseId);
-        List<DuplicateMatchResponse> matches = caseQueries.listDuplicateMatches(caseId);
-        List<CaseReviewHistoryResponse> history = reviewRepository.findByCaseIdOrderByCreatedAtAscIdAsc(caseId)
-                .stream().map(ReviewServiceImpl::toHistory).toList();
-        boolean accessAvailable = fileAccess.signedAccessAvailable();
-        return new ReviewCaseDetailResponse(caseDetails, caseDetails.files().stream()
-                .map(file -> new ReviewEvidenceResponse(file, accessAvailable)).toList(), matches, history);
-    }
-
-    private static CaseReviewHistoryResponse toHistory(CaseReview review) {
-        return new CaseReviewHistoryResponse(review.id(), review.decision(), review.reviewerId(), review.source(),
-                review.reviewNotes(), review.createdAt());
+    @RequiresModerator
+    public ReviewCaseDetailResponse getCaseDetail(String actorEmail, Long caseId) {
+        ReviewCaseDetailResponse detail = snapshot.read(caseId);
+        detailAudit.recordView(actorEmail, caseId);
+        return detail;
     }
 
     @Override
@@ -142,7 +116,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /** Mirrors identity's AuditRoleMapper, which is internal to identity. */
-    private static AuditActorRole auditRole(UserRoles role) {
+    static AuditActorRole auditRole(UserRoles role) {
         return switch (role) {
             case REGISTERED_USER -> AuditActorRole.REGISTERED_USER;
             case MODERATOR -> AuditActorRole.MODERATOR;

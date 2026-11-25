@@ -57,7 +57,7 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
         long later = review(c.getId(), "REJECTED", "Second look", LocalDateTime.of(2026, 10, 2, 9, 0));
         long earlier = review(c.getId(), "APPROVED", null, LocalDateTime.of(2026, 10, 1, 9, 0));
 
-        ReviewCaseDetailResponse detail = reviewService.getCaseDetail(c.getId());
+        ReviewCaseDetailResponse detail = reviewService.getCaseDetail(moderatorEmail, c.getId());
 
         assertThat(detail.caseDetails().id()).isEqualTo(c.getId());
         assertThat(detail.caseDetails().version()).isEqualTo(cases.findById(c.getId()).orElseThrow().getVersion());
@@ -81,7 +81,7 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
         CaseRecord c = pendingCaseWithReport();
         CaseFile report = files.findAll().stream().filter(f -> c.getId().equals(f.getCaseId())).findFirst().orElseThrow();
 
-        ReviewCaseDetailResponse detail = reviewService.getCaseDetail(c.getId());
+        ReviewCaseDetailResponse detail = reviewService.getCaseDetail(moderatorEmail, c.getId());
 
         assertThat(detail.evidence()).hasSize(1);
         assertThat(detail.evidence().getFirst().accessAvailable()).isFalse();
@@ -103,20 +103,22 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
 
     @Test
     void anUnknownCaseIsNotFound() {
-        assertThatThrownBy(() -> reviewService.getCaseDetail(999_999L)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> reviewService.getCaseDetail(moderatorEmail, 999_999L)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
     @WithMockUser(authorities = "REGISTERED_USER")
     void detailIsDeniedToRegisteredUsers() {
-        assertThatThrownBy(() -> reviewService.getCaseDetail(1L)).isInstanceOf(AuthorizationDeniedException.class);
+        assertThatThrownBy(() -> reviewService.getCaseDetail(moderatorEmail, 1L)).isInstanceOf(AuthorizationDeniedException.class);
     }
 
     @Test
     @WithMockUser(authorities = "SUPER_ADMIN")
     void detailIsAvailableToSuperAdmins() {
+        String admin = email("detail-admin");
+        actor(admin, UserRoles.SUPER_ADMIN);
         CaseRecord c = pendingCaseWithReport();
-        assertThat(reviewService.getCaseDetail(c.getId()).caseDetails().id()).isEqualTo(c.getId());
+        assertThat(reviewService.getCaseDetail(admin, c.getId()).caseDetails().id()).isEqualTo(c.getId());
     }
 
     /**
@@ -132,14 +134,14 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
         HistoryReadHook.BEFORE_HISTORY.set(() -> separate.executeWithoutResult(status -> reviewService.approve(
                 moderatorEmail, before.getId(), new ApproveCaseRequest(before.getVersion(), "Looks complete"))));
 
-        ReviewCaseDetailResponse detail = reviewService.getCaseDetail(before.getId());
+        ReviewCaseDetailResponse detail = reviewService.getCaseDetail(moderatorEmail, before.getId());
 
         assertThat(reviewCount(before.getId())).as("the approval committed mid-read").isEqualTo(1);
         assertThat(detail.caseDetails().reviewStatus()).isEqualTo(ReviewStatus.SUBMITTED);
         assertThat(detail.caseDetails().version()).isEqualTo(before.getVersion());
         assertThat(detail.reviewHistory()).isEmpty();
 
-        ReviewCaseDetailResponse after = reviewService.getCaseDetail(before.getId());
+        ReviewCaseDetailResponse after = reviewService.getCaseDetail(moderatorEmail, before.getId());
         assertThat(after.caseDetails().reviewStatus()).isEqualTo(ReviewStatus.APPROVED);
         assertThat(after.caseDetails().version()).isEqualTo(cases.findById(before.getId()).orElseThrow().getVersion());
         assertThat(after.reviewHistory()).singleElement()
@@ -158,7 +160,7 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
             assertThat(isolation()).isEqualTo("read committed");
             assertThat(reviewCount(c.getId())).as("a real query takes the caller's snapshot").isZero();
 
-            assertThat(reviewService.getCaseDetail(c.getId()).caseDetails().id()).isEqualTo(c.getId());
+            assertThat(reviewService.getCaseDetail(moderatorEmail, c.getId()).caseDetails().id()).isEqualTo(c.getId());
 
             assertThat(isolation()).isEqualTo("read committed");
             assertThat(readOnly()).isEqualTo("off");
@@ -172,7 +174,7 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
         CaseRecord c = pendingCaseWithReport();
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            reviewService.getCaseDetail(c.getId());
+            reviewService.getCaseDetail(moderatorEmail, c.getId());
 
             assertThat(isolation()).isEqualTo("read committed");
             assertThat(readOnly()).isEqualTo("off");
@@ -185,10 +187,10 @@ class ReviewDetailTest extends ReviewDecisionTestSupport {
     void laterTransactionsAreReadCommittedAndWritableAfterASuccessfulOrFailedDetail() {
         CaseRecord c = pendingCaseWithReport();
 
-        reviewService.getCaseDetail(c.getId());
+        reviewService.getCaseDetail(moderatorEmail, c.getId());
         assertFreshTransactionIsDefault();
 
-        assertThatThrownBy(() -> reviewService.getCaseDetail(999_999L)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> reviewService.getCaseDetail(moderatorEmail, 999_999L)).isInstanceOf(NotFoundException.class);
         assertFreshTransactionIsDefault();
     }
 

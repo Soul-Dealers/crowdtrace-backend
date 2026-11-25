@@ -35,7 +35,7 @@ public class ResendNotificationService implements NotificationService {
         String htmlContent = renderOtpEmail(otpCode, userName, type);
 
         sendEmail(to, subject, htmlContent);
-        log.info("OTP email sent to: {}", to);
+        log.info("OTP email sent (type={})", type);
     }
 
     @Override
@@ -45,7 +45,7 @@ public class ResendNotificationService implements NotificationService {
         String htmlContent = renderWelcomeEmail(userName);
 
         sendEmail(to, subject, htmlContent);
-        log.info("Welcome email sent to: {}", to);
+        log.info("Welcome email sent");
     }
 
     private void sendEmail(String toEmail, String subject, String htmlContent) {
@@ -67,9 +67,10 @@ public class ResendNotificationService implements NotificationService {
                     .retrieve()
                     .toBodilessEntity();
 
-            log.debug("Email sent successfully to: {}", toEmail);
+            log.debug("Email sent");
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", toEmail, e.getMessage());
+            // Recipient and provider message stay out: the provider can echo the address or content back.
+            log.error("Email delivery failed (exceptionType={})", e.getClass().getSimpleName());
             // Don't throw - email sending should not block the main flow
         }
     }

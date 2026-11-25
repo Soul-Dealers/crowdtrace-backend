@@ -81,10 +81,12 @@ public class ReviewController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Moderator role required", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Unknown case", content = @Content(mediaType = "application/problem+json", schema = @Schema(ref = PROBLEM)))})
     @Operation(summary = "Open a case for review", description = "Case, version, evidence metadata, duplicate "
-            + "matches and review history in one snapshot. Send caseDetails.version as expectedCaseVersion. "
+            + "matches and review history in one snapshot. Each read is recorded in the audit log. Send "
+            + "caseDetails.version as expectedCaseVersion. "
             + ERRORS)
-    public ApiResponse<ReviewCaseDetailResponse> detail(@PathVariable Long id) {
-        return ApiResponse.success(reviewService.getCaseDetail(id), "Review case retrieved successfully");
+    public ApiResponse<ReviewCaseDetailResponse> detail(Authentication authentication, @PathVariable Long id) {
+        return ApiResponse.success(reviewService.getCaseDetail(authentication.getName(), id),
+                "Review case retrieved successfully");
     }
 
     @GetMapping("/{id}/files/{fileId}/url")
