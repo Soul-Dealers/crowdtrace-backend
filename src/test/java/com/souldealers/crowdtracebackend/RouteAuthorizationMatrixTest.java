@@ -26,11 +26,14 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -127,11 +130,12 @@ class RouteAuthorizationMatrixTest {
 
     @Test
     void everyProtectedRouteDeclaresItsRole() {
-        routes().forEach((route, handler) -> {
+        routes().forEach((route, handlers) -> {
             Access access = POLICY.get(route);
             if (access == null) return; // everyRouteHasAPolicyEntry reports it
-            Class<? extends Annotation> declared = declaredRole(handler);
-            assertThat(declared).as(route).isEqualTo(ANNOTATION.get(access));
+            for (HandlerMethod handler : handlers) {
+                assertThat(declaredRole(handler)).as(route + " " + handler).isEqualTo(ANNOTATION.get(access));
+            }
         });
     }
 
@@ -168,14 +172,21 @@ class RouteAuthorizationMatrixTest {
         });
     }
 
-    private Map<String, HandlerMethod> routes() {
-        Map<String, HandlerMethod> routes = new LinkedHashMap<>();
+    /**
+     * "METHOD /pattern" to every handler mapped there. A mapping with no declared method accepts any, so it is keyed
+     * "ANY": no policy entry has that form, so it fails rather than dropping out. Handlers that share a method and
+     * path (differing only by params, headers or media type) are all kept and all checked.
+     */
+    private Map<String, List<HandlerMethod>> routes() {
+        Map<String, List<HandlerMethod>> routes = new LinkedHashMap<>();
         for (Map.Entry<RequestMappingInfo, HandlerMethod> e : mappings.getHandlerMethods().entrySet()) {
             HandlerMethod handler = e.getValue();
             if (!handler.getBeanType().getName().startsWith("com.souldealers.crowdtracebackend")) continue;
-            for (var method : e.getKey().getMethodsCondition().getMethods()) {
+            Set<String> methods = e.getKey().getMethodsCondition().getMethods().stream().map(Enum::name)
+                    .collect(Collectors.toSet());
+            for (String method : methods.isEmpty() ? Set.of("ANY") : methods) {
                 for (String pattern : e.getKey().getPathPatternsCondition().getPatternValues()) {
-                    routes.put(method.name() + " " + pattern, handler);
+                    routes.computeIfAbsent(method + " " + pattern, key -> new ArrayList<>()).add(handler);
                 }
             }
         }
